@@ -24,7 +24,18 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedMyTournamentsRouteImport } from './routes/_authenticated/my-tournaments'
+import { Route as AuthenticatedModeratorRouteImport } from './routes/_authenticated/moderator'
+import { Route as AuthenticatedDisputeCenterRouteImport } from './routes/_authenticated/dispute-center'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
+import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
+import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
 const TournamentsRoute = TournamentsRouteImport.update({
   id: '/tournaments',
@@ -101,10 +112,66 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMyTournamentsRoute =
+  AuthenticatedMyTournamentsRouteImport.update({
+    id: '/my-tournaments',
+    path: '/my-tournaments',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedModeratorRoute = AuthenticatedModeratorRouteImport.update({
+  id: '/moderator',
+  path: '/moderator',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDisputeCenterRoute =
+  AuthenticatedDisputeCenterRouteImport.update({
+    id: '/dispute-center',
+    path: '/dispute-center',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCommunityRoute = AuthenticatedCommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedChallengesRoute = AuthenticatedChallengesRouteImport.update({
+  id: '/challenges',
+  path: '/challenges',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -124,6 +191,16 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/challenges': typeof AuthenticatedChallengesRoute
+  '/community': typeof AuthenticatedCommunityRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dispute-center': typeof AuthenticatedDisputeCenterRoute
+  '/moderator': typeof AuthenticatedModeratorRoute
+  '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/wallet': typeof AuthenticatedWalletRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,10 +219,21 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/admin': typeof AuthenticatedAdminRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/challenges': typeof AuthenticatedChallengesRoute
+  '/community': typeof AuthenticatedCommunityRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dispute-center': typeof AuthenticatedDisputeCenterRoute
+  '/moderator': typeof AuthenticatedModeratorRoute
+  '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
+  '/profile': typeof AuthenticatedProfileRoute
+  '/wallet': typeof AuthenticatedWalletRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/contact': typeof ContactRoute
   '/faq': typeof FaqRoute
@@ -161,6 +249,16 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
+  '/_authenticated/community': typeof AuthenticatedCommunityRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/dispute-center': typeof AuthenticatedDisputeCenterRoute
+  '/_authenticated/moderator': typeof AuthenticatedModeratorRoute
+  '/_authenticated/my-tournaments': typeof AuthenticatedMyTournamentsRoute
+  '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/wallet': typeof AuthenticatedWalletRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +279,16 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/tournaments'
+    | '/admin'
+    | '/analytics'
+    | '/challenges'
+    | '/community'
+    | '/dashboard'
+    | '/dispute-center'
+    | '/moderator'
+    | '/my-tournaments'
+    | '/profile'
+    | '/wallet'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,9 +307,20 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/tournaments'
+    | '/admin'
+    | '/analytics'
+    | '/challenges'
+    | '/community'
+    | '/dashboard'
+    | '/dispute-center'
+    | '/moderator'
+    | '/my-tournaments'
+    | '/profile'
+    | '/wallet'
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/about'
     | '/contact'
     | '/faq'
@@ -217,10 +336,21 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/tournaments'
+    | '/_authenticated/admin'
+    | '/_authenticated/analytics'
+    | '/_authenticated/challenges'
+    | '/_authenticated/community'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/dispute-center'
+    | '/_authenticated/moderator'
+    | '/_authenticated/my-tournaments'
+    | '/_authenticated/profile'
+    | '/_authenticated/wallet'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   ContactRoute: typeof ContactRoute
   FaqRoute: typeof FaqRoute
@@ -345,6 +475,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -352,11 +489,111 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/wallet': {
+      id: '/_authenticated/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof AuthenticatedWalletRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-tournaments': {
+      id: '/_authenticated/my-tournaments'
+      path: '/my-tournaments'
+      fullPath: '/my-tournaments'
+      preLoaderRoute: typeof AuthenticatedMyTournamentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/moderator': {
+      id: '/_authenticated/moderator'
+      path: '/moderator'
+      fullPath: '/moderator'
+      preLoaderRoute: typeof AuthenticatedModeratorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dispute-center': {
+      id: '/_authenticated/dispute-center'
+      path: '/dispute-center'
+      fullPath: '/dispute-center'
+      preLoaderRoute: typeof AuthenticatedDisputeCenterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/community': {
+      id: '/_authenticated/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof AuthenticatedCommunityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/challenges': {
+      id: '/_authenticated/challenges'
+      path: '/challenges'
+      fullPath: '/challenges'
+      preLoaderRoute: typeof AuthenticatedChallengesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/analytics': {
+      id: '/_authenticated/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
+  AuthenticatedCommunityRoute: typeof AuthenticatedCommunityRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDisputeCenterRoute: typeof AuthenticatedDisputeCenterRoute
+  AuthenticatedModeratorRoute: typeof AuthenticatedModeratorRoute
+  AuthenticatedMyTournamentsRoute: typeof AuthenticatedMyTournamentsRoute
+  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
+  AuthenticatedCommunityRoute: AuthenticatedCommunityRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDisputeCenterRoute: AuthenticatedDisputeCenterRoute,
+  AuthenticatedModeratorRoute: AuthenticatedModeratorRoute,
+  AuthenticatedMyTournamentsRoute: AuthenticatedMyTournamentsRoute,
+  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedWalletRoute: AuthenticatedWalletRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   ContactRoute: ContactRoute,
   FaqRoute: FaqRoute,
