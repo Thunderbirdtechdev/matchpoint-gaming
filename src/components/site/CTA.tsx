@@ -1,4 +1,5 @@
-import { ArrowRight } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowRight, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function CTA() {
@@ -19,12 +20,22 @@ export function CTA() {
               Join thousands of players battling for prize pools right now.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button size="lg" className="bg-gradient-brand text-primary-foreground glow-primary hover:opacity-95">
-                Create Account
-                <ArrowRight className="ml-1 h-4 w-4" />
+              <Button size="lg" className="bg-gradient-brand text-primary-foreground glow-primary hover:opacity-95" asChild>
+                <Link to="/register">
+                  Create Account
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="border-border/80 bg-surface/40 hover:bg-surface">
-                Browse Competitions
+              <Button size="lg" variant="outline" className="border-border/80 bg-surface/40 hover:bg-surface" asChild>
+                <Link to="/tournaments">Browse Competitions</Link>
+              </Button>
+            </div>
+            <div className="mt-4">
+              <Button size="lg" variant="ghost" className="text-accent hover:text-accent/80 hover:bg-accent/10" asChild>
+                <Link to="/host">
+                  <Trophy className="mr-2 h-4 w-4" />
+                  Host a Tournament
+                </Link>
               </Button>
             </div>
           </div>
