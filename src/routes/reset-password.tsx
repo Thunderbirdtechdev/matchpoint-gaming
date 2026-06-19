@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Trophy, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -7,24 +7,25 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/forgot-password")({
-  head: () => ({ meta: [{ title: "Reset password — MatchPoint" }] }),
-  component: ForgotPage,
+export const Route = createFileRoute("/reset-password")({
+  head: () => ({ meta: [{ title: "Set a new password — MatchPoint" }] }),
+  component: ResetPage,
 });
 
-function ForgotPage() {
-  const [email, setEmail] = useState("");
+function ResetPage() {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (password.length < 6) return toast.error("Password must be at least 6 characters");
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) return toast.error(error.message);
-    toast.success("Check your email for the reset link.");
+    toast.success("Password updated");
+    navigate({ to: "/dashboard" });
   }
 
   return (
@@ -36,20 +37,16 @@ function ForgotPage() {
           <span className="text-xl font-bold">Match<span className="text-gradient-brand">Point</span></span>
         </Link>
         <div className="mt-10 rounded-2xl border border-border/60 bg-gradient-card p-8 shadow-elevated">
-          <h1 className="text-2xl font-bold">Reset your password</h1>
-          <p className="mt-1 text-sm text-muted-foreground">We'll send you a link to choose a new one.</p>
+          <h1 className="text-2xl font-bold">Choose a new password</h1>
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Label htmlFor="password">New password</Label>
+              <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-gradient-brand text-primary-foreground">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update password"}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            <Link to="/login" className="hover:text-foreground">Back to sign in</Link>
-          </p>
         </div>
       </div>
     </div>
