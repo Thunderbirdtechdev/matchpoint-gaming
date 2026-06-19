@@ -17,6 +17,7 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LeaderboardsRouteImport } from './routes/leaderboards'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as HostRouteImport } from './routes/host'
 import { Route as GamesRouteImport } from './routes/games'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FaqRouteImport } from './routes/faq'
@@ -64,6 +65,11 @@ const HowItWorksRoute = HowItWorksRouteImport.update({
   path: '/how-it-works',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HostRoute = HostRouteImport.update({
+  id: '/host',
+  path: '/host',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamesRoute = GamesRouteImport.update({
   id: '/games',
   path: '/games',
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
+  '/host': typeof HostRoute
   '/how-it-works': typeof HowItWorksRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/login': typeof LoginRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/faq': typeof FaqRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
+  '/host': typeof HostRoute
   '/how-it-works': typeof HowItWorksRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/login': typeof LoginRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
+  '/host': typeof HostRoute
   '/how-it-works': typeof HowItWorksRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/login': typeof LoginRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/forgot-password'
     | '/games'
+    | '/host'
     | '/how-it-works'
     | '/leaderboards'
     | '/login'
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/forgot-password'
     | '/games'
+    | '/host'
     | '/how-it-works'
     | '/leaderboards'
     | '/login'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/forgot-password'
     | '/games'
+    | '/host'
     | '/how-it-works'
     | '/leaderboards'
     | '/login'
@@ -202,6 +214,7 @@ export interface RootRouteChildren {
   FaqRoute: typeof FaqRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GamesRoute: typeof GamesRoute
+  HostRoute: typeof HostRoute
   HowItWorksRoute: typeof HowItWorksRoute
   LeaderboardsRoute: typeof LeaderboardsRoute
   LoginRoute: typeof LoginRoute
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HowItWorksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/host': {
+      id: '/host'
+      path: '/host'
+      fullPath: '/host'
+      preLoaderRoute: typeof HostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/games': {
       id: '/games'
       path: '/games'
@@ -322,6 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   FaqRoute: FaqRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GamesRoute: GamesRoute,
+  HostRoute: HostRoute,
   HowItWorksRoute: HowItWorksRoute,
   LeaderboardsRoute: LeaderboardsRoute,
   LoginRoute: LoginRoute,
@@ -334,13 +355,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
