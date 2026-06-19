@@ -29,7 +29,7 @@ const tiers = [
     desc: "Host your own tournaments and leagues.",
     features: ["Custom branded events", "Bracket automation", "Dedicated moderator", "Revenue share", "API access"],
     cta: "Contact Sales",
-    to: "/contact",
+    to: "/host",
   },
 ];
 

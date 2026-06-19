@@ -28,6 +28,7 @@ export function Footer() {
               { to: "/tournaments", label: "Tournaments" },
               { to: "/leaderboards", label: "Leaderboards" },
               { to: "/how-it-works", label: "How it works" },
+              { to: "/host", label: "Host a Tournament" },
             ]}
           />
           <FooterCol
