@@ -1,8 +1,20 @@
 import { Link } from "@tanstack/react-router";
-import { Trophy } from "lucide-react";
+import { Trophy, Menu, X } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
+const links = [
+  { to: "/games", label: "Games" },
+  { to: "/tournaments", label: "Tournaments" },
+  { to: "/leaderboards", label: "Leaderboards" },
+  { to: "/how-it-works", label: "How it works" },
+  { to: "/pricing", label: "Pricing" },
+  { to: "/about", label: "About" },
+] as const;
+
 export function Navbar() {
+  const [open, setOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
@@ -15,20 +27,60 @@ export function Navbar() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
-          <a href="#games" className="transition-colors hover:text-foreground">Games</a>
-          <a href="#how" className="transition-colors hover:text-foreground">How it works</a>
-          <a href="#features" className="transition-colors hover:text-foreground">Features</a>
-          <a href="#stats" className="transition-colors hover:text-foreground">Stats</a>
+        <nav className="hidden items-center gap-7 text-sm font-medium text-muted-foreground lg:flex">
+          {links.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="transition-colors hover:text-foreground"
+              activeProps={{ className: "text-foreground" }}
+            >
+              {l.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Sign in</Button>
-          <Button size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
-            Create Account
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <Link to="/login">Sign in</Link>
           </Button>
+          <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
+            <Link to="/register">Create Account</Link>
+          </Button>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="ml-1 grid h-9 w-9 place-items-center rounded-md border border-border/60 lg:hidden"
+            aria-label="Toggle menu"
+          >
+            {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
         </div>
       </div>
+
+      {open && (
+        <div className="border-t border-border/50 bg-background/95 backdrop-blur-xl lg:hidden">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3">
+            {links.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                onClick={() => setOpen(false)}
+                className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-surface hover:text-foreground"
+                activeProps={{ className: "text-foreground bg-surface" }}
+              >
+                {l.label}
+              </Link>
+            ))}
+            <Link
+              to="/login"
+              onClick={() => setOpen(false)}
+              className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-surface hover:text-foreground sm:hidden"
+            >
+              Sign in
+            </Link>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
