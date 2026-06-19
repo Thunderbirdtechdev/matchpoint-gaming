@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
@@ -33,6 +34,11 @@ const TournamentsRoute = TournamentsRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
 }
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
 }
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
 }
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/register'
+    | '/reset-password'
     | '/terms'
     | '/tournaments'
   fileRoutesByTo: FileRoutesByTo
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/register'
+    | '/reset-password'
     | '/terms'
     | '/tournaments'
   id:
@@ -203,6 +214,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/privacy'
     | '/register'
+    | '/reset-password'
     | '/terms'
     | '/tournaments'
   fileRoutesById: FileRoutesById
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
   TournamentsRoute: typeof TournamentsRoute
 }
@@ -239,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -349,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
   TournamentsRoute: TournamentsRoute,
 }
