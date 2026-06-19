@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Trophy, Menu, X } from "lucide-react";
+import { Trophy, Menu, X, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 
 const links = [
   { to: "/games", label: "Games" },
@@ -15,6 +16,7 @@ const links = [
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
@@ -42,12 +44,20 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-            <Link to="/login">Sign in</Link>
-          </Button>
-          <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
-            <Link to="/register">Create Account</Link>
-          </Button>
+          {user ? (
+            <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
+              <Link to="/dashboard"><LayoutDashboard className="mr-1.5 h-4 w-4" />Dashboard</Link>
+            </Button>
+          ) : (
+            <>
+              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+                <Link to="/login">Sign in</Link>
+              </Button>
+              <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
+                <Link to="/register">Create Account</Link>
+              </Button>
+            </>
+          )}
           <button
             onClick={() => setOpen((v) => !v)}
             className="ml-1 grid h-9 w-9 place-items-center rounded-md border border-border/60 lg:hidden"
