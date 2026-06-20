@@ -5,8 +5,8 @@
 
 const SANDBOX_BASE = "https://api-m.sandbox.paypal.com";
 
-/** Platform fee on PayPal payouts (2%, min $0.25). */
-export const PAYPAL_FEE_RATE = 0.02;
+/** Platform fee on PayPal payouts (5%, min $0.25). */
+export const PAYPAL_FEE_RATE = 0.05;
 export const PAYPAL_FEE_MIN_CENTS = 25;
 
 export function calcPaypalFeeCents(grossCents: number): number {
