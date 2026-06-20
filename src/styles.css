@@ -39,7 +39,8 @@
   --color-surface-elevated: var(--surface-elevated);
 
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Orbitron", "Rajdhani", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Rajdhani", "JetBrains Mono", ui-monospace, monospace;
 }
 
 :root {
