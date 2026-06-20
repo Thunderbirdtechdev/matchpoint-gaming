@@ -40,7 +40,7 @@ function round2(n: number) {
 export function getFeeTier(pool: number): FeeTier {
   const p = Math.max(0, Number(pool) || 0);
   for (const t of FEE_TIERS) {
-    if (p >= t.minPool && p < t.maxPool) return t;
+    if (p >= t.minPool && p <= t.maxPool) return t;
   }
   return FEE_TIERS[FEE_TIERS.length - 1];
 }
