@@ -781,9 +781,9 @@ function CompanyRevenueCard() {
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Available balance" value={fmtUsd(w?.balance_cents)} accent />
-        <Stat label="Lifetime revenue" value={fmtUsd(w?.lifetime_revenue_cents)} />
-        <Stat label="Lifetime withdrawn" value={fmtUsd(w?.lifetime_withdrawn_cents)} />
+        <RevStat label="Available balance" value={fmtUsd(w?.balance_cents)} accent />
+        <RevStat label="Lifetime revenue" value={fmtUsd(w?.lifetime_revenue_cents)} />
+        <RevStat label="Lifetime withdrawn" value={fmtUsd(w?.lifetime_withdrawn_cents)} />
       </div>
 
       <div className="mt-5 rounded-xl border border-border/50 bg-surface/30 p-4">
@@ -837,7 +837,7 @@ function CompanyRevenueCard() {
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function RevStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className={`rounded-xl border p-4 ${accent ? "border-primary/40 bg-primary/5" : "border-border/50 bg-surface/30"}`}>
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
