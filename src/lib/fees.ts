@@ -76,11 +76,36 @@ export function calculateChallengeFee(entryAmount: number): FeeBreakdown {
 /* =========================================================================
  *  Withdrawal fees
  *  Standard payouts (2–5 business days) are FREE.
- *  Same-day payouts mirror Cash App instant-deposit pricing:
- *    1.5% of the withdrawal amount, minimum $0.25.
+ *  Same-day payouts are charged per the tier table below.
+ *
+ *    $1    – $50      $1.99
+ *    $51   – $100     $2.99
+ *    $101  – $250     $4.99
+ *    $251  – $500     $7.99
+ *    $501  – $1,000   $12.99
+ *    $1,001+          1% of the withdrawal amount
  * ========================================================================= */
 
 export type WithdrawalSpeed = "standard" | "same_day";
+
+export type WithdrawalTier = {
+  minCents: number;
+  maxCents: number; // inclusive; Infinity for the top tier
+  /** Flat fee in cents. `null` means use a percentage rate instead. */
+  flatFeeCents: number | null;
+  /** Percentage rate (0..1) applied when flatFeeCents is null. */
+  pctRate: number | null;
+  label: string;
+};
+
+export const SAME_DAY_WITHDRAWAL_TIERS: ReadonlyArray<WithdrawalTier> = [
+  { minCents: 1_000, maxCents: 5_000, flatFeeCents: 199, pctRate: null, label: "$10 – $50" },
+  { minCents: 5_001, maxCents: 10_000, flatFeeCents: 299, pctRate: null, label: "$51 – $100" },
+  { minCents: 10_001, maxCents: 25_000, flatFeeCents: 499, pctRate: null, label: "$101 – $250" },
+  { minCents: 25_001, maxCents: 50_000, flatFeeCents: 799, pctRate: null, label: "$251 – $500" },
+  { minCents: 50_001, maxCents: 100_000, flatFeeCents: 1_299, pctRate: null, label: "$501 – $1,000" },
+  { minCents: 100_001, maxCents: Infinity, flatFeeCents: null, pctRate: 0.01, label: "$1,001+" },
+];
 
 export type WithdrawalFeeBreakdown = {
   speed: WithdrawalSpeed;
@@ -106,15 +131,20 @@ export function calculateWithdrawalFee(
       etaLabel: "2–5 business days",
     };
   }
-  // Same-day: 1.5% with a $0.25 (25¢) minimum — matches Cash App instant deposits
-  const fee = Math.max(25, Math.round(gross * 0.015));
+  const tier =
+    SAME_DAY_WITHDRAWAL_TIERS.find((t) => gross >= t.minCents && gross <= t.maxCents) ??
+    SAME_DAY_WITHDRAWAL_TIERS[SAME_DAY_WITHDRAWAL_TIERS.length - 1];
+  const fee =
+    tier.flatFeeCents !== null
+      ? tier.flatFeeCents
+      : Math.max(1, Math.round(gross * (tier.pctRate ?? 0)));
   const net = Math.max(0, gross - fee);
   return {
     speed,
     grossCents: gross,
     feeCents: fee,
     netCents: net,
-    tierLabel: "1.5% (min $0.25)",
+    tierLabel: tier.label,
     etaLabel: "Typically 30 minutes – 5 hours",
   };
 }
