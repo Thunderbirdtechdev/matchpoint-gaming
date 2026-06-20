@@ -273,7 +273,7 @@ function WalletPage() {
             value={paypalAmount}
             onChange={(e) => setPaypalAmount(e.target.value)}
             placeholder="Amount USD"
-            disabled={!savedPaypal}
+            disabled={!paypalEmail.trim()}
           />
           <Button
             onClick={() => {
