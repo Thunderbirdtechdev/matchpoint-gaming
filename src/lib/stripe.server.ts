@@ -16,12 +16,12 @@ export function getStripe(): Stripe {
   if (
     !key.startsWith("sk_test_") &&
     !key.startsWith("sk_live_") &&
-    !key.startsWith("rk_") &&
-    !key.startsWith("mk_")
+    !key.startsWith("rk_test_") &&
+    !key.startsWith("rk_live_")
   ) {
     throw new Error(
       `STRIPE_SECRET_KEY has an unexpected format (starts with "${key.slice(0, 7)}"). ` +
-        "Expected sk_test_..., sk_live_..., rk_..., or mk_...",
+        "Expected sk_test_..., sk_live_..., rk_test_..., or rk_live_.... The mk_ key is not a Stripe API secret.",
     );
   }
   _stripe = new Stripe(key, { typescript: true });
