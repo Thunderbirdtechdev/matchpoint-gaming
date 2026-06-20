@@ -12,7 +12,7 @@ export function CTA() {
           <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-secondary/30 blur-3xl" />
 
           <div className="relative">
-            <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-5xl">
+            <h2 className="font-display text-balance text-4xl font-black uppercase tracking-tight sm:text-6xl">
               Your next title shot is{" "}
               <span className="text-gradient-gold">one match away</span>
             </h2>
