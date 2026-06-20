@@ -786,18 +786,20 @@ function CompanyRevenueCard() {
         <RevStat label="Lifetime withdrawn" value={fmtUsd(w?.lifetime_withdrawn_cents)} />
       </div>
 
-      <div className="mt-5 rounded-xl border border-border/50 bg-surface/30 p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Record a withdrawal / sweep</p>
+      <StripePayoutPanel onDone={() => { walletQ.refetch(); wdQ.refetch(); }} />
+
+      <div className="mt-4 rounded-xl border border-border/50 bg-surface/30 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Record a manual withdrawal / sweep</p>
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_1fr_auto]">
           <Input placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Input placeholder="Destination (bank, PayPal, etc.)" value={dest} onChange={(e) => setDest(e.target.value)} />
           <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-          <Button onClick={() => m.mutate()} disabled={m.isPending}>
-            {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Withdraw"}
+          <Button variant="outline" onClick={() => m.mutate()} disabled={m.isPending}>
+            {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record"}
           </Button>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          This records the sweep in the ledger and decreases the balance — actually move the money outside the app.
+          Ledger-only entry. Use this when you moved funds outside of Stripe.
         </p>
       </div>
 
