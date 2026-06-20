@@ -71,7 +71,7 @@ function ProfilePage() {
         <Stat label="Reputation" value={profile?.reputation ?? 100} />
         <Stat label="XP" value={profile?.xp ?? 0} />
         <Stat label="Rank" value={profile?.rank_tier ?? "Bronze"} />
-        <Stat label="Wallet" value={`$${Number(profile?.wallet_balance ?? 0).toFixed(2)}`} />
+        <Stat label="Wallet" value={`$${((wallet?.balance_cents ?? 0) / 100).toFixed(2)}`} />
       </div>
     </DashboardShell>
   );
