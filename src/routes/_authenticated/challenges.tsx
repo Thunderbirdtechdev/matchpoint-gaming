@@ -159,6 +159,12 @@ function ChallengesPage() {
               {c.status === "open" && c.creator_id !== user?.id && (
                 <Button size="sm" onClick={() => acceptChallenge(c.id)} className="bg-gradient-brand text-primary-foreground">Accept</Button>
               )}
+              {c.status === "open" && c.creator_id === user?.id && (
+                <Button size="sm" variant="outline" onClick={() => cancel(c.id)}><X className="mr-1 h-3 w-3" />Cancel</Button>
+              )}
+              {c.status === "active" && (c.creator_id === user?.id || c.opponent_id === user?.id) && (
+                <Button size="sm" variant="outline" onClick={() => concede(c.id)}><Flag className="mr-1 h-3 w-3" />Concede</Button>
+              )}
             </div>
           </div>
         )) : <p className="text-sm text-muted-foreground">No challenges yet. Be the first.</p>}
