@@ -188,6 +188,78 @@ export type Database = {
         }
         Relationships: []
       }
+      paypal_payouts: {
+        Row: {
+          created_at: string
+          currency: string
+          error_message: string | null
+          fee_cents: number
+          fee_tx_id: string | null
+          gross_amount_cents: number
+          id: string
+          metadata: Json
+          net_amount_cents: number
+          payout_batch_id: string | null
+          payout_item_id: string | null
+          recipient_email: string
+          status: string
+          updated_at: string
+          user_id: string
+          wallet_tx_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          fee_cents?: number
+          fee_tx_id?: string | null
+          gross_amount_cents: number
+          id?: string
+          metadata?: Json
+          net_amount_cents: number
+          payout_batch_id?: string | null
+          payout_item_id?: string | null
+          recipient_email: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          wallet_tx_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          fee_cents?: number
+          fee_tx_id?: string | null
+          gross_amount_cents?: number
+          id?: string
+          metadata?: Json
+          net_amount_cents?: number
+          payout_batch_id?: string | null
+          payout_item_id?: string | null
+          recipient_email?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wallet_tx_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paypal_payouts_fee_tx_id_fkey"
+            columns: ["fee_tx_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paypal_payouts_wallet_tx_id_fkey"
+            columns: ["wallet_tx_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -196,6 +268,7 @@ export type Database = {
           display_name: string | null
           favorite_game: string | null
           id: string
+          paypal_email: string | null
           platform: string | null
           rank_tier: string
           region: string | null
@@ -211,6 +284,7 @@ export type Database = {
           display_name?: string | null
           favorite_game?: string | null
           id: string
+          paypal_email?: string | null
           platform?: string | null
           rank_tier?: string
           region?: string | null
@@ -226,6 +300,7 @@ export type Database = {
           display_name?: string | null
           favorite_game?: string | null
           id?: string
+          paypal_email?: string | null
           platform?: string | null
           rank_tier?: string
           region?: string | null
