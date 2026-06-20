@@ -90,9 +90,32 @@ function WalletPage() {
     onError: (e: Error) => toast.error(e.message || "Cash-out failed"),
   });
 
+  const savePaypalMut = useMutation({
+    mutationFn: async (email: string) => savePaypal({ data: { paypal_email: email } }),
+    onSuccess: () => {
+      toast.success("PayPal email saved.");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not save PayPal email"),
+  });
+
+  const paypalMut = useMutation({
+    mutationFn: async (amount_cents: number) => paypalCashout({ data: { amount_cents } }),
+    onSuccess: () => {
+      toast.success("PayPal payout sent.");
+      setPaypalAmount("");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "PayPal payout failed"),
+  });
+
   const balance = data?.wallet?.balance_cents ?? 0;
   const connect = data?.connect;
+  const savedPaypal = data?.paypal_email ?? null;
   const payoutsReady = !!connect?.payouts_enabled;
+  useEffect(() => {
+    if (savedPaypal && !paypalEmail) setPaypalEmail(savedPaypal);
+  }, [savedPaypal, paypalEmail]);
 
   return (
     <DashboardShell title="Wallet" subtitle="Deposit, track winnings, and cash out.">
