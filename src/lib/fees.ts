@@ -4,25 +4,25 @@
  * Fee is calculated against the TOTAL prize pool (sum of all entry fees).
  * Lower rates on bigger pools to incentivize larger events.
  *
- *   Pool size       Rate
- *   $0   – $9.99    10%
- *   $10  – $49.99    8%
- *   $50  – $99.99    6%
- *   $100+            5%
+ *   Pool size         Rate
+ *   $1    – $25       10%
+ *   $26   – $100       8%
+ *   $101  – $500       6%
+ *   $501+              5%
  */
 
 export type FeeTier = {
   minPool: number;
-  maxPool: number; // exclusive upper bound; Infinity for top tier
+  maxPool: number; // inclusive upper bound; Infinity for top tier
   rate: number; // 0..1
   label: string;
 };
 
 export const FEE_TIERS: ReadonlyArray<FeeTier> = [
-  { minPool: 0, maxPool: 10, rate: 0.10, label: "$0 – $9.99" },
-  { minPool: 10, maxPool: 50, rate: 0.08, label: "$10 – $49.99" },
-  { minPool: 50, maxPool: 100, rate: 0.06, label: "$50 – $99.99" },
-  { minPool: 100, maxPool: Infinity, rate: 0.05, label: "$100+" },
+  { minPool: 0, maxPool: 25, rate: 0.10, label: "$1 – $25" },
+  { minPool: 25.01, maxPool: 100, rate: 0.08, label: "$26 – $100" },
+  { minPool: 100.01, maxPool: 500, rate: 0.06, label: "$101 – $500" },
+  { minPool: 500.01, maxPool: Infinity, rate: 0.05, label: "$501+" },
 ];
 
 export type FeeBreakdown = {
