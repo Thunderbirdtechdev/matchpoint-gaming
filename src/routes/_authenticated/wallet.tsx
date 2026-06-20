@@ -221,6 +221,68 @@ function WalletPage() {
         </div>
       </div>
 
+      {/* PayPal cash-out */}
+      <div className="mt-6 rounded-2xl border border-border/60 bg-card p-6">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Mail className="h-4 w-4" /> Cash out to PayPal
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Send funds directly to your PayPal account. A 2% platform fee (min $0.25) is deducted from each payout.
+          Sandbox mode — no real money moves.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <Input
+            type="email"
+            value={paypalEmail}
+            onChange={(e) => setPaypalEmail(e.target.value)}
+            placeholder="your-paypal@example.com"
+          />
+          <Button
+            variant="outline"
+            onClick={() => {
+              const v = paypalEmail.trim();
+              if (!v) return toast.error("Enter your PayPal email");
+              savePaypalMut.mutate(v);
+            }}
+            disabled={savePaypalMut.isPending || !paypalEmail || paypalEmail === savedPaypal}
+          >
+            {savePaypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : savedPaypal ? "Update email" : "Save email"}
+          </Button>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <Input
+            type="number"
+            min={1}
+            max={balance / 100}
+            value={paypalAmount}
+            onChange={(e) => setPaypalAmount(e.target.value)}
+            placeholder="Amount USD"
+            disabled={!savedPaypal}
+          />
+          <Button
+            onClick={() => {
+              if (!savedPaypal) return toast.error("Save your PayPal email first");
+              const n = Number(paypalAmount);
+              if (!n || n < 1) return toast.error("Enter a valid amount");
+              const cents = Math.round(n * 100);
+              if (cents > balance) return toast.error("Exceeds balance");
+              paypalMut.mutate(cents);
+            }}
+            disabled={paypalMut.isPending || balance <= 0 || !savedPaypal}
+          >
+            {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send to PayPal"}
+          </Button>
+        </div>
+        {paypalAmount && Number(paypalAmount) > 0 && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            You'll receive {fmt(Math.max(0, Math.round(Number(paypalAmount) * 100) - Math.max(Math.round(Number(paypalAmount) * 100 * 0.02), 25)))} after fee.
+          </p>
+        )}
+      </div>
+
+
       {/* Transactions */}
       <div className="mt-8 rounded-2xl border border-border/60 bg-card">
         <div className="border-b border-border/60 px-6 py-4 text-sm font-medium">Recent activity</div>
