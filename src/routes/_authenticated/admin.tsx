@@ -7,9 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Wallet } from "lucide-react";
+import { Loader2, Wallet, Copy, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { adminCreditWallet } from "@/lib/admin.functions";
+import { getHotWalletStatus } from "@/lib/crypto.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — MatchPoint" }] }),
