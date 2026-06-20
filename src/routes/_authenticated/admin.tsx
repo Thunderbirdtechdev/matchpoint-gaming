@@ -37,7 +37,9 @@ function AdminPage() {
 
   return (
     <DashboardShell title="Admin Dashboard" subtitle="Manage users and platform health.">
-      <div className="overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
+      <AdminCreditWalletCard />
+
+      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
         <table className="w-full text-sm">
           <thead className="bg-surface/50 text-xs uppercase text-muted-foreground">
             <tr>
