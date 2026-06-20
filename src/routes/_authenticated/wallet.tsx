@@ -112,8 +112,8 @@ function WalletPage() {
       requestPayout({ data: { method, speed, amount_cents, handle: handle.trim() } }),
     onSuccess: () => {
       toast.success(
-        speed === "instant"
-          ? "Instant payout requested — typically paid in 2–24 hours."
+        speed === "same_day"
+          ? "Same-day payout requested — typically paid in 30 minutes to 5 hours."
           : "Standard payout requested — typically paid in 2–5 business days.",
       );
       setPayoutAmount("");
@@ -185,7 +185,7 @@ function WalletPage() {
         <p className="mt-2 text-xs text-muted-foreground">
           Choose a payout method and how fast you want it. <span className="font-medium text-foreground">Standard</span>{" "}
           payouts are <span className="font-medium text-foreground">free</span> and arrive in 2–5 business days.
-          <span className="font-medium text-foreground"> Instant</span> payouts arrive within 2–24 hours for a small fee.
+          <span className="font-medium text-foreground"> Same-day</span> payouts land in 30 minutes – 5 hours for a small fee.
         </p>
 
         {/* Method selector */}
@@ -227,18 +227,18 @@ function WalletPage() {
           </button>
           <button
             type="button"
-            onClick={() => setSpeed("instant")}
+            onClick={() => setSpeed("same_day")}
             className={`rounded-lg border p-3 text-left text-xs transition ${
-              speed === "instant"
+              speed === "same_day"
                 ? "border-primary bg-primary/10"
                 : "border-border/60 hover:border-border"
             }`}
           >
             <div className="flex items-center gap-2 font-medium text-foreground">
-              <Zap className="h-3.5 w-3.5" /> Instant
+              <Zap className="h-3.5 w-3.5" /> Same-day
               <span className="ml-auto text-muted-foreground">Fee applies</span>
             </div>
-            <div className="mt-1 text-muted-foreground">Within 2–24 hours</div>
+            <div className="mt-1 text-muted-foreground">30 minutes – 5 hours</div>
           </button>
         </div>
 
@@ -297,7 +297,7 @@ function WalletPage() {
               <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  {speed === "instant" ? `Instant fee (${b.tierLabel})` : "Standard fee"}
+                  {speed === "same_day" ? `Same-day fee (${b.tierLabel})` : "Standard fee"}
                 </span>
                 <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
                   {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
@@ -399,7 +399,7 @@ function WalletPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Confirm {speed === "instant" ? "instant" : "standard"} {method === "paypal" ? "PayPal" : "Cash App"} payout
+              Confirm {speed === "same_day" ? "same-day" : "standard"} {method === "paypal" ? "PayPal" : "Cash App"} payout
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               {(() => {
@@ -416,7 +416,7 @@ function WalletPage() {
                       <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          {speed === "instant" ? `Instant fee (${b.tierLabel})` : "Standard fee"}
+                          {speed === "same_day" ? `Same-day fee (${b.tierLabel})` : "Standard fee"}
                         </span>
                         <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
                           {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}

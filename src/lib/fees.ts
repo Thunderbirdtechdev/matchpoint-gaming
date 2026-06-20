@@ -76,7 +76,7 @@ export function calculateChallengeFee(entryAmount: number): FeeBreakdown {
 /* =========================================================================
  *  Withdrawal fees
  *  Standard payouts (2–5 business days) are FREE.
- *  Instant payouts are charged per the tier table below.
+ *  Same-day payouts are charged per the tier table below.
  *
  *    $1    – $50      $1.99
  *    $51   – $100     $2.99
@@ -86,7 +86,7 @@ export function calculateChallengeFee(entryAmount: number): FeeBreakdown {
  *    $1,001+          1% of the withdrawal amount
  * ========================================================================= */
 
-export type WithdrawalSpeed = "standard" | "instant";
+export type WithdrawalSpeed = "standard" | "same_day";
 
 export type WithdrawalTier = {
   minCents: number;
@@ -98,7 +98,7 @@ export type WithdrawalTier = {
   label: string;
 };
 
-export const INSTANT_WITHDRAWAL_TIERS: ReadonlyArray<WithdrawalTier> = [
+export const SAME_DAY_WITHDRAWAL_TIERS: ReadonlyArray<WithdrawalTier> = [
   { minCents: 100, maxCents: 5_000, flatFeeCents: 199, pctRate: null, label: "$1 – $50" },
   { minCents: 5_001, maxCents: 10_000, flatFeeCents: 299, pctRate: null, label: "$51 – $100" },
   { minCents: 10_001, maxCents: 25_000, flatFeeCents: 499, pctRate: null, label: "$101 – $250" },
@@ -132,8 +132,8 @@ export function calculateWithdrawalFee(
     };
   }
   const tier =
-    INSTANT_WITHDRAWAL_TIERS.find((t) => gross >= t.minCents && gross <= t.maxCents) ??
-    INSTANT_WITHDRAWAL_TIERS[INSTANT_WITHDRAWAL_TIERS.length - 1];
+    SAME_DAY_WITHDRAWAL_TIERS.find((t) => gross >= t.minCents && gross <= t.maxCents) ??
+    SAME_DAY_WITHDRAWAL_TIERS[SAME_DAY_WITHDRAWAL_TIERS.length - 1];
   const fee =
     tier.flatFeeCents !== null
       ? tier.flatFeeCents
@@ -145,6 +145,6 @@ export function calculateWithdrawalFee(
     feeCents: fee,
     netCents: net,
     tierLabel: tier.label,
-    etaLabel: "Within minutes — typically 2–24 hours",
+    etaLabel: "Typically 30 minutes – 5 hours",
   };
 }
