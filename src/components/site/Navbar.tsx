@@ -44,16 +44,16 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           {user ? (
-            <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
+            <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground font-bold uppercase tracking-wider hover:opacity-90">
               <Link to="/dashboard"><LayoutDashboard className="mr-1.5 h-4 w-4" />Dashboard</Link>
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex text-xs font-semibold uppercase tracking-wider">
                 <Link to="/login">Sign in</Link>
               </Button>
-              <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
-                <Link to="/register">Create Account</Link>
+              <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground text-xs font-bold uppercase tracking-wider hover:opacity-90">
+                <Link to="/register">Play Free</Link>
               </Button>
             </>
           )}
