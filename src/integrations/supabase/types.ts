@@ -370,6 +370,57 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_payout_requests: {
+        Row: {
+          admin_note: string | null
+          amount_cents: number
+          created_at: string
+          fee_cents: number
+          handle: string
+          id: string
+          method: Database["public"]["Enums"]["manual_payout_method"]
+          net_cents: number
+          processed_at: string | null
+          processed_by: string | null
+          status: Database["public"]["Enums"]["manual_payout_status"]
+          updated_at: string
+          user_id: string
+          wallet_tx_id: string | null
+        }
+        Insert: {
+          admin_note?: string | null
+          amount_cents: number
+          created_at?: string
+          fee_cents?: number
+          handle: string
+          id?: string
+          method: Database["public"]["Enums"]["manual_payout_method"]
+          net_cents: number
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: Database["public"]["Enums"]["manual_payout_status"]
+          updated_at?: string
+          user_id: string
+          wallet_tx_id?: string | null
+        }
+        Update: {
+          admin_note?: string | null
+          amount_cents?: number
+          created_at?: string
+          fee_cents?: number
+          handle?: string
+          id?: string
+          method?: Database["public"]["Enums"]["manual_payout_method"]
+          net_cents?: number
+          processed_at?: string | null
+          processed_by?: string | null
+          status?: Database["public"]["Enums"]["manual_payout_status"]
+          updated_at?: string
+          user_id?: string
+          wallet_tx_id?: string | null
+        }
+        Relationships: []
+      }
       paypal_payouts: {
         Row: {
           created_at: string
@@ -485,6 +536,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          cashapp_tag: string | null
           created_at: string
           display_name: string | null
           favorite_game: string | null
@@ -501,6 +553,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          cashapp_tag?: string | null
           created_at?: string
           display_name?: string | null
           favorite_game?: string | null
@@ -517,6 +570,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          cashapp_tag?: string | null
           created_at?: string
           display_name?: string | null
           favorite_game?: string | null
@@ -915,6 +969,13 @@ export type Database = {
         | "failed"
         | "cancelled"
       escrow_status: "held" | "released" | "refunded" | "forfeited"
+      manual_payout_method: "paypal" | "cashapp"
+      manual_payout_status:
+        | "pending"
+        | "processing"
+        | "paid"
+        | "failed"
+        | "canceled"
       wallet_tx_status: "pending" | "completed" | "failed" | "reversed"
       wallet_tx_type:
         | "deposit"
@@ -1064,6 +1125,14 @@ export const Constants = {
         "cancelled",
       ],
       escrow_status: ["held", "released", "refunded", "forfeited"],
+      manual_payout_method: ["paypal", "cashapp"],
+      manual_payout_status: [
+        "pending",
+        "processing",
+        "paid",
+        "failed",
+        "canceled",
+      ],
       wallet_tx_status: ["pending", "completed", "failed", "reversed"],
       wallet_tx_type: [
         "deposit",
