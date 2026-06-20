@@ -42,6 +42,8 @@ function AdminPage() {
 
   return (
     <DashboardShell title="Admin Dashboard" subtitle="Manage users and platform health.">
+      <CompanyRevenueCard />
+      <div className="h-6" />
       <HotWalletCard isAdmin={!!isAdmin} />
       <div className="h-6" />
       <PayoutsCard />
