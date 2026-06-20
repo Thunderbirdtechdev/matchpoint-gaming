@@ -186,56 +186,25 @@ function WalletPage() {
           </div>
         </div>
 
-        {/* Cash out / Connect */}
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
+        {/* Cash out / Bank — paused */}
+        <div className="rounded-2xl border border-border/60 bg-card p-6 opacity-70">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <Banknote className="h-4 w-4" /> Cash out
+            <Banknote className="h-4 w-4" /> Bank cash out
+            <span className="ml-auto rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+              Coming soon
+            </span>
           </div>
-          {!connect ? (
-            <>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Connect a payout account (bank) to withdraw winnings to your bank.
-              </p>
-              <Button className="mt-4 w-full" onClick={() => onboardMut.mutate()} disabled={onboardMut.isPending}>
-                {onboardMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Set up payouts <ExternalLink className="ml-2 h-4 w-4" /></>}
-              </Button>
-            </>
-          ) : !payoutsReady ? (
-            <>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Finish verifying your payout account to enable cash-outs.
-              </p>
-              <Button className="mt-4 w-full" variant="outline" onClick={() => onboardMut.mutate()} disabled={onboardMut.isPending}>
-                {onboardMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue verification <ExternalLink className="ml-2 h-4 w-4" /></>}
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="mt-2 text-xs text-muted-foreground">Withdraw to your verified bank account.</p>
-              <div className="mt-3 flex gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  max={balance / 100}
-                  value={cashoutAmount}
-                  onChange={(e) => setCashoutAmount(e.target.value)}
-                  placeholder="Amount USD"
-                />
-                <Button
-                  onClick={() => {
-                    const n = Number(cashoutAmount);
-                    if (!n || n < 1) return toast.error("Enter a valid amount");
-                    const cents = Math.round(n * 100);
-                    if (cents > balance) return toast.error("Exceeds balance");
-                    cashoutMut.mutate(cents);
-                  }}
-                  disabled={cashoutMut.isPending || balance <= 0}
-                >
-                  {cashoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Withdraw"}
-                </Button>
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">Available: {fmt(balance)}</p>
-            </>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Direct-to-bank payouts via Stripe are temporarily paused while we finalize Connect onboarding.
+            Use PayPal or the new crypto cash-out below.
+          </p>
+          <Button className="mt-4 w-full" disabled variant="outline">
+            Set up payouts <ExternalLink className="ml-2 h-4 w-4" />
+          </Button>
+          {connect && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {payoutsReady ? "Your bank account is verified — withdrawals will re-enable soon." : "Verification in progress."}
+            </p>
           )}
         </div>
       </div>
