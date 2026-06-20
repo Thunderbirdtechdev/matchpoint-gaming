@@ -109,9 +109,13 @@ function WalletPage() {
 
   const payoutMut = useMutation({
     mutationFn: async (amount_cents: number) =>
-      requestPayout({ data: { method, amount_cents, handle: handle.trim() } }),
+      requestPayout({ data: { method, speed, amount_cents, handle: handle.trim() } }),
     onSuccess: () => {
-      toast.success("Payout requested — typically paid in 2–24 hours.");
+      toast.success(
+        speed === "instant"
+          ? "Instant payout requested — typically paid in 2–24 hours."
+          : "Standard payout requested — typically paid in 2–5 business days.",
+      );
       setPayoutAmount("");
       qc.invalidateQueries({ queryKey: ["wallet"] });
       qc.invalidateQueries({ queryKey: ["my-payout-requests"] });
