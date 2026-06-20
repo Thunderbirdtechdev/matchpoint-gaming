@@ -185,7 +185,7 @@ function WalletPage() {
         <p className="mt-2 text-xs text-muted-foreground">
           Choose a payout method and how fast you want it. <span className="font-medium text-foreground">Standard</span>{" "}
           payouts are <span className="font-medium text-foreground">free</span> and arrive in 2–5 business days.
-          <span className="font-medium text-foreground"> Instant</span> payouts arrive within 2–24 hours for a small fee.
+          <span className="font-medium text-foreground"> Same-day</span> payouts land in 30 minutes – 5 hours for a small fee.
         </p>
 
         {/* Method selector */}
