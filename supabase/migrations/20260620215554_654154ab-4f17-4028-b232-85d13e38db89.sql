@@ -1,0 +1,1 @@
+ALTER TABLE public.manual_payout_requests ADD COLUMN IF NOT EXISTS speed text NOT NULL DEFAULT 'standard' CHECK (speed IN ('standard','instant'));

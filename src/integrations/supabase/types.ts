@@ -382,6 +382,7 @@ export type Database = {
           net_cents: number
           processed_at: string | null
           processed_by: string | null
+          speed: string
           status: Database["public"]["Enums"]["manual_payout_status"]
           updated_at: string
           user_id: string
@@ -398,6 +399,7 @@ export type Database = {
           net_cents: number
           processed_at?: string | null
           processed_by?: string | null
+          speed?: string
           status?: Database["public"]["Enums"]["manual_payout_status"]
           updated_at?: string
           user_id: string
@@ -414,6 +416,7 @@ export type Database = {
           net_cents?: number
           processed_at?: string | null
           processed_by?: string | null
+          speed?: string
           status?: Database["public"]["Enums"]["manual_payout_status"]
           updated_at?: string
           user_id?: string
