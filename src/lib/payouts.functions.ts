@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { calculateWithdrawalFee } from "./fees";
 
 const MethodSchema = z.enum(["paypal", "cashapp"]);
+const SpeedSchema = z.enum(["standard", "instant"]);
 
 const SaveHandleSchema = z.object({
   method: MethodSchema,
@@ -11,7 +13,8 @@ const SaveHandleSchema = z.object({
 
 const RequestPayoutSchema = z.object({
   method: MethodSchema,
-  amount_cents: z.number().int().min(500).max(500_000), // $5 – $5,000
+  speed: SpeedSchema.default("standard"),
+  amount_cents: z.number().int().min(100).max(500_000), // $1 – $5,000
   handle: z.string().trim().min(2).max(120),
 });
 
@@ -24,11 +27,6 @@ function validateHandle(method: "paypal" | "cashapp", handle: string) {
     const ok = /^[a-zA-Z][a-zA-Z0-9_]{0,19}$/.test(v);
     if (!ok) throw new Error("Enter a valid Cash App $cashtag.");
   }
-}
-
-function feeCents(grossCents: number) {
-  // Flat 5% (min $0.25) platform fee for manual processing
-  return Math.max(Math.round(grossCents * 0.05), 25);
 }
 
 /** Save the user's PayPal email or Cash App $cashtag to their profile. */
@@ -73,8 +71,9 @@ export const requestManualPayout = createServerFn({ method: "POST" })
     if (wErr || !wallet) throw new Error("Wallet not found.");
     if (wallet.balance_cents < data.amount_cents) throw new Error("Insufficient wallet balance.");
 
-    const fee = feeCents(data.amount_cents);
-    const net = data.amount_cents - fee;
+    const breakdown = calculateWithdrawalFee(data.amount_cents, data.speed);
+    const fee = breakdown.feeCents;
+    const net = breakdown.netCents;
     const newBalance = wallet.balance_cents - data.amount_cents;
 
     // Debit wallet
@@ -83,6 +82,8 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .update({ balance_cents: newBalance })
       .eq("id", wallet.id);
     if (balErr) throw balErr;
+
+    const speedLabel = data.speed === "instant" ? "Instant" : "Standard";
 
     // Ledger row
     const { data: tx, error: txErr } = await supabaseAdmin
@@ -95,9 +96,10 @@ export const requestManualPayout = createServerFn({ method: "POST" })
         amount_cents: -data.amount_cents,
         balance_after_cents: newBalance,
         currency: wallet.currency,
-        description: `Manual payout via ${data.method === "paypal" ? "PayPal" : "Cash App"} → ${normalizedHandle}`,
+        description: `${speedLabel} payout via ${data.method === "paypal" ? "PayPal" : "Cash App"} → ${normalizedHandle}`,
         metadata: {
           payout_method: data.method,
+          payout_speed: data.speed,
           handle: normalizedHandle,
           fee_cents: fee,
           net_cents: net,
@@ -116,13 +118,14 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .insert({
         user_id: context.userId,
         method: data.method,
+        speed: data.speed,
         handle: normalizedHandle,
         amount_cents: data.amount_cents,
         fee_cents: fee,
         net_cents: net,
         status: "pending",
         wallet_tx_id: tx.id,
-      })
+      } as never)
       .select("*")
       .single();
     if (reqErr) {
