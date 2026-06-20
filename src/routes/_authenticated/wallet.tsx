@@ -59,6 +59,7 @@ function WalletPage() {
 
   const [depositAmount, setDepositAmount] = useState("25");
   const [method, setMethod] = useState<PayoutMethod>("paypal");
+  const [speed, setSpeed] = useState<WithdrawalSpeed>("standard");
   const [handle, setHandle] = useState("");
   const [payoutAmount, setPayoutAmount] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
