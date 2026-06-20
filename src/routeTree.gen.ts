@@ -32,6 +32,7 @@ import { Route as AuthenticatedCommunityRouteImport } from './routes/_authentica
 import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 import { Route as ApiPublicWebhooksPaypalRouteImport } from './routes/api/public/webhooks/paypal'
 
@@ -151,6 +152,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
   id: '/api/public/webhooks/stripe',
   path: '/api/public/webhooks/stripe',
@@ -187,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/wallet': typeof AuthenticatedWalletRoute
   '/api/public/webhooks/paypal': typeof ApiPublicWebhooksPaypalRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -213,6 +221,7 @@ export interface FileRoutesByTo {
   '/wallet': typeof AuthenticatedWalletRoute
   '/api/public/webhooks/paypal': typeof ApiPublicWebhooksPaypalRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -241,6 +250,7 @@ export interface FileRoutesById {
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/api/public/webhooks/paypal': typeof ApiPublicWebhooksPaypalRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/api/public/webhooks/paypal'
     | '/api/public/webhooks/stripe'
+    | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/api/public/webhooks/paypal'
     | '/api/public/webhooks/stripe'
+    | '/lovable/email/queue/process'
   id:
     | '__root__'
     | '/'
@@ -322,6 +334,7 @@ export interface FileRouteTypes {
     | '/_authenticated/wallet'
     | '/api/public/webhooks/paypal'
     | '/api/public/webhooks/stripe'
+    | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -340,6 +353,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ApiPublicWebhooksPaypalRoute: typeof ApiPublicWebhooksPaypalRoute
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -505,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/stripe': {
       id: '/api/public/webhooks/stripe'
       path: '/api/public/webhooks/stripe'
@@ -567,6 +588,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ApiPublicWebhooksPaypalRoute: ApiPublicWebhooksPaypalRoute,
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
