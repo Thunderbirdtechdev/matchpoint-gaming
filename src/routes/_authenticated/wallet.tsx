@@ -267,23 +267,23 @@ function WalletPage() {
         <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
           <Input
             type="number"
-            min={1}
+            min={10}
             max={balance / 100}
             value={payoutAmount}
             onChange={(e) => setPayoutAmount(e.target.value)}
-            placeholder="Amount USD (min $1)"
+            placeholder="Amount USD (min $10)"
             disabled={!handle.trim()}
           />
           <Button
             onClick={() => {
               if (!handle.trim()) return toast.error("Enter your payout details");
               const n = Number(payoutAmount);
-              if (!n || n < 1) return toast.error("Minimum payout is $1");
+              if (!n || n < 10) return toast.error("Minimum payout is $10");
               const cents = Math.round(n * 100);
               if (cents > balance) return toast.error("Exceeds balance");
               setConfirmOpen(true);
             }}
-            disabled={payoutMut.isPending || balance <= 0 || !handle.trim()}
+            disabled={payoutMut.isPending || balance < 1_000 || !handle.trim()}
           >
             {payoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request payout"}
           </Button>

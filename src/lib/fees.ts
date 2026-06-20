@@ -99,7 +99,7 @@ export type WithdrawalTier = {
 };
 
 export const SAME_DAY_WITHDRAWAL_TIERS: ReadonlyArray<WithdrawalTier> = [
-  { minCents: 100, maxCents: 5_000, flatFeeCents: 199, pctRate: null, label: "$1 – $50" },
+  { minCents: 1_000, maxCents: 5_000, flatFeeCents: 199, pctRate: null, label: "$10 – $50" },
   { minCents: 5_001, maxCents: 10_000, flatFeeCents: 299, pctRate: null, label: "$51 – $100" },
   { minCents: 10_001, maxCents: 25_000, flatFeeCents: 499, pctRate: null, label: "$101 – $250" },
   { minCents: 25_001, maxCents: 50_000, flatFeeCents: 799, pctRate: null, label: "$251 – $500" },
