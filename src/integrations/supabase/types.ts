@@ -828,6 +828,30 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist_signups: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          referrer: string | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          referrer?: string | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          referrer?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       wallet_transactions: {
         Row: {
           amount_cents: number
