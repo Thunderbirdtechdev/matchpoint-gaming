@@ -334,6 +334,18 @@ async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
     if (c.error) throw new Error(c.error.message);
   }
 
+  if (feeCents > 0) {
+    await supabaseAdmin.rpc("record_platform_fee", {
+      _source: "challenge_fee",
+      _amount_cents: feeCents,
+      _user_id: winnerId,
+      _reference_id: ch.id,
+      _gross_cents: poolCents,
+      _net_cents: netCents,
+      _metadata: { fee_rate: actual.rate, game_slug: ch.game_slug },
+    });
+  }
+
   await supabaseAdmin.from("challenges")
     .update({ status: "completed", winner_id: winnerId })
     .eq("id", ch.id);
