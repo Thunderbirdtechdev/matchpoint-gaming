@@ -184,14 +184,22 @@ export const adminListPayoutRequests = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let q = supabaseAdmin
       .from("manual_payout_requests")
-      .select("*, profiles:user_id(username, display_name, avatar_url)")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(data.limit);
     if (data.speed) q = q.eq("speed", data.speed);
     if (data.status) q = q.eq("status", data.status);
     const { data: rows, error } = await q;
     if (error) throw error;
-    return rows ?? [];
+    const list = rows ?? [];
+    if (!list.length) return [] as any[];
+    const userIds = Array.from(new Set(list.map((r) => r.user_id)));
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .in("id", userIds);
+    const byId = new Map((profs ?? []).map((p) => [p.id, p]));
+    return list.map((r) => ({ ...r, profiles: byId.get(r.user_id) ?? null }));
   });
 
 const AdminUpdateSchema = z.object({
