@@ -8,6 +8,7 @@ const SavePaypalEmailSchema = z.object({
 
 const PaypalPayoutSchema = z.object({
   amount_cents: z.number().int().min(100).max(500_000),
+  paypal_email: z.string().trim().email().max(254).optional(),
 });
 
 /** Save the user's PayPal email on their profile. */
@@ -32,14 +33,23 @@ export const createPaypalCashout = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { calcPaypalFeeCents, createPaypalPayout } = await import("@/lib/paypal.server");
 
-    // Resolve recipient email
+    // Resolve recipient email. If the user typed/changed it during checkout,
+    // save it first so the payout button works as a single action.
+    if (data.paypal_email) {
+      const { error: saveErr } = await supabaseAdmin
+        .from("profiles")
+        .update({ paypal_email: data.paypal_email })
+        .eq("id", context.userId);
+      if (saveErr) throw saveErr;
+    }
+
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("paypal_email")
       .eq("id", context.userId)
       .single();
 
-    const recipient = profile?.paypal_email?.trim();
+    const recipient = (data.paypal_email ?? profile?.paypal_email)?.trim();
     if (!recipient) throw new Error("Add your PayPal email before cashing out.");
 
     // Check balance
