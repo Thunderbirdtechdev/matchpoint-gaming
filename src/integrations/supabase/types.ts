@@ -943,7 +943,12 @@ export type Database = {
     }
     Functions: {
       company_wallet_withdraw: {
-        Args: { _amount_cents: number; _destination: string; _note?: string }
+        Args: {
+          _amount_cents: number
+          _created_by?: string
+          _destination: string
+          _note?: string
+        }
         Returns: string
       }
       delete_email: {
