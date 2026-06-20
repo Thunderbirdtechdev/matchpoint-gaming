@@ -100,6 +100,70 @@ export type Database = {
           },
         ]
       }
+      escrow_holds: {
+        Row: {
+          amount_cents: number
+          challenge_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["escrow_status"]
+          tournament_id: string | null
+          updated_at: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          amount_cents: number
+          challenge_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          tournament_id?: string | null
+          updated_at?: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          amount_cents?: number
+          challenge_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["escrow_status"]
+          tournament_id?: string | null
+          updated_at?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escrow_holds_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escrow_holds_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escrow_holds_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           active: boolean
@@ -172,6 +236,63 @@ export type Database = {
           username?: string | null
           wallet_balance?: number
           xp?: number
+        }
+        Relationships: []
+      }
+      stripe_connect_accounts: {
+        Row: {
+          charges_enabled: boolean
+          country: string | null
+          created_at: string
+          details_submitted: boolean
+          id: string
+          payouts_enabled: boolean
+          stripe_account_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          charges_enabled?: boolean
+          country?: string | null
+          created_at?: string
+          details_submitted?: boolean
+          id?: string
+          payouts_enabled?: boolean
+          stripe_account_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          charges_enabled?: boolean
+          country?: string | null
+          created_at?: string
+          details_submitted?: boolean
+          id?: string
+          payouts_enabled?: boolean
+          stripe_account_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_events: {
+        Row: {
+          id: string
+          payload: Json | null
+          processed_at: string
+          type: string
+        }
+        Insert: {
+          id: string
+          payload?: Json | null
+          processed_at?: string
+          type: string
+        }
+        Update: {
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          type?: string
         }
         Relationships: []
       }
@@ -273,11 +394,137 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transactions: {
+        Row: {
+          amount_cents: number
+          balance_after_cents: number
+          challenge_id: string | null
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          metadata: Json
+          status: Database["public"]["Enums"]["wallet_tx_status"]
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          stripe_payout_id: string | null
+          stripe_transfer_id: string | null
+          tournament_id: string | null
+          type: Database["public"]["Enums"]["wallet_tx_type"]
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          amount_cents: number
+          balance_after_cents: number
+          challenge_id?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          status?: Database["public"]["Enums"]["wallet_tx_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payout_id?: string | null
+          stripe_transfer_id?: string | null
+          tournament_id?: string | null
+          type: Database["public"]["Enums"]["wallet_tx_type"]
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          amount_cents?: number
+          balance_after_cents?: number
+          challenge_id?: string | null
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          status?: Database["public"]["Enums"]["wallet_tx_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_payout_id?: string | null
+          stripe_transfer_id?: string | null
+          tournament_id?: string | null
+          type?: Database["public"]["Enums"]["wallet_tx_type"]
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          balance_cents: number
+          created_at: string
+          currency: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      ensure_wallet: {
+        Args: { _user_id: string }
+        Returns: {
+          balance_cents: number
+          created_at: string
+          currency: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -288,6 +535,18 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      escrow_status: "held" | "released" | "refunded" | "forfeited"
+      wallet_tx_status: "pending" | "completed" | "failed" | "reversed"
+      wallet_tx_type:
+        | "deposit"
+        | "withdrawal"
+        | "entry_fee"
+        | "prize_payout"
+        | "platform_fee"
+        | "refund"
+        | "escrow_hold"
+        | "escrow_release"
+        | "adjustment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -416,6 +675,19 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      escrow_status: ["held", "released", "refunded", "forfeited"],
+      wallet_tx_status: ["pending", "completed", "failed", "reversed"],
+      wallet_tx_type: [
+        "deposit",
+        "withdrawal",
+        "entry_fee",
+        "prize_payout",
+        "platform_fee",
+        "refund",
+        "escrow_hold",
+        "escrow_release",
+        "adjustment",
+      ],
     },
   },
 } as const
