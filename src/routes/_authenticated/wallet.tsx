@@ -5,6 +5,16 @@ import { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, ExternalLink, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -14,6 +24,7 @@ import {
   createCashout,
 } from "@/lib/wallet.functions";
 import { savePaypalEmail, createPaypalCashout } from "@/lib/paypal.functions";
+
 
 type SearchParams = { deposit?: string; connect?: string };
 
