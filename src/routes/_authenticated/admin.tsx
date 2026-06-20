@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff } from "@/lib/admin.functions";
+import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds } from "@/lib/admin.functions";
 import { getHotWalletStatus } from "@/lib/crypto.functions";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
 
@@ -42,6 +42,8 @@ function AdminPage() {
 
   return (
     <DashboardShell title="Admin Dashboard" subtitle="Manage users and platform health.">
+      <CompanyRevenueCard />
+      <div className="h-6" />
       <HotWalletCard isAdmin={!!isAdmin} />
       <div className="h-6" />
       <PayoutsCard />
@@ -728,3 +730,118 @@ function RolesCard() {
 }
 
 
+
+function fmtUsd(cents: number | null | undefined) {
+  return `$${(((cents ?? 0) as number) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function CompanyRevenueCard() {
+  const qc = useQueryClient();
+  const fetchWallet = useServerFn(getCompanyWallet);
+  const fetchRevenue = useServerFn(listCompanyRevenue);
+  const fetchWithdrawals = useServerFn(listCompanyWithdrawals);
+  const withdraw = useServerFn(withdrawCompanyFunds);
+
+  const walletQ = useQuery({ queryKey: ["company-wallet"], queryFn: () => fetchWallet() });
+  const revenueQ = useQuery({ queryKey: ["company-revenue"], queryFn: () => fetchRevenue({ data: { limit: 25 } }) });
+  const wdQ = useQuery({ queryKey: ["company-withdrawals"], queryFn: () => fetchWithdrawals() });
+
+  const [amount, setAmount] = useState("");
+  const [dest, setDest] = useState("");
+  const [note, setNote] = useState("");
+
+  const m = useMutation({
+    mutationFn: async () => {
+      const cents = Math.round(parseFloat(amount || "0") * 100);
+      if (!cents || cents <= 0) throw new Error("Enter a valid amount");
+      if (!dest.trim()) throw new Error("Enter a destination (bank, PayPal, etc.)");
+      return withdraw({ data: { amount_cents: cents, destination: dest.trim(), note: note.trim() || undefined } });
+    },
+    onSuccess: () => {
+      toast.success("Company funds withdrawn");
+      setAmount(""); setDest(""); setNote("");
+      qc.invalidateQueries({ queryKey: ["company-wallet"] });
+      qc.invalidateQueries({ queryKey: ["company-withdrawals"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
+
+  const w = walletQ.data;
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-gradient-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Company Revenue</h2>
+          <p className="text-xs text-muted-foreground">Platform & withdrawal fees collected automatically.</p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => { walletQ.refetch(); revenueQ.refetch(); wdQ.refetch(); }}>
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="Available balance" value={fmtUsd(w?.balance_cents)} accent />
+        <Stat label="Lifetime revenue" value={fmtUsd(w?.lifetime_revenue_cents)} />
+        <Stat label="Lifetime withdrawn" value={fmtUsd(w?.lifetime_withdrawn_cents)} />
+      </div>
+
+      <div className="mt-5 rounded-xl border border-border/50 bg-surface/30 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Record a withdrawal / sweep</p>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_1fr_auto]">
+          <Input placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Input placeholder="Destination (bank, PayPal, etc.)" value={dest} onChange={(e) => setDest(e.target.value)} />
+          <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <Button onClick={() => m.mutate()} disabled={m.isPending}>
+            {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Withdraw"}
+          </Button>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          This records the sweep in the ledger and decreases the balance — actually move the money outside the app.
+        </p>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border/50 overflow-hidden">
+          <div className="bg-surface/50 px-3 py-2 text-xs uppercase tracking-wide text-muted-foreground">Recent fee events</div>
+          <div className="max-h-72 overflow-auto divide-y divide-border/40">
+            {(revenueQ.data ?? []).length === 0 && <div className="p-3 text-xs text-muted-foreground">No fees yet.</div>}
+            {(revenueQ.data ?? []).map((r: any) => (
+              <div key={r.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                <div>
+                  <div className="font-medium">{r.source}</div>
+                  <div className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</div>
+                </div>
+                <div className="font-mono text-success">+{fmtUsd(r.amount_cents)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/50 overflow-hidden">
+          <div className="bg-surface/50 px-3 py-2 text-xs uppercase tracking-wide text-muted-foreground">Recent withdrawals</div>
+          <div className="max-h-72 overflow-auto divide-y divide-border/40">
+            {(wdQ.data ?? []).length === 0 && <div className="p-3 text-xs text-muted-foreground">No withdrawals recorded.</div>}
+            {(wdQ.data ?? []).map((r: any) => (
+              <div key={r.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                <div>
+                  <div className="font-medium">{r.destination}</div>
+                  <div className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}{r.note ? ` · ${r.note}` : ""}</div>
+                </div>
+                <div className="font-mono text-destructive">−{fmtUsd(r.amount_cents)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-xl border p-4 ${accent ? "border-primary/40 bg-primary/5" : "border-border/50 bg-surface/30"}`}>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`mt-1 text-xl font-semibold ${accent ? "text-primary" : ""}`}>{value}</div>
+    </div>
+  );
+}

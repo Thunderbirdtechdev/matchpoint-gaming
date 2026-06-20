@@ -265,6 +265,17 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
           .update({ status: "completed" })
           .eq("id", req.wallet_tx_id);
       }
+      if (req.fee_cents && req.fee_cents > 0) {
+        await supabaseAdmin.rpc("record_platform_fee", {
+          _source: req.speed === "same_day" ? "withdrawal_fee_same_day" : "withdrawal_fee_standard",
+          _amount_cents: req.fee_cents,
+          _user_id: req.user_id,
+          _reference_id: req.id,
+          _gross_cents: req.amount_cents,
+          _net_cents: req.net_cents,
+          _metadata: { method: req.method, speed: req.speed },
+        });
+      }
       return { ok: true, status: "paid" };
     }
 
