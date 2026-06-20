@@ -68,7 +68,7 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
           await supabaseAdmin.from("stripe_events").insert({
             id: event.id,
             type: event.type,
-            payload: event as unknown as Record<string, unknown>,
+            payload: JSON.parse(JSON.stringify(event)),
           });
 
           return new Response("ok", { status: 200 });
