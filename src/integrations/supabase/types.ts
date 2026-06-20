@@ -525,12 +525,41 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      escrow_debit: {
+        Args: {
+          _amount_cents: number
+          _challenge_id?: string
+          _description?: string
+          _tournament_id?: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      escrow_resolve: {
+        Args: {
+          _hold_id: string
+          _new_status: Database["public"]["Enums"]["escrow_status"]
+        }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      wallet_credit: {
+        Args: {
+          _amount_cents: number
+          _challenge_id?: string
+          _description: string
+          _metadata?: Json
+          _tournament_id?: string
+          _type: Database["public"]["Enums"]["wallet_tx_type"]
+          _user_id: string
+        }
+        Returns: number
       }
     }
     Enums: {

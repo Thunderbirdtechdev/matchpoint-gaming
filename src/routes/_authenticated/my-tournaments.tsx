@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { joinTournament as joinFn, declareTournamentWinner, cancelTournament } from "@/lib/matches.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trophy } from "lucide-react";
+import { Plus, Trophy, Crown, X } from "lucide-react";
 import { toast } from "sonner";
 import { calculateTournamentFee } from "@/lib/fees";
 
@@ -63,12 +65,41 @@ function MyTournamentsPage() {
     qc.invalidateQueries({ queryKey: ["all-tournaments"] });
   }
 
-  async function joinTournament(id: string) {
-    if (!user) return;
-    const { error } = await supabase.from("tournament_entries").insert({ tournament_id: id, user_id: user.id });
-    if (error) return toast.error(error.message);
-    toast.success("Joined!");
+  const joinSF = useServerFn(joinFn);
+  const declareSF = useServerFn(declareTournamentWinner);
+  const cancelSF = useServerFn(cancelTournament);
+
+  function invalidateAll() {
+    qc.invalidateQueries({ queryKey: ["all-tournaments"] });
     qc.invalidateQueries({ queryKey: ["my-entries"] });
+    qc.invalidateQueries({ queryKey: ["my-wallet"] });
+  }
+
+  async function joinTournament(id: string) {
+    try {
+      await joinSF({ data: { tournament_id: id } });
+      toast.success("Joined — entry held in escrow");
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
+
+  async function declareWinner(tournamentId: string) {
+    const winnerId = prompt("Enter winner's user ID:");
+    if (!winnerId) return;
+    try {
+      const r = await declareSF({ data: { tournament_id: tournamentId, winner_id: winnerId } });
+      toast.success(`Winner paid $${(r.net_cents/100).toFixed(2)} (pool $${(r.pool_cents/100).toFixed(2)} − $${(r.fee_cents/100).toFixed(2)} fee)`);
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
+
+  async function cancel(id: string) {
+    if (!confirm("Cancel tournament and refund all entries?")) return;
+    try {
+      const r = await cancelSF({ data: { tournament_id: id } });
+      toast.success(`Cancelled — refunded ${r.refunded} player(s)`);
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
   }
 
   return (
@@ -135,13 +166,23 @@ function MyTournamentsPage() {
                 </>
               );
             })()}
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">{new Date(t.starts_at).toLocaleString()}</span>
-              {joinedIds.has(t.id) ? (
-                <span className="text-xs font-medium text-accent">Joined</span>
-              ) : (
-                <Button size="sm" onClick={() => joinTournament(t.id)} className="bg-gradient-brand text-primary-foreground">Join</Button>
-              )}
+              <div className="flex gap-2">
+                {t.host_id === user?.id && t.status !== "completed" && t.status !== "cancelled" && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => declareWinner(t.id)}><Crown className="mr-1 h-3 w-3" />Declare winner</Button>
+                    <Button size="sm" variant="ghost" onClick={() => cancel(t.id)}><X className="mr-1 h-3 w-3" />Cancel</Button>
+                  </>
+                )}
+                {joinedIds.has(t.id) ? (
+                  <span className="text-xs font-medium text-accent">Joined</span>
+                ) : (
+                  t.status !== "completed" && t.status !== "cancelled" && t.host_id !== user?.id && (
+                    <Button size="sm" onClick={() => joinTournament(t.id)} className="bg-gradient-brand text-primary-foreground">Join</Button>
+                  )
+                )}
+              </div>
             </div>
           </div>
         )) : <p className="text-sm text-muted-foreground">No tournaments yet.</p>}
