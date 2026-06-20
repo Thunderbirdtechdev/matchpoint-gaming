@@ -183,8 +183,9 @@ function WalletPage() {
           <ArrowUpCircle className="h-4 w-4" /> Cash out
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Choose a payout method and submit a request. Payouts are processed manually and typically arrive in
-          <span className="font-medium text-foreground"> 2–24 hours</span>. A 5% platform fee (min $0.25) is deducted.
+          Choose a payout method and how fast you want it. <span className="font-medium text-foreground">Standard</span>{" "}
+          payouts are <span className="font-medium text-foreground">free</span> and arrive in 2–5 business days.
+          <span className="font-medium text-foreground"> Instant</span> payouts arrive within 2–24 hours for a small fee.
         </p>
 
         {/* Method selector */}
@@ -205,6 +206,40 @@ function WalletPage() {
           >
             <DollarSign className="mr-2 h-4 w-4" /> Cash App
           </Button>
+        </div>
+
+        {/* Speed selector */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setSpeed("standard")}
+            className={`rounded-lg border p-3 text-left text-xs transition ${
+              speed === "standard"
+                ? "border-primary bg-primary/10"
+                : "border-border/60 hover:border-border"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium text-foreground">
+              <CalendarClock className="h-3.5 w-3.5" /> Standard
+              <span className="ml-auto text-emerald-500">FREE</span>
+            </div>
+            <div className="mt-1 text-muted-foreground">2–5 business days</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSpeed("instant")}
+            className={`rounded-lg border p-3 text-left text-xs transition ${
+              speed === "instant"
+                ? "border-primary bg-primary/10"
+                : "border-border/60 hover:border-border"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium text-foreground">
+              <Zap className="h-3.5 w-3.5" /> Instant
+              <span className="ml-auto text-muted-foreground">Fee applies</span>
+            </div>
+            <div className="mt-1 text-muted-foreground">Within 2–24 hours</div>
+          </button>
         </div>
 
         {/* Handle */}
@@ -232,18 +267,18 @@ function WalletPage() {
         <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
           <Input
             type="number"
-            min={5}
+            min={1}
             max={balance / 100}
             value={payoutAmount}
             onChange={(e) => setPayoutAmount(e.target.value)}
-            placeholder="Amount USD (min $5)"
+            placeholder="Amount USD (min $1)"
             disabled={!handle.trim()}
           />
           <Button
             onClick={() => {
               if (!handle.trim()) return toast.error("Enter your payout details");
               const n = Number(payoutAmount);
-              if (!n || n < 5) return toast.error("Minimum payout is $5");
+              if (!n || n < 1) return toast.error("Minimum payout is $1");
               const cents = Math.round(n * 100);
               if (cents > balance) return toast.error("Exceeds balance");
               setConfirmOpen(true);
@@ -256,13 +291,20 @@ function WalletPage() {
 
         {payoutAmount && Number(payoutAmount) > 0 && (() => {
           const gross = Math.round(Number(payoutAmount) * 100);
-          const fee = Math.max(Math.round(gross * 0.05), 25);
-          const net = Math.max(0, gross - fee);
+          const b = calculateWithdrawalFee(gross, speed);
           return (
             <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-              <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (5%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
-              <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(net)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  {speed === "instant" ? `Instant fee (${b.tierLabel})` : "Standard fee"}
+                </span>
+                <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
+                  {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
+                </span>
+              </div>
+              <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span></div>
+              <div className="mt-1 text-[10px] text-muted-foreground">{b.etaLabel}</div>
             </div>
           );
         })()}
