@@ -2,7 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 import {
   Trophy, LayoutDashboard, Swords, Users, Wallet, ShieldAlert, User as UserIcon,
-  ShieldCheck, BarChart3, LogOut, Gamepad2,
+  ShieldCheck, BarChart3, LogOut, Gamepad2, Banknote,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -23,8 +23,11 @@ const nav = [
 const staff = [
   { to: "/moderator", label: "Moderator", icon: ShieldCheck, role: "moderator" as const },
   { to: "/admin", label: "Admin", icon: ShieldCheck, role: "admin" as const },
+  { to: "/payouts", label: "Payouts", icon: Banknote, role: "admin" as const },
   { to: "/analytics", label: "Analytics", icon: BarChart3, role: "admin" as const },
 ];
+
+
 
 export function DashboardShell({ children, title, subtitle }: { children: ReactNode; title: string; subtitle?: string }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
