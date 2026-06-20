@@ -131,6 +131,47 @@ function WalletPage() {
     onError: (e: Error) => toast.error(e.message || "PayPal payout failed"),
   });
 
+  const { data: cryptoAddresses } = useQuery({
+    queryKey: ["crypto-addresses"],
+    queryFn: () => fetchCryptoAddrs(),
+  });
+  const { data: cryptoPayoutHistory } = useQuery({
+    queryKey: ["crypto-payouts"],
+    queryFn: () => fetchCryptoPayouts(),
+  });
+
+  const savedAddrForCurrency =
+    cryptoAddresses?.find((a) => a.currency === cryptoCurrency)?.address ?? "";
+  useEffect(() => {
+    setCryptoAddr(savedAddrForCurrency);
+  }, [savedAddrForCurrency]);
+
+  const saveAddrMut = useMutation({
+    mutationFn: async () =>
+      saveAddr({ data: { currency: cryptoCurrency, address: cryptoAddr.trim() } }),
+    onSuccess: () => {
+      toast.success(`${cryptoCurrency} address saved.`);
+      qc.invalidateQueries({ queryKey: ["crypto-addresses"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not save address"),
+  });
+
+  const cryptoMut = useMutation({
+    mutationFn: async (amount_cents: number) =>
+      sendCrypto({ data: { currency: cryptoCurrency, amount_cents } }),
+    onSuccess: (res) => {
+      if (res.status === "sent") {
+        toast.success(`Sent! Tx ${res.txHash?.slice(0, 10)}…`);
+      } else {
+        toast.success(`${cryptoCurrency} payout request created — pending fulfillment.`);
+      }
+      setCryptoAmount("");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+      qc.invalidateQueries({ queryKey: ["crypto-payouts"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Crypto payout failed"),
+  });
+
   const balance = data?.wallet?.balance_cents ?? 0;
   const connect = data?.connect;
   const savedPaypal = data?.paypal_email ?? null;
