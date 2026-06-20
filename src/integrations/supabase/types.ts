@@ -260,6 +260,45 @@ export type Database = {
           },
         ]
       }
+      platform_fees: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          gross_cents: number | null
+          id: string
+          metadata: Json
+          net_cents: number | null
+          reference_id: string | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          gross_cents?: number | null
+          id?: string
+          metadata?: Json
+          net_cents?: number | null
+          reference_id?: string | null
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          gross_cents?: number | null
+          id?: string
+          metadata?: Json
+          net_cents?: number | null
+          reference_id?: string | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
