@@ -32,7 +32,7 @@ const tiers = [
       "API access",
     ],
     cta: "Contact Sales",
-    to: "/host",
+    to: "/contact",
   },
 ];
 
