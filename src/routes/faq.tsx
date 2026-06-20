@@ -11,7 +11,7 @@ const faqs = [
   { q: "What happens if there's a dispute?", a: "Either player can submit evidence (screenshots, replay or video). Our moderation team reviews every dispute within 24 hours and issues a final decision." },
   { q: "Which games are supported?", a: "Launch titles are Fortnite, Madden NFL, NBA 2K, MLB The Show, Call of Duty and EA Sports FC. More are added every season." },
   { q: "Is matchmaking skill-based?", a: "Yes. Reputation and recent performance feed into our matchmaker so you face opponents of similar skill." },
-  { q: "Can I run my own tournament?", a: "Organizations can host branded tournaments using our bracket automation tools. See the Pricing page for details." },
+  { q: "Can I run my own tournament?", a: "Organizations can host branded tournaments using our bracket automation tools. Contact us for details." },
 ];
 
 export const Route = createFileRoute("/faq")({

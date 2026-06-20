@@ -33,7 +33,6 @@ export function Footer() {
             title="Company"
             items={[
               { to: "/about", label: "About" },
-              { to: "/pricing", label: "Pricing" },
               { to: "/contact", label: "Contact" },
               { to: "/faq", label: "FAQ" },
             ]}
