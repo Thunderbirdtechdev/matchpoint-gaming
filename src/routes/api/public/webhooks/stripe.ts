@@ -115,31 +115,135 @@ async function creditDeposit(args: {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   if (args.amountCents <= 0) return;
 
-  await supabaseAdmin.rpc("ensure_wallet", { _user_id: args.userId });
-  const { data: wallet, error: wErr } = await supabaseAdmin
+  // Idempotency on the session id (in case the event id check is bypassed by a retry)
+  const { data: dup } = await supabaseAdmin
+    .from("wallet_transactions")
+    .select("id")
+    .eq("stripe_checkout_session_id", args.sessionId)
+    .eq("type", "deposit")
+    .maybeSingle();
+  if (dup) return;
+
+  await supabaseAdmin.rpc("wallet_credit", {
+    _user_id: args.userId,
+    _amount_cents: args.amountCents,
+    _type: "deposit",
+    _description: "Wallet deposit",
+    _metadata: {
+      stripe_checkout_session_id: args.sessionId,
+      stripe_payment_intent_id: args.paymentIntentId,
+    },
+  });
+
+  // Stamp the Stripe ids on the transaction we just created
+  await supabaseAdmin
+    .from("wallet_transactions")
+    .update({
+      stripe_checkout_session_id: args.sessionId,
+      stripe_payment_intent_id: args.paymentIntentId,
+    })
+    .eq("user_id", args.userId)
+    .eq("type", "deposit")
+    .eq("amount_cents", args.amountCents)
+    .is("stripe_checkout_session_id", null);
+}
+
+async function refundDeposit(args: {
+  paymentIntentId: string;
+  refundedCents: number;
+  chargeId: string;
+}) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  if (args.refundedCents <= 0) return;
+
+  const { data: tx } = await supabaseAdmin
+    .from("wallet_transactions")
+    .select("id, user_id, wallet_id, currency")
+    .eq("stripe_payment_intent_id", args.paymentIntentId)
+    .eq("type", "deposit")
+    .maybeSingle();
+  if (!tx) return;
+
+  // Prevent double-refund
+  const { data: existing } = await supabaseAdmin
+    .from("wallet_transactions")
+    .select("id")
+    .eq("type", "refund")
+    .eq("stripe_payment_intent_id", args.paymentIntentId)
+    .maybeSingle();
+  if (existing) return;
+
+  const { data: wallet } = await supabaseAdmin
     .from("wallets")
     .select("*")
-    .eq("user_id", args.userId)
+    .eq("id", tx.wallet_id)
     .single();
-  if (wErr || !wallet) throw wErr ?? new Error("wallet missing");
+  if (!wallet) return;
 
-  const newBalance = wallet.balance_cents + args.amountCents;
-  const { error: uErr } = await supabaseAdmin
+  const newBalance = wallet.balance_cents - args.refundedCents;
+  await supabaseAdmin
     .from("wallets")
-    .update({ balance_cents: newBalance })
+    .update({ balance_cents: Math.max(0, newBalance) })
     .eq("id", wallet.id);
-  if (uErr) throw uErr;
 
   await supabaseAdmin.from("wallet_transactions").insert({
     wallet_id: wallet.id,
-    user_id: args.userId,
-    type: "deposit",
+    user_id: tx.user_id,
+    type: "refund",
     status: "completed",
-    amount_cents: args.amountCents,
-    balance_after_cents: newBalance,
+    amount_cents: -args.refundedCents,
+    balance_after_cents: Math.max(0, newBalance),
     currency: wallet.currency,
-    description: "Wallet deposit",
-    stripe_checkout_session_id: args.sessionId,
+    description: "Deposit refunded",
     stripe_payment_intent_id: args.paymentIntentId,
+    metadata: { stripe_charge_id: args.chargeId },
   });
 }
+
+async function reverseCashout(args: { transferId: string }) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const { data: tx } = await supabaseAdmin
+    .from("wallet_transactions")
+    .select("*")
+    .eq("stripe_transfer_id", args.transferId)
+    .eq("type", "withdrawal")
+    .maybeSingle();
+  if (!tx) return;
+
+  // Prevent double-reversal
+  const { data: existing } = await supabaseAdmin
+    .from("wallet_transactions")
+    .select("id")
+    .eq("type", "refund")
+    .eq("stripe_transfer_id", args.transferId)
+    .maybeSingle();
+  if (existing) return;
+
+  const refundAmount = Math.abs(tx.amount_cents);
+  const { data: wallet } = await supabaseAdmin
+    .from("wallets")
+    .select("*")
+    .eq("id", tx.wallet_id)
+    .single();
+  if (!wallet) return;
+
+  const newBalance = wallet.balance_cents + refundAmount;
+  await supabaseAdmin
+    .from("wallets")
+    .update({ balance_cents: newBalance })
+    .eq("id", wallet.id);
+
+  await supabaseAdmin.from("wallet_transactions").insert({
+    wallet_id: wallet.id,
+    user_id: tx.user_id,
+    type: "refund",
+    status: "completed",
+    amount_cents: refundAmount,
+    balance_after_cents: newBalance,
+    currency: wallet.currency,
+    description: "Cashout reversed",
+    stripe_transfer_id: args.transferId,
+  });
+}
+
