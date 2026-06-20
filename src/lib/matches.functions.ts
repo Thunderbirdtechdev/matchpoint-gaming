@@ -102,6 +102,18 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
+    if (feeCents > 0) {
+      await supabaseAdmin.rpc("record_platform_fee", {
+        _source: "tournament_fee",
+        _amount_cents: feeCents,
+        _user_id: data.winner_id,
+        _reference_id: t.id,
+        _gross_cents: poolCents,
+        _net_cents: netCents,
+        _metadata: { fee_rate: fee.rate, tournament_title: t.title },
+      });
+    }
+
     await supabaseAdmin.from("tournaments")
       .update({ status: "completed" })
       .eq("id", t.id);
