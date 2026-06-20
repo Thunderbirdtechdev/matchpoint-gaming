@@ -20,7 +20,7 @@ export function Games() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">Supported Games</p>
-          <h2 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
+          <h2 className="mt-3 font-display text-4xl font-black uppercase tracking-tight sm:text-5xl">
             Compete in the titles you love
           </h2>
           <p className="mt-4 text-muted-foreground">
@@ -47,7 +47,7 @@ export function Games() {
               </div>
 
               <div className="absolute inset-x-0 bottom-0 p-6">
-                <h3 className="text-2xl font-bold tracking-tight">{g.name}</h3>
+                <h3 className="font-display text-2xl font-bold uppercase tracking-wider">{g.name}</h3>
                 <div className="mt-3 flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1.5 text-muted-foreground">
                     <span className="h-1.5 w-1.5 rounded-full bg-accent" />

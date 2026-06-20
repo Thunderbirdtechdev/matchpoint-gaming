@@ -10,7 +10,6 @@ const links = [
   { to: "/leaderboards", label: "Leaderboards" },
   { to: "/how-it-works", label: "How it works" },
   { to: "/pricing", label: "Pricing" },
-  { to: "/host", label: "Host" },
   { to: "/about", label: "About" },
 ] as const;
 
@@ -21,21 +20,21 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand glow-primary">
+        <Link to="/" className="flex items-center gap-2.5 group">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand glow-primary transition-transform group-hover:scale-105">
             <Trophy className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-bold tracking-tight">
+          <span className="font-display text-lg font-extrabold uppercase tracking-[0.12em]">
             Match<span className="text-gradient-brand">Point</span>
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-7 text-sm font-medium text-muted-foreground lg:flex">
+        <nav className="hidden items-center gap-6 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:flex">
           {links.map((l) => (
             <Link
               key={l.to}
               to={l.to}
-              className="transition-colors hover:text-foreground"
+              className="relative py-1 transition-colors hover:text-foreground"
               activeProps={{ className: "text-foreground" }}
             >
               {l.label}
@@ -45,16 +44,16 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           {user ? (
-            <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
+            <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground font-bold uppercase tracking-wider hover:opacity-90">
               <Link to="/dashboard"><LayoutDashboard className="mr-1.5 h-4 w-4" />Dashboard</Link>
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex text-xs font-semibold uppercase tracking-wider">
                 <Link to="/login">Sign in</Link>
               </Button>
-              <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground hover:opacity-90">
-                <Link to="/register">Create Account</Link>
+              <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground text-xs font-bold uppercase tracking-wider hover:opacity-90">
+                <Link to="/register">Play Free</Link>
               </Button>
             </>
           )}

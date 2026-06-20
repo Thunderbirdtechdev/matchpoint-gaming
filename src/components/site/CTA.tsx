@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Trophy } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function CTA() {
@@ -12,7 +12,7 @@ export function CTA() {
           <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-secondary/30 blur-3xl" />
 
           <div className="relative">
-            <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-5xl">
+            <h2 className="font-display text-balance text-4xl font-black uppercase tracking-tight sm:text-6xl">
               Your next title shot is{" "}
               <span className="text-gradient-gold">one match away</span>
             </h2>
@@ -30,13 +30,8 @@ export function CTA() {
                 <Link to="/tournaments">Browse Competitions</Link>
               </Button>
             </div>
-            <div className="mt-4">
-              <Button size="lg" variant="ghost" className="text-accent hover:text-accent/80 hover:bg-accent/10" asChild>
-                <Link to="/host">
-                  <Trophy className="mr-2 h-4 w-4" />
-                  Host a Tournament
-                </Link>
-              </Button>
+            <div className="mt-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              No download required · Cross-platform · Skill-based matchmaking
             </div>
           </div>
         </div>
