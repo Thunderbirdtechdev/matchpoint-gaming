@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -296,16 +296,35 @@ function PayoutsCard() {
   const [speed, setSpeed] = useState<"same_day" | "standard">("same_day");
   const listFn = useServerFn(adminListPayoutRequests);
   const qc = useQueryClient();
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["admin-payouts", speed],
-    queryFn: () => listFn({ data: { speed, limit: 100 } }) as Promise<PayoutRow[]>,
-    refetchInterval: 30_000,
+
+  const [sameResult, standardResult] = useQueries({
+    queries: [
+      {
+        queryKey: ["admin-payouts", "same_day"],
+        queryFn: () => listFn({ data: { speed: "same_day", limit: 100 } }) as Promise<PayoutRow[]>,
+        refetchInterval: 30_000,
+      },
+      {
+        queryKey: ["admin-payouts", "standard"],
+        queryFn: () => listFn({ data: { speed: "standard", limit: 100 } }) as Promise<PayoutRow[]>,
+        refetchInterval: 30_000,
+      },
+    ],
   });
 
+  const isFetching = sameResult.isFetching || standardResult.isFetching;
+  const refetch = () => {
+    qc.invalidateQueries({ queryKey: ["admin-payouts"] });
+  };
+
+  const data = speed === "same_day" ? sameResult.data : standardResult.data;
   const rows = data ?? [];
   const pending = rows.filter((r) => r.status === "pending" || r.status === "processing");
   const history = rows.filter((r) => r.status !== "pending" && r.status !== "processing");
   const owed = pending.reduce((sum, r) => sum + r.net_cents, 0);
+
+  const samePending = (sameResult.data ?? []).filter((r) => r.status === "pending" || r.status === "processing").length;
+  const standardPending = (standardResult.data ?? []).filter((r) => r.status === "pending" || r.status === "processing").length;
 
   const speedLabel = speed === "same_day" ? "Same-day" : "Standard";
   const speedHint = speed === "same_day" ? "30 min – 5 hr SLA" : "2–5 business days SLA";
@@ -335,12 +354,26 @@ function PayoutsCard() {
       <div className="p-6">
         <Tabs value={speed} onValueChange={(v) => setSpeed(v as "same_day" | "standard")}>
           <TabsList>
-            <TabsTrigger value="same_day">Same-day</TabsTrigger>
-            <TabsTrigger value="standard">Standard</TabsTrigger>
+            <TabsTrigger value="same_day" className="flex items-center gap-1.5">
+              Same-day
+              {samePending > 0 && (
+                <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
+                  {samePending}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="standard" className="flex items-center gap-1.5">
+              Standard
+              {standardPending > 0 && (
+                <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
+                  {standardPending}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value={speed} className="mt-5 space-y-6">
-            {isLoading ? (
+            {sameResult.isLoading || standardResult.isLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading payout requests…
               </div>
