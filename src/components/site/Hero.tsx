@@ -12,18 +12,16 @@ export function Hero() {
           alt=""
           width={1920}
           height={1080}
-          className="h-full w-full object-cover opacity-40"
+          className="h-full w-full object-cover opacity-25"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/75 to-background" />
-        <div className="absolute inset-0 hex-pattern opacity-60" />
-        <div className="absolute inset-0 scanlines opacity-40" />
-        {/* Neon blobs */}
-        <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-primary/30 blur-3xl animate-pulse-glow" />
-        <div className="absolute -right-32 top-40 h-72 w-72 rounded-full bg-secondary/30 blur-3xl animate-pulse-glow" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/85 to-background" />
+        {/* Soft ambient glow */}
+        <div className="absolute -left-40 top-20 h-96 w-96 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute -right-40 top-60 h-96 w-96 rounded-full bg-secondary/20 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pb-24 pt-24 sm:px-6 md:pb-32 md:pt-32">
-        <div className="mx-auto max-w-4xl text-center">
+      <div className="relative mx-auto max-w-7xl px-4 pb-28 pt-28 sm:px-6 md:pb-36 md:pt-36">
+        <div className="mx-auto max-w-4xl text-center animate-fade-in">
           <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-accent backdrop-blur">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
@@ -33,8 +31,8 @@ export function Hero() {
           </div>
 
           <h1 className="font-display text-balance text-6xl font-black uppercase leading-[0.95] tracking-tight sm:text-7xl md:text-8xl">
-            <span className="block text-glow-primary">Play. Compete.</span>
-            <span className="mt-2 block text-gradient-brand text-glow-primary">Win.</span>
+            <span className="block">Play. Compete.</span>
+            <span className="mt-2 block text-gradient-brand">Win.</span>
           </h1>
 
           <p className="mx-auto mt-8 max-w-2xl text-balance text-base text-muted-foreground sm:text-lg md:text-xl">
