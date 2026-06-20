@@ -118,13 +118,14 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .insert({
         user_id: context.userId,
         method: data.method,
+        speed: data.speed,
         handle: normalizedHandle,
         amount_cents: data.amount_cents,
         fee_cents: fee,
         net_cents: net,
         status: "pending",
         wallet_tx_id: tx.id,
-      })
+      } as never)
       .select("*")
       .single();
     if (reqErr) {
