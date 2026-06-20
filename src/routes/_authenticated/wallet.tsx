@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Mail, DollarSign, Clock } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Mail, DollarSign, Clock, Zap, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
@@ -26,6 +26,7 @@ import {
   requestManualPayout,
   listMyPayoutRequests,
 } from "@/lib/payouts.functions";
+import { calculateWithdrawalFee, type WithdrawalSpeed } from "@/lib/fees";
 
 type SearchParams = { deposit?: string; connect?: string };
 type PayoutMethod = "paypal" | "cashapp";
