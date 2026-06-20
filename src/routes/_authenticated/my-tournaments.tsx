@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trophy } from "lucide-react";
 import { toast } from "sonner";
+import { calculateTournamentFee } from "@/lib/fees";
 
 export const Route = createFileRoute("/_authenticated/my-tournaments")({
   head: () => ({ meta: [{ title: "Tournaments — MatchPoint" }] }),
@@ -94,6 +95,19 @@ function MyTournamentsPage() {
               <div className="space-y-2"><Label>Prize pool ($)</Label><Input type="number" value={form.prize_pool} onChange={(e) => setForm({ ...form, prize_pool: e.target.value })} /></div>
               <div className="space-y-2"><Label>Starts at</Label><Input type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} /></div>
             </div>
+            {(() => {
+              const fee = calculateTournamentFee(Number(form.entry_fee), Number(form.max_players));
+              return (
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+                  <div className="font-medium text-foreground">Fee preview ({fee.tierLabel} tier · {(fee.rate * 100).toFixed(0)}%)</div>
+                  <div className="mt-1 grid grid-cols-3 gap-2 text-muted-foreground">
+                    <div>Max pool<div className="font-semibold text-foreground">${fee.pool.toFixed(2)}</div></div>
+                    <div>Platform fee<div className="font-semibold text-foreground">${fee.serviceFee.toFixed(2)}</div></div>
+                    <div>Winner takes<div className="font-semibold text-accent">${fee.netPrize.toFixed(2)}</div></div>
+                  </div>
+                </div>
+              );
+            })()}
             <Button onClick={createTournament} className="w-full bg-gradient-brand text-primary-foreground">Create</Button>
           </div>
         </DialogContent>
@@ -108,11 +122,19 @@ function MyTournamentsPage() {
             </div>
             <h3 className="mt-3 text-lg font-semibold">{t.title}</h3>
             <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{t.description}</p>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-              <div><div className="text-muted-foreground">Prize</div><div className="font-bold text-accent">${Number(t.prize_pool).toFixed(0)}</div></div>
-              <div><div className="text-muted-foreground">Entry</div><div className="font-bold">${Number(t.entry_fee).toFixed(0)}</div></div>
-              <div><div className="text-muted-foreground">Players</div><div className="font-bold">{t.max_players}</div></div>
-            </div>
+            {(() => {
+              const fee = calculateTournamentFee(Number(t.entry_fee), Number(t.max_players));
+              return (
+                <>
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                    <div><div className="text-muted-foreground">Winner takes</div><div className="font-bold text-accent">${fee.netPrize.toFixed(0)}</div></div>
+                    <div><div className="text-muted-foreground">Entry</div><div className="font-bold">${Number(t.entry_fee).toFixed(0)}</div></div>
+                    <div><div className="text-muted-foreground">Players</div><div className="font-bold">{t.max_players}</div></div>
+                  </div>
+                  <div className="mt-2 text-[11px] text-muted-foreground">Pool ${fee.pool.toFixed(0)} · {(fee.rate * 100).toFixed(0)}% fee (${fee.serviceFee.toFixed(2)})</div>
+                </>
+              );
+            })()}
             <div className="mt-4 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">{new Date(t.starts_at).toLocaleString()}</span>
               {joinedIds.has(t.id) ? (
