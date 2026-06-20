@@ -200,8 +200,9 @@ export const withdrawCompanyFunds = createServerFn({ method: "POST" })
     const { data: wid, error } = await supabaseAdmin.rpc("company_wallet_withdraw", {
       _amount_cents: data.amount_cents,
       _destination: data.destination,
-      _note: data.note ?? null,
-    });
+      _note: data.note ?? undefined,
+      _created_by: context.userId,
+    } as never);
     if (error) throw new Error(error.message);
     return { ok: true, withdrawal_id: wid };
   });
