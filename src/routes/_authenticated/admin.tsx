@@ -847,3 +847,70 @@ function RevStat({ label, value, accent }: { label: string; value: string; accen
     </div>
   );
 }
+
+function StripePayoutPanel({ onDone }: { onDone: () => void }) {
+  const fetchBalance = useServerFn(getStripeBalance);
+  const payout = useServerFn(stripePayoutToBank);
+  const balQ = useQuery({ queryKey: ["stripe-balance"], queryFn: () => fetchBalance() });
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+
+  const m = useMutation({
+    mutationFn: async (mode: "all" | "amount") => {
+      if (mode === "amount") {
+        const cents = Math.round(parseFloat(amount || "0") * 100);
+        if (!cents || cents <= 0) throw new Error("Enter a valid amount");
+        return payout({ data: { amount_cents: cents, note: note.trim() || undefined } });
+      }
+      return payout({ data: { note: note.trim() || undefined } });
+    },
+    onSuccess: (r: any) => {
+      toast.success(`Stripe payout initiated · ${fmtUsd(r.amount_cents)} · ${r.status}`);
+      if (r.ledger_warning) toast.warning(`Ledger note: ${r.ledger_warning}`);
+      setAmount(""); setNote("");
+      balQ.refetch();
+      onDone();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Payout failed"),
+  });
+
+  const usd = (balQ.data?.available ?? []).find((b: any) => b.currency === "usd");
+  const pendingUsd = (balQ.data?.pending ?? []).find((b: any) => b.currency === "usd");
+  const live = balQ.data?.livemode;
+
+  return (
+    <div className="mt-5 rounded-xl border border-primary/40 bg-primary/5 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-primary">Withdraw to bank · Stripe payout</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Sends real cash from your Stripe balance to your default linked bank account.
+            {live === false ? " (Test mode)" : live ? " (Live mode)" : ""}
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => balQ.refetch()}>
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <RevStat label="Stripe available (USD)" value={fmtUsd(usd?.amount)} accent />
+        <RevStat label="Stripe pending (USD)" value={fmtUsd(pendingUsd?.amount)} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_auto_auto]">
+        <Input placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <Button onClick={() => m.mutate("amount")} disabled={m.isPending}>
+          {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Withdraw to bank"}
+        </Button>
+        <Button variant="outline" onClick={() => m.mutate("all")} disabled={m.isPending || !usd?.amount}>
+          Sweep all
+        </Button>
+      </div>
+      {balQ.error ? (
+        <p className="mt-2 text-[11px] text-destructive">{(balQ.error as any)?.message ?? "Failed to load Stripe balance"}</p>
+      ) : null}
+    </div>
+  );
+}
