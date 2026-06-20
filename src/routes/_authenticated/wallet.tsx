@@ -113,7 +113,8 @@ function WalletPage() {
   });
 
   const paypalMut = useMutation({
-    mutationFn: async (amount_cents: number) => paypalCashout({ data: { amount_cents } }),
+    mutationFn: async ({ amount_cents, paypal_email }: { amount_cents: number; paypal_email: string }) =>
+      paypalCashout({ data: { amount_cents, paypal_email } }),
     onSuccess: () => {
       toast.success("PayPal payout sent.");
       setPaypalAmount("");
@@ -276,14 +277,15 @@ function WalletPage() {
           />
           <Button
             onClick={() => {
-              if (!savedPaypal) return toast.error("Save your PayPal email first");
+              const email = paypalEmail.trim();
+              if (!email) return toast.error("Enter your PayPal email");
               const n = Number(paypalAmount);
               if (!n || n < 1) return toast.error("Enter a valid amount");
               const cents = Math.round(n * 100);
               if (cents > balance) return toast.error("Exceeds balance");
               setConfirmOpen(true);
             }}
-            disabled={paypalMut.isPending || balance <= 0 || !savedPaypal}
+            disabled={paypalMut.isPending || balance <= 0 || !paypalEmail.trim()}
           >
             {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send to PayPal"}
           </Button>
@@ -367,7 +369,7 @@ function WalletPage() {
                 const net = Math.max(0, gross - fee);
                 return (
                   <div className="space-y-3 text-sm">
-                    <p>Send funds from your wallet to <span className="font-medium">{savedPaypal}</span>?</p>
+                    <p>Send funds from your wallet to <span className="font-medium">{paypalEmail.trim()}</span>?</p>
                     <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
                       <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (5%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
@@ -386,7 +388,10 @@ function WalletPage() {
               onClick={(e) => {
                 e.preventDefault();
                 const cents = Math.round(Number(paypalAmount) * 100);
-                paypalMut.mutate(cents, { onSettled: () => setConfirmOpen(false) });
+                paypalMut.mutate(
+                  { amount_cents: cents, paypal_email: paypalEmail.trim() },
+                  { onSettled: () => setConfirmOpen(false) },
+                );
               }}
             >
               {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm withdrawal"}
