@@ -124,6 +124,23 @@ export const createPaypalCashout = createServerFn({ method: "POST" })
       throw pErr ?? new Error("Failed to create payout record");
     }
 
+    // Record collected platform fee in the platform_fees ledger
+    await supabaseAdmin.from("platform_fees").insert({
+      source: "paypal_payout",
+      user_id: context.userId,
+      amount_cents: fee,
+      currency,
+      gross_cents: gross,
+      net_cents: net,
+      reference_id: payoutRow.id,
+      metadata: {
+        recipient_email: recipient,
+        wallet_tx_id: withdrawalTx?.id ?? null,
+        fee_rate: 0.05,
+      },
+    });
+
+
     // Call PayPal
     try {
       const resp = await createPaypalPayout({
