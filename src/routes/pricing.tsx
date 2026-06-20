@@ -54,7 +54,7 @@ function PricingPage() {
       <PageHeader
         eyebrow="Pricing"
         title={<>Free to play. <span className="text-gradient-gold">Built to win.</span></>}
-        description="No platform fees on prize winnings. Upgrade for instant payouts and pro tooling."
+        description="Start competing today. Free for players, custom solutions for organizations."
       />
 
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
