@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { joinTournament as joinFn, declareTournamentWinner, cancelTournament } from "@/lib/matches.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trophy } from "lucide-react";
+import { Plus, Trophy, Crown, X } from "lucide-react";
 import { toast } from "sonner";
 import { calculateTournamentFee } from "@/lib/fees";
 
