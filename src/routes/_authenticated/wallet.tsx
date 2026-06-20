@@ -399,7 +399,7 @@ function WalletPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Confirm {speed === "same_day" ? "same_day" : "standard"} {method === "paypal" ? "PayPal" : "Cash App"} payout
+              Confirm {speed === "same_day" ? "same-day" : "standard"} {method === "paypal" ? "PayPal" : "Cash App"} payout
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               {(() => {
