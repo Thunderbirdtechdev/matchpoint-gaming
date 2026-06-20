@@ -122,7 +122,7 @@ function WalletPage() {
 
   return (
     <DashboardShell title="Wallet" subtitle="Deposit, track winnings, and cash out.">
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Balance */}
         <div className="rounded-2xl border border-border/60 bg-gradient-brand p-8 text-primary-foreground">
           <Wallet className="h-7 w-7" />
@@ -169,87 +169,87 @@ function WalletPage() {
             </Button>
           </div>
         </div>
-
-        {/* Cash out / Bank — paused */}
-        <div className="rounded-2xl border border-border/60 bg-card p-6 opacity-70">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Banknote className="h-4 w-4" /> Bank cash out
-            <span className="ml-auto rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-              Coming soon
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Direct-to-bank payouts via Stripe are temporarily paused while we finalize Connect onboarding.
-            Use PayPal or the new crypto cash-out below.
-          </p>
-          <Button className="mt-4 w-full" disabled variant="outline">
-            Set up payouts <ExternalLink className="ml-2 h-4 w-4" />
-          </Button>
-          {connect && (
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              {payoutsReady ? "Your bank account is verified — withdrawals will re-enable soon." : "Verification in progress."}
-            </p>
-          )}
-        </div>
       </div>
 
-      {/* PayPal cash-out */}
+      {/* Cash out — manual PayPal / Cash App */}
       <div className="mt-6 rounded-2xl border border-border/60 bg-card p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Mail className="h-4 w-4" /> Cash out to PayPal
+          <ArrowUpCircle className="h-4 w-4" /> Cash out
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Send funds directly to your PayPal account. A 5% platform fee (min $0.25) is deducted from each payout.
-          Sandbox mode — no real money moves.
+          Choose a payout method and submit a request. Payouts are processed manually and typically arrive in
+          <span className="font-medium text-foreground"> 2–24 hours</span>. A 5% platform fee (min $0.25) is deducted.
         </p>
 
+        {/* Method selector */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={method === "paypal" ? "default" : "outline"}
+            onClick={() => setMethod("paypal")}
+            className="justify-start"
+          >
+            <Mail className="mr-2 h-4 w-4" /> PayPal
+          </Button>
+          <Button
+            type="button"
+            variant={method === "cashapp" ? "default" : "outline"}
+            onClick={() => setMethod("cashapp")}
+            className="justify-start"
+          >
+            <DollarSign className="mr-2 h-4 w-4" /> Cash App
+          </Button>
+        </div>
+
+        {/* Handle */}
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
           <Input
-            type="email"
-            value={paypalEmail}
-            onChange={(e) => setPaypalEmail(e.target.value)}
-            placeholder="your-paypal@example.com"
+            type={method === "paypal" ? "email" : "text"}
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            placeholder={method === "paypal" ? "your-paypal@example.com" : "$yourcashtag"}
           />
           <Button
             variant="outline"
             onClick={() => {
-              const v = paypalEmail.trim();
-              if (!v) return toast.error("Enter your PayPal email");
-              savePaypalMut.mutate(v);
+              const v = handle.trim();
+              if (!v) return toast.error(method === "paypal" ? "Enter your PayPal email" : "Enter your $cashtag");
+              saveHandleMut.mutate();
             }}
-            disabled={savePaypalMut.isPending || !paypalEmail || paypalEmail === savedPaypal}
+            disabled={saveHandleMut.isPending || !handle.trim() || handle.trim() === (savedHandle ?? "")}
           >
-            {savePaypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : savedPaypal ? "Update email" : "Save email"}
+            {saveHandleMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : savedHandle ? "Update" : "Save"}
           </Button>
         </div>
 
+        {/* Amount */}
         <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
           <Input
             type="number"
-            min={1}
+            min={5}
             max={balance / 100}
-            value={paypalAmount}
-            onChange={(e) => setPaypalAmount(e.target.value)}
-            placeholder="Amount USD"
-            disabled={!paypalEmail.trim()}
+            value={payoutAmount}
+            onChange={(e) => setPayoutAmount(e.target.value)}
+            placeholder="Amount USD (min $5)"
+            disabled={!handle.trim()}
           />
           <Button
             onClick={() => {
-              const email = paypalEmail.trim();
-              if (!email) return toast.error("Enter your PayPal email");
-              const n = Number(paypalAmount);
-              if (!n || n < 1) return toast.error("Enter a valid amount");
+              if (!handle.trim()) return toast.error("Enter your payout details");
+              const n = Number(payoutAmount);
+              if (!n || n < 5) return toast.error("Minimum payout is $5");
               const cents = Math.round(n * 100);
               if (cents > balance) return toast.error("Exceeds balance");
               setConfirmOpen(true);
             }}
-            disabled={paypalMut.isPending || balance <= 0 || !paypalEmail.trim()}
+            disabled={payoutMut.isPending || balance <= 0 || !handle.trim()}
           >
-            {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send to PayPal"}
+            {payoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request payout"}
           </Button>
         </div>
-        {paypalAmount && Number(paypalAmount) > 0 && (() => {
-          const gross = Math.round(Number(paypalAmount) * 100);
+
+        {payoutAmount && Number(payoutAmount) > 0 && (() => {
+          const gross = Math.round(Number(payoutAmount) * 100);
           const fee = Math.max(Math.round(gross * 0.05), 25);
           const net = Math.max(0, gross - fee);
           return (
@@ -260,121 +260,37 @@ function WalletPage() {
             </div>
           );
         })()}
-      </div>
 
-      {/* Crypto cash-out */}
-      <div className="mt-6 rounded-2xl border border-border/60 bg-card p-6">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          {cryptoCurrency === "BTC" ? <Bitcoin className="h-4 w-4" /> : <Coins className="h-4 w-4" />}
-          Cash out to crypto
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          USDC on Base auto-sends instantly (~$0.01 network fee). BTC payouts are queued for fulfillment.
-          A 1% platform fee (min $0.25) is deducted from each payout.
-        </p>
-
-        <div className="mt-4 flex gap-2">
-          {(["USDC", "BTC"] as const).map((c) => (
-            <Button
-              key={c}
-              size="sm"
-              variant={cryptoCurrency === c ? "default" : "outline"}
-              onClick={() => setCryptoCurrency(c)}
-            >
-              {c === "BTC" ? <Bitcoin className="mr-1 h-3.5 w-3.5" /> : <Coins className="mr-1 h-3.5 w-3.5" />}
-              {c}
-            </Button>
-          ))}
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Input
-            value={cryptoAddr}
-            onChange={(e) => setCryptoAddr(e.target.value)}
-            placeholder={cryptoCurrency === "USDC" ? "0x… (Base network)" : "bc1… or 1… / 3…"}
-            className="font-mono text-xs"
-          />
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (!cryptoAddr.trim()) return toast.error("Enter an address");
-              saveAddrMut.mutate();
-            }}
-            disabled={saveAddrMut.isPending || !cryptoAddr.trim() || cryptoAddr.trim() === savedAddrForCurrency}
-          >
-            {saveAddrMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAddrForCurrency ? "Update" : "Save"}
-          </Button>
-        </div>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Input
-            type="number"
-            min={5}
-            max={balance / 100}
-            value={cryptoAmount}
-            onChange={(e) => setCryptoAmount(e.target.value)}
-            placeholder="Amount USD (min $5)"
-            disabled={!savedAddrForCurrency}
-          />
-          <Button
-            onClick={() => {
-              const n = Number(cryptoAmount);
-              if (!n || n < 5) return toast.error("Minimum payout is $5");
-              const cents = Math.round(n * 100);
-              if (cents > balance) return toast.error("Exceeds balance");
-              cryptoMut.mutate(cents);
-            }}
-            disabled={cryptoMut.isPending || balance <= 0 || !savedAddrForCurrency}
-          >
-            {cryptoMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Send ${cryptoCurrency}`}
-          </Button>
-        </div>
-
-        {cryptoAmount && Number(cryptoAmount) > 0 && (() => {
-          const gross = Math.round(Number(cryptoAmount) * 100);
-          const fee = Math.max(Math.round(gross * 0.01), 25);
-          const net = Math.max(0, gross - fee);
-          return (
-            <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-              <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (1%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
-              <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">≈ {fmt(net)} in {cryptoCurrency}</span></div>
-            </div>
-          );
-        })()}
-
-        {cryptoPayoutHistory && cryptoPayoutHistory.length > 0 && (
-          <div className="mt-4 border-t border-border/60 pt-3">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recent crypto payouts</div>
+        {payouts && payouts.length > 0 && (
+          <div className="mt-5 border-t border-border/60 pt-4">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recent payout requests</div>
             <ul className="mt-2 space-y-1.5">
-              {cryptoPayoutHistory.slice(0, 5).map((p) => (
+              {payouts.slice(0, 8).map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-mono text-muted-foreground">
-                    {new Date(p.created_at).toLocaleDateString()} · {p.currency} · {fmt(p.amount_cents)}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className={
-                      p.status === "sent" ? "text-emerald-500" :
-                      p.status === "failed" ? "text-rose-500" :
-                      "text-amber-500"
-                    }>{p.status}</span>
-                    {p.tx_hash && p.network === "base" && (
-                      <a
-                        href={`https://basescan.org/tx/${p.tx_hash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline"
-                      >
-                        view <ExternalLink className="h-3 w-3" />
-                      </a>
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    {p.status === "pending" || p.status === "processing" ? (
+                      <Clock className="h-3 w-3 text-amber-500" />
+                    ) : p.method === "paypal" ? (
+                      <Mail className="h-3 w-3" />
+                    ) : (
+                      <DollarSign className="h-3 w-3" />
                     )}
+                    <span className="font-mono">
+                      {new Date(p.created_at).toLocaleDateString()} · {p.method === "paypal" ? "PayPal" : "Cash App"} · {fmt(p.amount_cents)}
+                    </span>
                   </span>
+                  <span className={
+                    p.status === "paid" ? "text-emerald-500" :
+                    p.status === "failed" || p.status === "canceled" ? "text-rose-500" :
+                    "text-amber-500"
+                  }>{p.status}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
       </div>
+
 
 
 
