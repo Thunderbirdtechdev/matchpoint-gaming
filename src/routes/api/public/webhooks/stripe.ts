@@ -32,7 +32,8 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
 
         try {
           switch (event.type) {
-            case "checkout.session.completed": {
+            case "checkout.session.completed":
+            case "checkout.session.async_payment_succeeded": {
               const session = event.data.object as Stripe.Checkout.Session;
               if (
                 session.metadata?.kind === "wallet_deposit" &&
@@ -46,6 +47,30 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
                   paymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
                 });
               }
+              break;
+            }
+            case "charge.refunded": {
+              const charge = event.data.object as Stripe.Charge;
+              const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+              if (piId) {
+                await refundDeposit({
+                  paymentIntentId: piId,
+                  refundedCents: charge.amount_refunded ?? 0,
+                  chargeId: charge.id,
+                });
+              }
+              break;
+            }
+            case "transfer.reversed": {
+              const transfer = event.data.object as Stripe.Transfer;
+              await reverseCashout({ transferId: transfer.id });
+              break;
+            }
+            case "payout.paid":
+            case "payout.failed": {
+              // Connected-account payout to the user's bank. We don't change
+              // wallet state here (the cashout is already reflected); we just
+              // record the event so it's visible in stripe_events for audit.
               break;
             }
             case "account.updated": {
