@@ -5,6 +5,16 @@ import { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, ExternalLink, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -14,6 +24,7 @@ import {
   createCashout,
 } from "@/lib/wallet.functions";
 import { savePaypalEmail, createPaypalCashout } from "@/lib/paypal.functions";
+
 
 type SearchParams = { deposit?: string; connect?: string };
 
@@ -48,6 +59,8 @@ function WalletPage() {
   const [cashoutAmount, setCashoutAmount] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
   const [paypalAmount, setPaypalAmount] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["wallet"],
@@ -268,19 +281,27 @@ function WalletPage() {
               if (!n || n < 1) return toast.error("Enter a valid amount");
               const cents = Math.round(n * 100);
               if (cents > balance) return toast.error("Exceeds balance");
-              paypalMut.mutate(cents);
+              setConfirmOpen(true);
             }}
             disabled={paypalMut.isPending || balance <= 0 || !savedPaypal}
           >
             {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send to PayPal"}
           </Button>
         </div>
-        {paypalAmount && Number(paypalAmount) > 0 && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            You'll receive {fmt(Math.max(0, Math.round(Number(paypalAmount) * 100) - Math.max(Math.round(Number(paypalAmount) * 100 * 0.05), 25)))} after fee.
-          </p>
-        )}
+        {paypalAmount && Number(paypalAmount) > 0 && (() => {
+          const gross = Math.round(Number(paypalAmount) * 100);
+          const fee = Math.max(Math.round(gross * 0.05), 25);
+          const net = Math.max(0, gross - fee);
+          return (
+            <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+              <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (5%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
+              <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(net)}</span></div>
+            </div>
+          );
+        })()}
       </div>
+
 
 
       {/* Transactions */}
@@ -294,6 +315,10 @@ function WalletPage() {
           <ul className="divide-y divide-border/60">
             {data.transactions.map((t) => {
               const credit = t.amount_cents >= 0;
+              const meta = (t.metadata as Record<string, unknown> | null) ?? {};
+              const feeCents = typeof meta.fee_cents === "number" ? meta.fee_cents : null;
+              const netCents = typeof meta.net_cents === "number" ? meta.net_cents : null;
+              const recipient = typeof meta.recipient_email === "string" ? meta.recipient_email : null;
               return (
                 <li key={t.id} className="flex items-center justify-between px-6 py-3 text-sm">
                   <div className="flex items-center gap-3">
@@ -303,17 +328,68 @@ function WalletPage() {
                       <div className="text-xs text-muted-foreground">
                         {new Date(t.created_at).toLocaleString()} {t.description ? `· ${t.description}` : ""}
                       </div>
+                      {feeCents !== null && (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          Fee {fmt(feeCents)}
+                          {netCents !== null && <> · Net {fmt(netCents)}</>}
+                          {recipient && <> · → {recipient}</>}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className={credit ? "font-medium text-emerald-500" : "font-medium text-rose-500"}>
-                    {credit ? "+" : ""}{fmt(t.amount_cents)}
+                  <div className="text-right">
+                    <div className={credit ? "font-medium text-emerald-500" : "font-medium text-rose-500"}>
+                      {credit ? "+" : ""}{fmt(t.amount_cents)}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground capitalize">{t.status}</div>
                   </div>
                 </li>
               );
             })}
+
           </ul>
         )}
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm PayPal withdrawal</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              {(() => {
+                const gross = Math.round(Number(paypalAmount || 0) * 100);
+                const fee = Math.max(Math.round(gross * 0.05), 25);
+                const net = Math.max(0, gross - fee);
+                return (
+                  <div className="space-y-3 text-sm">
+                    <p>Send funds from your wallet to <span className="font-medium">{savedPaypal}</span>?</p>
+                    <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (5%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
+                      <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(net)}</span></div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">A receipt will be emailed to you once email is configured for this project.</p>
+                  </div>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={paypalMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={paypalMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                const cents = Math.round(Number(paypalAmount) * 100);
+                paypalMut.mutate(cents, { onSettled: () => setConfirmOpen(false) });
+              }}
+            >
+              {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm withdrawal"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardShell>
   );
 }
+
