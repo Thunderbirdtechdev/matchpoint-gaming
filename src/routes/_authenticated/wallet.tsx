@@ -59,6 +59,8 @@ function WalletPage() {
   const [cashoutAmount, setCashoutAmount] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
   const [paypalAmount, setPaypalAmount] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["wallet"],
