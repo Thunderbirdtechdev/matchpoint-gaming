@@ -99,7 +99,7 @@ function DashboardPage() {
         <section className="rounded-2xl border border-border/60 bg-gradient-card p-6 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Upcoming tournaments</h2>
-            <Button asChild size="sm" variant="ghost"><Link to="/tournaments">Browse all</Link></Button>
+            <Button asChild size="sm" variant="ghost"><Link to="/my-tournaments">My tournaments</Link></Button>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {upcoming?.length ? upcoming.map((t) => (

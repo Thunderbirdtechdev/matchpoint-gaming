@@ -27,7 +27,7 @@ export function CTA() {
                 </Link>
               </Button>
               <Button size="lg" variant="outline" className="border-border/80 bg-surface/40 hover:bg-surface" asChild>
-                <Link to="/tournaments">Browse Competitions</Link>
+                <Link to="/games">Browse Games</Link>
               </Button>
             </div>
             <div className="mt-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">
