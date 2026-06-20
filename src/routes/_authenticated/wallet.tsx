@@ -41,9 +41,13 @@ function WalletPage() {
   const deposit = useServerFn(createDepositCheckout);
   const onboard = useServerFn(createConnectOnboarding);
   const cashout = useServerFn(createCashout);
+  const savePaypal = useServerFn(savePaypalEmail);
+  const paypalCashout = useServerFn(createPaypalCashout);
 
   const [depositAmount, setDepositAmount] = useState("25");
   const [cashoutAmount, setCashoutAmount] = useState("");
+  const [paypalEmail, setPaypalEmail] = useState("");
+  const [paypalAmount, setPaypalAmount] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["wallet"],
