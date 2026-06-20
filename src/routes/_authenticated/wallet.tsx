@@ -227,7 +227,7 @@ function WalletPage() {
           <Mail className="h-4 w-4" /> Cash out to PayPal
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Send funds directly to your PayPal account. A 2% platform fee (min $0.25) is deducted from each payout.
+          Send funds directly to your PayPal account. A 5% platform fee (min $0.25) is deducted from each payout.
           Sandbox mode — no real money moves.
         </p>
 
@@ -277,7 +277,7 @@ function WalletPage() {
         </div>
         {paypalAmount && Number(paypalAmount) > 0 && (
           <p className="mt-2 text-[11px] text-muted-foreground">
-            You'll receive {fmt(Math.max(0, Math.round(Number(paypalAmount) * 100) - Math.max(Math.round(Number(paypalAmount) * 100 * 0.02), 25)))} after fee.
+            You'll receive {fmt(Math.max(0, Math.round(Number(paypalAmount) * 100) - Math.max(Math.round(Number(paypalAmount) * 100 * 0.05), 25)))} after fee.
           </p>
         )}
       </div>
