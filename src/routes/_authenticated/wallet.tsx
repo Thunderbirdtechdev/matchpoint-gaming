@@ -350,44 +350,50 @@ function WalletPage() {
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm PayPal withdrawal</AlertDialogTitle>
+            <AlertDialogTitle>
+              Confirm {method === "paypal" ? "PayPal" : "Cash App"} payout
+            </AlertDialogTitle>
             <AlertDialogDescription asChild>
               {(() => {
-                const gross = Math.round(Number(paypalAmount || 0) * 100);
+                const gross = Math.round(Number(payoutAmount || 0) * 100);
                 const fee = Math.max(Math.round(gross * 0.05), 25);
                 const net = Math.max(0, gross - fee);
                 return (
                   <div className="space-y-3 text-sm">
-                    <p>Send funds from your wallet to <span className="font-medium">{paypalEmail.trim()}</span>?</p>
+                    <p>
+                      Send funds to{" "}
+                      <span className="font-medium">{handle.trim()}</span> via{" "}
+                      {method === "paypal" ? "PayPal" : "Cash App"}?
+                    </p>
                     <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
                       <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (5%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
                       <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(net)}</span></div>
                     </div>
-                    <p className="text-xs text-muted-foreground">A receipt will be emailed to you once email is configured for this project.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Payouts are processed manually and typically arrive in 2–24 hours.
+                    </p>
                   </div>
                 );
               })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={paypalMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={payoutMut.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={paypalMut.isPending}
+              disabled={payoutMut.isPending}
               onClick={(e) => {
                 e.preventDefault();
-                const cents = Math.round(Number(paypalAmount) * 100);
-                paypalMut.mutate(
-                  { amount_cents: cents, paypal_email: paypalEmail.trim() },
-                  { onSettled: () => setConfirmOpen(false) },
-                );
+                const cents = Math.round(Number(payoutAmount) * 100);
+                payoutMut.mutate(cents, { onSettled: () => setConfirmOpen(false) });
               }}
             >
-              {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm withdrawal"}
+              {payoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit request"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </DashboardShell>
   );
 }
