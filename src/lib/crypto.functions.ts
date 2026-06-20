@@ -67,6 +67,55 @@ export const listCryptoAddresses = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+/** Admin-only: hot wallet address + on-chain USDC/ETH balances + recent payouts. */
+export const getHotWalletStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: isAdmin, error: roleErr } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (roleErr) throw roleErr;
+    if (!isAdmin) throw new Error("Forbidden");
+
+    const { getHotWalletInfo, getHotWalletBalances } = await import("./crypto.server");
+    const info = getHotWalletInfo();
+    if (!info.configured || !info.address) {
+      return {
+        configured: false as const,
+        address: null,
+        usdc: null,
+        eth: null,
+        explorerUrl: null,
+        recentPayouts: [],
+      };
+    }
+
+    const balances = await getHotWalletBalances().catch((e: unknown) => ({
+      error: e instanceof Error ? e.message : String(e),
+      usdc: null as number | null,
+      eth: null as number | null,
+    }));
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: recent } = await supabaseAdmin
+      .from("crypto_payouts")
+      .select("*")
+      .eq("network", "base")
+      .order("created_at", { ascending: false })
+      .limit(25);
+
+    return {
+      configured: true as const,
+      address: info.address,
+      usdc: balances.usdc,
+      eth: balances.eth,
+      error: "error" in balances ? balances.error : null,
+      explorerUrl: `https://basescan.org/address/${info.address}`,
+      recentPayouts: recent ?? [],
+    };
+  });
+
 /** List recent crypto payouts for the current user. */
 export const listCryptoPayouts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
