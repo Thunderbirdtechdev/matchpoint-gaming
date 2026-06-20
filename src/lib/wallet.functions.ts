@@ -43,7 +43,18 @@ export const getMyWallet = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
 
-    return { wallet, transactions: transactions ?? [], connect: connect ?? null };
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("paypal_email")
+      .eq("id", context.userId)
+      .maybeSingle();
+
+    return {
+      wallet,
+      transactions: transactions ?? [],
+      connect: connect ?? null,
+      paypal_email: profile?.paypal_email ?? null,
+    };
   });
 
 /** Creates a Stripe Checkout session to top up the wallet. Returns the URL. */

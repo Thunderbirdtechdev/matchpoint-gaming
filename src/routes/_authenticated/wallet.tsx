@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, ExternalLink, Loader2 } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, ExternalLink, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
@@ -13,6 +13,7 @@ import {
   createConnectOnboarding,
   createCashout,
 } from "@/lib/wallet.functions";
+import { savePaypalEmail, createPaypalCashout } from "@/lib/paypal.functions";
 
 type SearchParams = { deposit?: string; connect?: string };
 
@@ -40,9 +41,13 @@ function WalletPage() {
   const deposit = useServerFn(createDepositCheckout);
   const onboard = useServerFn(createConnectOnboarding);
   const cashout = useServerFn(createCashout);
+  const savePaypal = useServerFn(savePaypalEmail);
+  const paypalCashout = useServerFn(createPaypalCashout);
 
   const [depositAmount, setDepositAmount] = useState("25");
   const [cashoutAmount, setCashoutAmount] = useState("");
+  const [paypalEmail, setPaypalEmail] = useState("");
+  const [paypalAmount, setPaypalAmount] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["wallet"],
@@ -85,9 +90,32 @@ function WalletPage() {
     onError: (e: Error) => toast.error(e.message || "Cash-out failed"),
   });
 
+  const savePaypalMut = useMutation({
+    mutationFn: async (email: string) => savePaypal({ data: { paypal_email: email } }),
+    onSuccess: () => {
+      toast.success("PayPal email saved.");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not save PayPal email"),
+  });
+
+  const paypalMut = useMutation({
+    mutationFn: async (amount_cents: number) => paypalCashout({ data: { amount_cents } }),
+    onSuccess: () => {
+      toast.success("PayPal payout sent.");
+      setPaypalAmount("");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "PayPal payout failed"),
+  });
+
   const balance = data?.wallet?.balance_cents ?? 0;
   const connect = data?.connect;
+  const savedPaypal = data?.paypal_email ?? null;
   const payoutsReady = !!connect?.payouts_enabled;
+  useEffect(() => {
+    if (savedPaypal && !paypalEmail) setPaypalEmail(savedPaypal);
+  }, [savedPaypal, paypalEmail]);
 
   return (
     <DashboardShell title="Wallet" subtitle="Deposit, track winnings, and cash out.">
@@ -192,6 +220,68 @@ function WalletPage() {
           )}
         </div>
       </div>
+
+      {/* PayPal cash-out */}
+      <div className="mt-6 rounded-2xl border border-border/60 bg-card p-6">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Mail className="h-4 w-4" /> Cash out to PayPal
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Send funds directly to your PayPal account. A 2% platform fee (min $0.25) is deducted from each payout.
+          Sandbox mode — no real money moves.
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <Input
+            type="email"
+            value={paypalEmail}
+            onChange={(e) => setPaypalEmail(e.target.value)}
+            placeholder="your-paypal@example.com"
+          />
+          <Button
+            variant="outline"
+            onClick={() => {
+              const v = paypalEmail.trim();
+              if (!v) return toast.error("Enter your PayPal email");
+              savePaypalMut.mutate(v);
+            }}
+            disabled={savePaypalMut.isPending || !paypalEmail || paypalEmail === savedPaypal}
+          >
+            {savePaypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : savedPaypal ? "Update email" : "Save email"}
+          </Button>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <Input
+            type="number"
+            min={1}
+            max={balance / 100}
+            value={paypalAmount}
+            onChange={(e) => setPaypalAmount(e.target.value)}
+            placeholder="Amount USD"
+            disabled={!savedPaypal}
+          />
+          <Button
+            onClick={() => {
+              if (!savedPaypal) return toast.error("Save your PayPal email first");
+              const n = Number(paypalAmount);
+              if (!n || n < 1) return toast.error("Enter a valid amount");
+              const cents = Math.round(n * 100);
+              if (cents > balance) return toast.error("Exceeds balance");
+              paypalMut.mutate(cents);
+            }}
+            disabled={paypalMut.isPending || balance <= 0 || !savedPaypal}
+          >
+            {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send to PayPal"}
+          </Button>
+        </div>
+        {paypalAmount && Number(paypalAmount) > 0 && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            You'll receive {fmt(Math.max(0, Math.round(Number(paypalAmount) * 100) - Math.max(Math.round(Number(paypalAmount) * 100 * 0.02), 25)))} after fee.
+          </p>
+        )}
+      </div>
+
 
       {/* Transactions */}
       <div className="mt-8 rounded-2xl border border-border/60 bg-card">
