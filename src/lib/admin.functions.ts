@@ -50,3 +50,96 @@ export const adminCreditWallet = createServerFn({ method: "POST" })
 
     return { ok: true, user_id: userId, balance_cents: newBalance };
   });
+
+const RoleEnum = z.enum(["admin", "moderator", "user"]);
+
+async function resolveUserId(target: string): Promise<string> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  if (UUID_RE.test(target)) return target;
+  // Try username on profiles first
+  const handle = target.trim().replace(/^@/, "");
+  const { data: prof } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .ilike("username", handle)
+    .maybeSingle();
+  if (prof?.id) return prof.id;
+  // Fall back to auth email lookup
+  const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+  if (error) throw error;
+  const match = list.users.find((u) => u.email?.toLowerCase() === target.toLowerCase());
+  if (!match) throw new Error(`No user found for "${target}"`);
+  return match.id;
+}
+
+async function assertCallerIsAdmin(ctx: { supabase: any; userId: string }) {
+  const { data: isAdmin, error } = await ctx.supabase.rpc("has_role", {
+    _user_id: ctx.userId,
+    _role: "admin",
+  });
+  if (error) throw error;
+  if (!isAdmin) throw new Error("Forbidden");
+}
+
+const GrantRoleSchema = z.object({
+  target: z.string().trim().min(1),
+  role: RoleEnum,
+});
+
+/** Admin-only: grant a role to a user (by uuid, username, or email). */
+export const adminGrantRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => GrantRoleSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertCallerIsAdmin(context);
+    const userId = await resolveUserId(data.target);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: data.role }, { onConflict: "user_id,role" } as never);
+    if (error) throw error;
+    return { ok: true, user_id: userId, role: data.role };
+  });
+
+/** Admin-only: revoke a role from a user. Cannot revoke your own admin. */
+export const adminRevokeRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => GrantRoleSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertCallerIsAdmin(context);
+    const userId = await resolveUserId(data.target);
+    if (data.role === "admin" && userId === context.userId) {
+      throw new Error("You can't revoke your own admin role.");
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", userId)
+      .eq("role", data.role);
+    if (error) throw error;
+    return { ok: true, user_id: userId, role: data.role };
+  });
+
+/** Admin-only: list all users with admin or moderator role. */
+export const adminListStaff = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertCallerIsAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roleRows, error } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role, created_at")
+      .in("role", ["admin", "moderator"])
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const ids = Array.from(new Set((roleRows ?? []).map((r) => r.user_id)));
+    if (!ids.length) return [];
+    const { data: profs } = await supabaseAdmin
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .in("id", ids);
+    const byId = new Map((profs ?? []).map((p) => [p.id, p]));
+    return (roleRows ?? []).map((r) => ({ ...r, profile: byId.get(r.user_id) ?? null }));
+  });
+
