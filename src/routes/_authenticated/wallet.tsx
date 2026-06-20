@@ -399,13 +399,12 @@ function WalletPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Confirm {method === "paypal" ? "PayPal" : "Cash App"} payout
+              Confirm {speed === "instant" ? "instant" : "standard"} {method === "paypal" ? "PayPal" : "Cash App"} payout
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               {(() => {
                 const gross = Math.round(Number(payoutAmount || 0) * 100);
-                const fee = Math.max(Math.round(gross * 0.05), 25);
-                const net = Math.max(0, gross - fee);
+                const b = calculateWithdrawalFee(gross, speed);
                 return (
                   <div className="space-y-3 text-sm">
                     <p>
@@ -414,13 +413,18 @@ function WalletPage() {
                       {method === "paypal" ? "PayPal" : "Cash App"}?
                     </p>
                     <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (5%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
-                      <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(net)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          {speed === "instant" ? `Instant fee (${b.tierLabel})` : "Standard fee"}
+                        </span>
+                        <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
+                          {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span></div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Payouts are processed manually and typically arrive in 2–24 hours.
-                    </p>
+                    <p className="text-xs text-muted-foreground">{b.etaLabel}.</p>
                   </div>
                 );
               })()}
