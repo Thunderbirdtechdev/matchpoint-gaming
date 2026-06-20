@@ -125,3 +125,144 @@ function AdminCreditWalletCard() {
     </div>
   );
 }
+
+function HotWalletCard({ isAdmin }: { isAdmin: boolean }) {
+  const statusFn = useServerFn(getHotWalletStatus);
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["hot-wallet-status"],
+    enabled: isAdmin,
+    queryFn: () => statusFn({}),
+    refetchInterval: 30_000,
+  });
+
+  if (!isAdmin) return null;
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Address copied");
+  };
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Wallet className="h-4 w-4" /> Payout hot wallet — USDC on Base
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading on-chain balances…
+        </div>
+      ) : !data?.configured ? (
+        <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+          <p className="font-medium text-amber-200">Hot wallet not configured.</p>
+          <p className="mt-1 text-xs text-amber-100/80">
+            Add the secret <code className="rounded bg-black/30 px-1">HOT_WALLET_EVM_PRIVATE_KEY</code> (an
+            EVM private key) in project settings. Then send USDC on Base to the address shown here.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
+              <div className="text-xs uppercase text-muted-foreground">USDC balance</div>
+              <div className="mt-1 text-2xl font-semibold">
+                {data.usdc != null ? `$${data.usdc.toFixed(2)}` : "—"}
+              </div>
+              <div className="text-xs text-muted-foreground">Available for payouts</div>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
+              <div className="text-xs uppercase text-muted-foreground">ETH (gas)</div>
+              <div className="mt-1 text-2xl font-semibold">
+                {data.eth != null ? data.eth.toFixed(5) : "—"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Needed for every send. Keep ~0.001+ ETH.
+              </div>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
+              <div className="text-xs uppercase text-muted-foreground">Recent sends</div>
+              <div className="mt-1 text-2xl font-semibold">{data.recentPayouts.length}</div>
+              <div className="text-xs text-muted-foreground">Last 25 USDC payouts</div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-border/60 bg-surface/40 p-3">
+            <div className="text-xs uppercase text-muted-foreground">Wallet address (Base)</div>
+            <div className="mt-1 flex items-center gap-2">
+              <code className="break-all rounded bg-black/30 px-2 py-1 text-xs">{data.address}</code>
+              <Button size="sm" variant="ghost" onClick={() => copy(data.address!)}>
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+              <a
+                href={data.explorerUrl!}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                BaseScan <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Send <strong>USDC on Base</strong> (contract{" "}
+              <code>0x8335…2913</code>) to this address from any exchange or wallet. Funds appear here
+              within ~30 seconds of confirmation.
+            </p>
+          </div>
+
+          {data.error && (
+            <p className="mt-3 text-xs text-destructive">RPC error: {data.error}</p>
+          )}
+
+          {data.recentPayouts.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-lg border border-border/60">
+              <table className="w-full text-xs">
+                <thead className="bg-surface/50 uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">When</th>
+                    <th className="px-3 py-2 text-left">To</th>
+                    <th className="px-3 py-2 text-right">Amount</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Tx</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentPayouts.map((p) => (
+                    <tr key={p.id} className="border-t border-border/40">
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {new Date(p.created_at).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2">
+                        <code>{p.to_address.slice(0, 6)}…{p.to_address.slice(-4)}</code>
+                      </td>
+                      <td className="px-3 py-2 text-right">${(p.amount_cents / 100).toFixed(2)}</td>
+                      <td className="px-3 py-2">{p.status}</td>
+                      <td className="px-3 py-2">
+                        {p.tx_hash ? (
+                          <a
+                            className="text-primary hover:underline"
+                            href={`https://basescan.org/tx/${p.tx_hash}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {p.tx_hash.slice(0, 8)}…
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
