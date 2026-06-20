@@ -14,7 +14,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wider text-accent">How it works</p>
-          <h2 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
+          <h2 className="mt-3 font-display text-4xl font-black uppercase tracking-tight sm:text-5xl">
             From signup to payout in 5 steps
           </h2>
         </div>
