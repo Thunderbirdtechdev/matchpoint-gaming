@@ -227,7 +227,7 @@ function WalletPage() {
           <Mail className="h-4 w-4" /> Cash out to PayPal
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Send funds directly to your PayPal account. A 2% platform fee (min $0.25) is deducted from each payout.
+          Send funds directly to your PayPal account. A 5% platform fee (min $0.25) is deducted from each payout.
           Sandbox mode — no real money moves.
         </p>
 
