@@ -2,7 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 import {
   Trophy, LayoutDashboard, Swords, Users, Wallet, ShieldAlert, User as UserIcon,
-  ShieldCheck, BarChart3, LogOut, Gamepad2,
+  ShieldCheck, BarChart3, LogOut, Gamepad2, Banknote,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
