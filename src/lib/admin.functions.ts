@@ -308,6 +308,46 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
     } as never);
     const ledger_warning = rpcErr ? rpcErr.message : null;
 
+    // Send "initiated" notification to the admin who triggered the payout.
+    let email_warning: string | null = null;
+    try {
+      const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+      const recipient = userRes?.user?.email ?? null;
+      if (recipient) {
+        const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+        const fmt = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: currency.toUpperCase(),
+        }).format(amount / 100);
+        const arrival = payout.arrival_date
+          ? new Date(payout.arrival_date * 1000).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : null;
+        const res = await enqueueAppEmail({
+          templateName: "payout-status",
+          recipientEmail: recipient,
+          idempotencyKey: `payout-initiated-${payout.id}`,
+          templateData: {
+            status: "initiated",
+            amountFormatted: fmt,
+            currency,
+            payoutId: payout.id,
+            initiatedBy: recipient,
+            arrivalDate: arrival,
+            note: data.note ?? null,
+          },
+        });
+        if (!res.ok) email_warning = res.error;
+      } else {
+        email_warning = "no admin email on file";
+      }
+    } catch (e: any) {
+      email_warning = e?.message ?? "email send failed";
+    }
+
     return {
       ok: true,
       payout_id: payout.id as string,
@@ -316,5 +356,7 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
       arrival_date: payout.arrival_date as number | null,
       status: payout.status as string,
       ledger_warning,
+      email_warning,
     };
   });
+

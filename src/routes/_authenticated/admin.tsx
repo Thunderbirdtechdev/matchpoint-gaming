@@ -10,6 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank } from "@/lib/admin.functions";
@@ -854,19 +864,20 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
   const balQ = useQuery({ queryKey: ["stripe-balance"], queryFn: () => fetchBalance() });
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [pending, setPending] = useState<null | { mode: "all" | "amount"; cents: number }>(null);
 
   const m = useMutation({
-    mutationFn: async (mode: "all" | "amount") => {
-      if (mode === "amount") {
-        const cents = Math.round(parseFloat(amount || "0") * 100);
-        if (!cents || cents <= 0) throw new Error("Enter a valid amount");
-        return payout({ data: { amount_cents: cents, note: note.trim() || undefined } });
+    mutationFn: async (req: { mode: "all" | "amount"; cents: number }) => {
+      if (req.mode === "amount") {
+        return payout({ data: { amount_cents: req.cents, note: note.trim() || undefined } });
       }
       return payout({ data: { note: note.trim() || undefined } });
     },
     onSuccess: (r: any) => {
       toast.success(`Stripe payout initiated · ${fmtUsd(r.amount_cents)} · ${r.status}`);
       if (r.ledger_warning) toast.warning(`Ledger note: ${r.ledger_warning}`);
+      if (r.email_warning) toast.warning(`Email note: ${r.email_warning}`);
+      else toast.message("Confirmation email queued to admin inbox");
       setAmount(""); setNote("");
       balQ.refetch();
       onDone();
@@ -877,6 +888,28 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
   const usd = (balQ.data?.available ?? []).find((b: any) => b.currency === "usd");
   const pendingUsd = (balQ.data?.pending ?? []).find((b: any) => b.currency === "usd");
   const live = balQ.data?.livemode;
+
+  function requestPayout(mode: "all" | "amount") {
+    if (mode === "amount") {
+      const cents = Math.round(parseFloat(amount || "0") * 100);
+      if (!cents || cents <= 0) {
+        toast.error("Enter a valid amount");
+        return;
+      }
+      if (usd?.amount != null && cents > usd.amount) {
+        toast.error(`Amount exceeds available balance (${fmtUsd(usd.amount)})`);
+        return;
+      }
+      setPending({ mode, cents });
+    } else {
+      const cents = usd?.amount ?? 0;
+      if (!cents || cents <= 0) {
+        toast.error("No available USD balance to sweep");
+        return;
+      }
+      setPending({ mode, cents });
+    }
+  }
 
   return (
     <div className="mt-5 rounded-xl border border-primary/40 bg-primary/5 p-4">
@@ -901,16 +934,78 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_auto_auto]">
         <Input placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-        <Button onClick={() => m.mutate("amount")} disabled={m.isPending}>
+        <Button onClick={() => requestPayout("amount")} disabled={m.isPending}>
           {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Withdraw to bank"}
         </Button>
-        <Button variant="outline" onClick={() => m.mutate("all")} disabled={m.isPending || !usd?.amount}>
+        <Button variant="outline" onClick={() => requestPayout("all")} disabled={m.isPending || !usd?.amount}>
           Sweep all
         </Button>
       </div>
       {balQ.error ? (
         <p className="mt-2 text-[11px] text-destructive">{(balQ.error as any)?.message ?? "Failed to load Stripe balance"}</p>
       ) : null}
+
+      <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) setPending(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm bank payout</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're about to move real funds from your Stripe balance to your linked business bank account.
+              {live === false ? " (Test mode — no real money will move.)" : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="rounded-lg border border-border/60 bg-surface/40 p-4 text-sm">
+            <Row label="Payout amount" value={fmtUsd(pending?.cents)} bold />
+            <Row label="Currency" value="USD" />
+            <Row label="Stripe available" value={fmtUsd(usd?.amount)} />
+            <Row label="Stripe pending" value={fmtUsd(pendingUsd?.amount)} />
+            <Row
+              label="Balance after"
+              value={fmtUsd(Math.max(0, (usd?.amount ?? 0) - (pending?.cents ?? 0)))}
+            />
+            {pending?.mode === "all" ? (
+              <p className="mt-2 text-xs text-muted-foreground">Sweeping the entire available USD balance.</p>
+            ) : null}
+            {note.trim() ? (
+              <Row label="Note" value={note.trim()} />
+            ) : null}
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              A confirmation email will be sent to the admin inbox, and follow-up emails will be sent when Stripe marks the payout as in transit, paid, or failed.
+            </p>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={m.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={m.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!pending) return;
+                m.mutate(pending, {
+                  onSettled: () => setPending(null),
+                });
+              }}
+            >
+              {m.isPending ? (
+                <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Sending…</span>
+              ) : (
+                `Send ${fmtUsd(pending?.cents)} to bank`
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
+function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-1">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className={bold ? "text-base font-semibold" : "text-sm"}>{value}</span>
+    </div>
+  );
+}
+
