@@ -24,6 +24,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedPayoutsRouteImport } from './routes/_authenticated/payouts'
 import { Route as AuthenticatedMyTournamentsRouteImport } from './routes/_authenticated/my-tournaments'
 import { Route as AuthenticatedModeratorRouteImport } from './routes/_authenticated/moderator'
 import { Route as AuthenticatedDisputeCenterRouteImport } from './routes/_authenticated/dispute-center'
@@ -110,6 +111,11 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPayoutsRoute = AuthenticatedPayoutsRouteImport.update({
+  id: '/payouts',
+  path: '/payouts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMyTournamentsRoute =
   AuthenticatedMyTournamentsRouteImport.update({
     id: '/my-tournaments',
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/dispute-center': typeof AuthenticatedDisputeCenterRoute
   '/moderator': typeof AuthenticatedModeratorRoute
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
+  '/payouts': typeof AuthenticatedPayoutsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/api/public/webhooks/paypal': typeof ApiPublicWebhooksPaypalRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/dispute-center': typeof AuthenticatedDisputeCenterRoute
   '/moderator': typeof AuthenticatedModeratorRoute
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
+  '/payouts': typeof AuthenticatedPayoutsRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/api/public/webhooks/paypal': typeof ApiPublicWebhooksPaypalRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/_authenticated/dispute-center': typeof AuthenticatedDisputeCenterRoute
   '/_authenticated/moderator': typeof AuthenticatedModeratorRoute
   '/_authenticated/my-tournaments': typeof AuthenticatedMyTournamentsRoute
+  '/_authenticated/payouts': typeof AuthenticatedPayoutsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/api/public/webhooks/paypal': typeof ApiPublicWebhooksPaypalRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/dispute-center'
     | '/moderator'
     | '/my-tournaments'
+    | '/payouts'
     | '/profile'
     | '/wallet'
     | '/api/public/webhooks/paypal'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/dispute-center'
     | '/moderator'
     | '/my-tournaments'
+    | '/payouts'
     | '/profile'
     | '/wallet'
     | '/api/public/webhooks/paypal'
@@ -330,6 +341,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dispute-center'
     | '/_authenticated/moderator'
     | '/_authenticated/my-tournaments'
+    | '/_authenticated/payouts'
     | '/_authenticated/profile'
     | '/_authenticated/wallet'
     | '/api/public/webhooks/paypal'
@@ -463,6 +475,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/payouts': {
+      id: '/_authenticated/payouts'
+      path: '/payouts'
+      fullPath: '/payouts'
+      preLoaderRoute: typeof AuthenticatedPayoutsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/my-tournaments': {
       id: '/_authenticated/my-tournaments'
       path: '/my-tournaments'
@@ -552,6 +571,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDisputeCenterRoute: typeof AuthenticatedDisputeCenterRoute
   AuthenticatedModeratorRoute: typeof AuthenticatedModeratorRoute
   AuthenticatedMyTournamentsRoute: typeof AuthenticatedMyTournamentsRoute
+  AuthenticatedPayoutsRoute: typeof AuthenticatedPayoutsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
 }
@@ -565,6 +585,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDisputeCenterRoute: AuthenticatedDisputeCenterRoute,
   AuthenticatedModeratorRoute: AuthenticatedModeratorRoute,
   AuthenticatedMyTournamentsRoute: AuthenticatedMyTournamentsRoute,
+  AuthenticatedPayoutsRoute: AuthenticatedPayoutsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
 }

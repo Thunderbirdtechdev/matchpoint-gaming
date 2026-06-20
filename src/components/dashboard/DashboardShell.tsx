@@ -23,8 +23,11 @@ const nav = [
 const staff = [
   { to: "/moderator", label: "Moderator", icon: ShieldCheck, role: "moderator" as const },
   { to: "/admin", label: "Admin", icon: ShieldCheck, role: "admin" as const },
+  { to: "/payouts", label: "Payouts", icon: Banknote, role: "admin" as const },
   { to: "/analytics", label: "Analytics", icon: BarChart3, role: "admin" as const },
 ];
+
+import { Banknote } from "lucide-react";
 
 export function DashboardShell({ children, title, subtitle }: { children: ReactNode; title: string; subtitle?: string }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
