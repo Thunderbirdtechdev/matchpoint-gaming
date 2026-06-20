@@ -23,6 +23,11 @@ function ProfilePage() {
     enabled: !!user,
     queryFn: async () => (await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle()).data,
   });
+  const { data: wallet } = useQuery({
+    queryKey: ["wallet", user?.id],
+    enabled: !!user,
+    queryFn: async () => (await supabase.from("wallets").select("balance_cents").eq("user_id", user!.id).maybeSingle()).data,
+  });
 
   const [form, setForm] = useState({ display_name: "", username: "", bio: "", favorite_game: "", platform: "", region: "" });
   const [saving, setSaving] = useState(false);
@@ -66,7 +71,7 @@ function ProfilePage() {
         <Stat label="Reputation" value={profile?.reputation ?? 100} />
         <Stat label="XP" value={profile?.xp ?? 0} />
         <Stat label="Rank" value={profile?.rank_tier ?? "Bronze"} />
-        <Stat label="Wallet" value={`$${Number(profile?.wallet_balance ?? 0).toFixed(2)}`} />
+        <Stat label="Wallet" value={`$${((wallet?.balance_cents ?? 0) / 100).toFixed(2)}`} />
       </div>
     </DashboardShell>
   );

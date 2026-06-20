@@ -202,7 +202,6 @@ export type Database = {
           reputation: number
           updated_at: string
           username: string | null
-          wallet_balance: number
           xp: number
         }
         Insert: {
@@ -218,7 +217,6 @@ export type Database = {
           reputation?: number
           updated_at?: string
           username?: string | null
-          wallet_balance?: number
           xp?: number
         }
         Update: {
@@ -234,7 +232,6 @@ export type Database = {
           reputation?: number
           updated_at?: string
           username?: string | null
-          wallet_balance?: number
           xp?: number
         }
         Relationships: []

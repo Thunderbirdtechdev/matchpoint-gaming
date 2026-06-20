@@ -38,11 +38,17 @@ function DashboardPage() {
     queryFn: async () => (await supabase.from("tournaments").select("*").eq("status", "upcoming").order("starts_at").limit(4)).data ?? [],
   });
 
+  const { data: wallet } = useQuery({
+    queryKey: ["wallet", user?.id],
+    enabled: !!user,
+    queryFn: async () => (await supabase.from("wallets").select("balance_cents").eq("user_id", user!.id).maybeSingle()).data,
+  });
+
   const stats = [
     { label: "Reputation", value: profile?.reputation ?? 100, icon: TrendingUp },
     { label: "XP", value: profile?.xp ?? 0, icon: Trophy },
     { label: "Active matches", value: myChallenges?.filter((c) => c.status === "active").length ?? 0, icon: Swords },
-    { label: "Wallet", value: `$${Number(profile?.wallet_balance ?? 0).toFixed(2)}`, icon: Wallet },
+    { label: "Wallet", value: `$${((wallet?.balance_cents ?? 0) / 100).toFixed(2)}`, icon: Wallet },
   ];
 
   return (
