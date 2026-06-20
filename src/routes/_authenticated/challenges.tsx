@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Swords } from "lucide-react";
 import { toast } from "sonner";
+import { calculateChallengeFee } from "@/lib/fees";
 
 export const Route = createFileRoute("/_authenticated/challenges")({
   head: () => ({ meta: [{ title: "Challenges — MatchPoint" }] }),
@@ -91,6 +92,19 @@ function ChallengesPage() {
               <Label>Rules</Label>
               <Textarea rows={3} value={form.rules} onChange={(e) => setForm({ ...form, rules: e.target.value })} placeholder="Best of 3, no items..." />
             </div>
+            {(() => {
+              const fee = calculateChallengeFee(Number(form.entry_amount));
+              return (
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+                  <div className="font-medium text-foreground">Fee preview ({fee.tierLabel} tier · {(fee.rate * 100).toFixed(0)}%)</div>
+                  <div className="mt-1 grid grid-cols-3 gap-2 text-muted-foreground">
+                    <div>Pool<div className="font-semibold text-foreground">${fee.pool.toFixed(2)}</div></div>
+                    <div>Platform fee<div className="font-semibold text-foreground">${fee.serviceFee.toFixed(2)}</div></div>
+                    <div>Winner takes<div className="font-semibold text-accent">${fee.netPrize.toFixed(2)}</div></div>
+                  </div>
+                </div>
+              );
+            })()}
             <Button onClick={createChallenge} className="w-full bg-gradient-brand text-primary-foreground">Post challenge</Button>
           </div>
         </DialogContent>
@@ -107,10 +121,16 @@ function ChallengesPage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-lg font-bold text-accent">${Number(c.entry_amount).toFixed(2)}</div>
-                <div className="text-xs capitalize text-muted-foreground">{c.status}</div>
-              </div>
+              {(() => {
+                const fee = calculateChallengeFee(Number(c.entry_amount));
+                return (
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-accent">${fee.netPrize.toFixed(2)}</div>
+                    <div className="text-[11px] text-muted-foreground">Entry ${Number(c.entry_amount).toFixed(0)} · {(fee.rate * 100).toFixed(0)}% fee</div>
+                    <div className="text-xs capitalize text-muted-foreground">{c.status}</div>
+                  </div>
+                );
+              })()}
               {c.status === "open" && c.creator_id !== user?.id && (
                 <Button size="sm" onClick={() => acceptChallenge(c.id)} className="bg-gradient-brand text-primary-foreground">Accept</Button>
               )}
