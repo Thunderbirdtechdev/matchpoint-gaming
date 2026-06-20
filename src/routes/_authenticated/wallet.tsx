@@ -68,6 +68,9 @@ function WalletPage() {
   const [paypalEmail, setPaypalEmail] = useState("");
   const [paypalAmount, setPaypalAmount] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cryptoCurrency, setCryptoCurrency] = useState<"USDC" | "BTC">("USDC");
+  const [cryptoAddr, setCryptoAddr] = useState("");
+  const [cryptoAmount, setCryptoAmount] = useState("");
 
 
   const { data, isLoading } = useQuery({
