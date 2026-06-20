@@ -252,3 +252,69 @@ async function reverseCashout(args: { transferId: string }) {
   });
 }
 
+async function notifyPayoutStatus(payout: Stripe.Payout, eventType: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+
+  const statusMap: Record<string, "paid" | "failed" | "canceled" | "in_transit"> = {
+    "payout.paid": "paid",
+    "payout.failed": "failed",
+    "payout.canceled": "canceled",
+    "payout.in_transit": "in_transit",
+  };
+  const status = statusMap[eventType] ?? "in_transit";
+
+  // Resolve admin recipient — prefer metadata.initiated_by on the payout.
+  let recipient: string | null = null;
+  const initiatedBy = (payout.metadata?.initiated_by as string) || null;
+  if (initiatedBy) {
+    try {
+      const { data: u } = await supabaseAdmin.auth.admin.getUserById(initiatedBy);
+      recipient = u?.user?.email ?? null;
+    } catch {}
+  }
+  if (!recipient) {
+    // Fallback: first admin
+    const { data: roles } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin")
+      .limit(1);
+    const adminId = roles?.[0]?.user_id;
+    if (adminId) {
+      const { data: u } = await supabaseAdmin.auth.admin.getUserById(adminId);
+      recipient = u?.user?.email ?? null;
+    }
+  }
+  if (!recipient) return;
+
+  const currency = (payout.currency ?? "usd").toUpperCase();
+  const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
+    (payout.amount ?? 0) / 100,
+  );
+  const arrival = payout.arrival_date
+    ? new Date(payout.arrival_date * 1000).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
+  await enqueueAppEmail({
+    templateName: "payout-status",
+    recipientEmail: recipient,
+    idempotencyKey: `payout-${status}-${payout.id}`,
+    templateData: {
+      status,
+      amountFormatted: fmt,
+      currency,
+      payoutId: payout.id,
+      initiatedBy: recipient,
+      arrivalDate: arrival,
+      note: (payout.metadata?.note as string) || null,
+      failureReason: payout.failure_message || payout.failure_code || null,
+    },
+  });
+}
+
+
