@@ -71,8 +71,9 @@ export const requestManualPayout = createServerFn({ method: "POST" })
     if (wErr || !wallet) throw new Error("Wallet not found.");
     if (wallet.balance_cents < data.amount_cents) throw new Error("Insufficient wallet balance.");
 
-    const fee = feeCents(data.amount_cents);
-    const net = data.amount_cents - fee;
+    const breakdown = calculateWithdrawalFee(data.amount_cents, data.speed);
+    const fee = breakdown.feeCents;
+    const net = breakdown.netCents;
     const newBalance = wallet.balance_cents - data.amount_cents;
 
     // Debit wallet
@@ -81,6 +82,8 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .update({ balance_cents: newBalance })
       .eq("id", wallet.id);
     if (balErr) throw balErr;
+
+    const speedLabel = data.speed === "instant" ? "Instant" : "Standard";
 
     // Ledger row
     const { data: tx, error: txErr } = await supabaseAdmin
@@ -93,9 +96,10 @@ export const requestManualPayout = createServerFn({ method: "POST" })
         amount_cents: -data.amount_cents,
         balance_after_cents: newBalance,
         currency: wallet.currency,
-        description: `Manual payout via ${data.method === "paypal" ? "PayPal" : "Cash App"} → ${normalizedHandle}`,
+        description: `${speedLabel} payout via ${data.method === "paypal" ? "PayPal" : "Cash App"} → ${normalizedHandle}`,
         metadata: {
           payout_method: data.method,
+          payout_speed: data.speed,
           handle: normalizedHandle,
           fee_cents: fee,
           net_cents: net,
