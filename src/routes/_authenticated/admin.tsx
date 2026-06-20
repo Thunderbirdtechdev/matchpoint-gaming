@@ -44,7 +44,10 @@ function AdminPage() {
     <DashboardShell title="Admin Dashboard" subtitle="Manage users and platform health.">
       <HotWalletCard isAdmin={!!isAdmin} />
       <div className="h-6" />
+      <PayoutsCard />
+      <div className="h-6" />
       <AdminCreditWalletCard />
+
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
         <table className="w-full text-sm">
