@@ -23,6 +23,11 @@ function ProfilePage() {
     enabled: !!user,
     queryFn: async () => (await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle()).data,
   });
+  const { data: wallet } = useQuery({
+    queryKey: ["wallet", user?.id],
+    enabled: !!user,
+    queryFn: async () => (await supabase.from("wallets").select("balance_cents").eq("user_id", user!.id).maybeSingle()).data,
+  });
 
   const [form, setForm] = useState({ display_name: "", username: "", bio: "", favorite_game: "", platform: "", region: "" });
   const [saving, setSaving] = useState(false);
