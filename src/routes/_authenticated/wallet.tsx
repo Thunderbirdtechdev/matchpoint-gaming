@@ -281,19 +281,27 @@ function WalletPage() {
               if (!n || n < 1) return toast.error("Enter a valid amount");
               const cents = Math.round(n * 100);
               if (cents > balance) return toast.error("Exceeds balance");
-              paypalMut.mutate(cents);
+              setConfirmOpen(true);
             }}
             disabled={paypalMut.isPending || balance <= 0 || !savedPaypal}
           >
             {paypalMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send to PayPal"}
           </Button>
         </div>
-        {paypalAmount && Number(paypalAmount) > 0 && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            You'll receive {fmt(Math.max(0, Math.round(Number(paypalAmount) * 100) - Math.max(Math.round(Number(paypalAmount) * 100 * 0.05), 25)))} after fee.
-          </p>
-        )}
+        {paypalAmount && Number(paypalAmount) > 0 && (() => {
+          const gross = Math.round(Number(paypalAmount) * 100);
+          const fee = Math.max(Math.round(gross * 0.05), 25);
+          const net = Math.max(0, gross - fee);
+          return (
+            <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+              <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (5%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
+              <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(net)}</span></div>
+            </div>
+          );
+        })()}
       </div>
+
 
 
       {/* Transactions */}
