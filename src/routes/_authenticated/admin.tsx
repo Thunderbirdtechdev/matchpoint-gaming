@@ -66,3 +66,59 @@ function AdminPage() {
     </DashboardShell>
   );
 }
+
+function AdminCreditWalletCard() {
+  const creditFn = useServerFn(adminCreditWallet);
+  const [target, setTarget] = useState("");
+  const [amount, setAmount] = useState("50");
+  const [note, setNote] = useState("PayPal sandbox test credit");
+
+  const mut = useMutation({
+    mutationFn: async () =>
+      creditFn({
+        data: {
+          target: target.trim(),
+          amount_cents: Math.round(Number(amount) * 100),
+          note: note.trim() || undefined,
+        },
+      }),
+    onSuccess: (res) => {
+      toast.success(`Credited. New balance: $${(Number(res.balance_cents) / 100).toFixed(2)}`);
+    },
+    onError: (e: Error) => toast.error(e.message || "Credit failed"),
+  });
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-6">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Wallet className="h-4 w-4" /> Credit a test wallet
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Admin-only. Add sandbox balance to any user (by email or user id) to test PayPal payouts. Records an{" "}
+        <code className="rounded bg-muted px-1">adjustment</code> ledger entry.
+      </p>
+      <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_2fr_auto]">
+        <Input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="user email or uuid" />
+        <Input
+          type="number"
+          min={1}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Amount USD"
+        />
+        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" />
+        <Button
+          onClick={() => {
+            const n = Number(amount);
+            if (!target.trim()) return toast.error("Enter a user email or id");
+            if (!n || n < 1) return toast.error("Enter a valid amount");
+            mut.mutate();
+          }}
+          disabled={mut.isPending}
+        >
+          {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Credit wallet"}
+        </Button>
+      </div>
+    </div>
+  );
+}
