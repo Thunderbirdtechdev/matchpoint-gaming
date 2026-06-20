@@ -65,12 +65,41 @@ function MyTournamentsPage() {
     qc.invalidateQueries({ queryKey: ["all-tournaments"] });
   }
 
-  async function joinTournament(id: string) {
-    if (!user) return;
-    const { error } = await supabase.from("tournament_entries").insert({ tournament_id: id, user_id: user.id });
-    if (error) return toast.error(error.message);
-    toast.success("Joined!");
+  const joinSF = useServerFn(joinFn);
+  const declareSF = useServerFn(declareTournamentWinner);
+  const cancelSF = useServerFn(cancelTournament);
+
+  function invalidateAll() {
+    qc.invalidateQueries({ queryKey: ["all-tournaments"] });
     qc.invalidateQueries({ queryKey: ["my-entries"] });
+    qc.invalidateQueries({ queryKey: ["my-wallet"] });
+  }
+
+  async function joinTournament(id: string) {
+    try {
+      await joinSF({ data: { tournament_id: id } });
+      toast.success("Joined — entry held in escrow");
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
+
+  async function declareWinner(tournamentId: string) {
+    const winnerId = prompt("Enter winner's user ID:");
+    if (!winnerId) return;
+    try {
+      const r = await declareSF({ data: { tournament_id: tournamentId, winner_id: winnerId } });
+      toast.success(`Winner paid $${(r.net_cents/100).toFixed(2)} (pool $${(r.pool_cents/100).toFixed(2)} − $${(r.fee_cents/100).toFixed(2)} fee)`);
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
+
+  async function cancel(id: string) {
+    if (!confirm("Cancel tournament and refund all entries?")) return;
+    try {
+      const r = await cancelSF({ data: { tournament_id: id } });
+      toast.success(`Cancelled — refunded ${r.refunded} player(s)`);
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
   }
 
   return (
