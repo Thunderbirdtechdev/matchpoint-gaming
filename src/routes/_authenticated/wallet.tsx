@@ -315,6 +315,10 @@ function WalletPage() {
           <ul className="divide-y divide-border/60">
             {data.transactions.map((t) => {
               const credit = t.amount_cents >= 0;
+              const meta = (t.metadata as Record<string, unknown> | null) ?? {};
+              const feeCents = typeof meta.fee_cents === "number" ? meta.fee_cents : null;
+              const netCents = typeof meta.net_cents === "number" ? meta.net_cents : null;
+              const recipient = typeof meta.recipient_email === "string" ? meta.recipient_email : null;
               return (
                 <li key={t.id} className="flex items-center justify-between px-6 py-3 text-sm">
                   <div className="flex items-center gap-3">
@@ -324,14 +328,25 @@ function WalletPage() {
                       <div className="text-xs text-muted-foreground">
                         {new Date(t.created_at).toLocaleString()} {t.description ? `· ${t.description}` : ""}
                       </div>
+                      {feeCents !== null && (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          Fee {fmt(feeCents)}
+                          {netCents !== null && <> · Net {fmt(netCents)}</>}
+                          {recipient && <> · → {recipient}</>}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className={credit ? "font-medium text-emerald-500" : "font-medium text-rose-500"}>
-                    {credit ? "+" : ""}{fmt(t.amount_cents)}
+                  <div className="text-right">
+                    <div className={credit ? "font-medium text-emerald-500" : "font-medium text-rose-500"}>
+                      {credit ? "+" : ""}{fmt(t.amount_cents)}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground capitalize">{t.status}</div>
                   </div>
                 </li>
               );
             })}
+
           </ul>
         )}
       </div>
