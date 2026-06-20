@@ -68,16 +68,15 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
             }
             case "payout.paid":
             case "payout.failed":
-            case "payout.in_transit":
-            case "payout.canceled": {
+            case "payout.canceled":
+            case "payout.in_transit" as any: {
               const payout = event.data.object as Stripe.Payout;
-              // Only notify for PLATFORM payouts (admin sweep). Connected-account
-              // payouts have event.account set; skip those to avoid spamming users.
               if (!event.account) {
                 await notifyPayoutStatus(payout, event.type);
               }
               break;
             }
+
 
             case "account.updated": {
               const acct = event.data.object as Stripe.Account;
