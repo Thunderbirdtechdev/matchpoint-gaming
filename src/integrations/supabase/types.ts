@@ -59,6 +59,66 @@ export type Database = {
         }
         Relationships: []
       }
+      company_wallet: {
+        Row: {
+          balance_cents: number
+          created_at: string
+          currency: string
+          id: string
+          lifetime_revenue_cents: number
+          lifetime_withdrawn_cents: number
+          updated_at: string
+        }
+        Insert: {
+          balance_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          lifetime_revenue_cents?: number
+          lifetime_withdrawn_cents?: number
+          updated_at?: string
+        }
+        Update: {
+          balance_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          lifetime_revenue_cents?: number
+          lifetime_withdrawn_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      company_withdrawals: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          destination: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          destination: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          destination?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       crypto_payout_addresses: {
         Row: {
           address: string
@@ -882,6 +942,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      company_wallet_withdraw: {
+        Args: { _amount_cents: number; _destination: string; _note?: string }
+        Returns: string
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -947,6 +1011,18 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      record_platform_fee: {
+        Args: {
+          _amount_cents: number
+          _gross_cents?: number
+          _metadata?: Json
+          _net_cents?: number
+          _reference_id?: string
+          _source: string
+          _user_id?: string
+        }
+        Returns: string
       }
       wallet_credit: {
         Args: {
