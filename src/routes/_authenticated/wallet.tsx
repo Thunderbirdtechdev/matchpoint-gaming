@@ -297,7 +297,7 @@ function WalletPage() {
               <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
-                  {speed === "same_day" ? `Same-day fee (${b.tierLabel})` : "Standard fee"}
+                  {speed === "same_day" ? "Same-day fee" : "Standard fee"}
                 </span>
                 <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
                   {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
