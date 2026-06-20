@@ -13,10 +13,15 @@ export function getStripe(): Stripe {
         "Use the SECRET key (sk_test_... or sk_live_...) from https://dashboard.stripe.com/apikeys.",
     );
   }
-  if (!key.startsWith("sk_test_") && !key.startsWith("sk_live_") && !key.startsWith("rk_")) {
+  if (
+    !key.startsWith("sk_test_") &&
+    !key.startsWith("sk_live_") &&
+    !key.startsWith("rk_") &&
+    !key.startsWith("mk_")
+  ) {
     throw new Error(
       `STRIPE_SECRET_KEY has an unexpected format (starts with "${key.slice(0, 7)}"). ` +
-        "Expected sk_test_... or sk_live_...",
+        "Expected sk_test_..., sk_live_..., rk_..., or mk_...",
     );
   }
   _stripe = new Stripe(key, { typescript: true });
