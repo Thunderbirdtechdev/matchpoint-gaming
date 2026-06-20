@@ -27,7 +27,7 @@ const staff = [
   { to: "/analytics", label: "Analytics", icon: BarChart3, role: "admin" as const },
 ];
 
-import { Banknote } from "lucide-react";
+
 
 export function DashboardShell({ children, title, subtitle }: { children: ReactNode; title: string; subtitle?: string }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
