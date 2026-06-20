@@ -75,7 +75,7 @@ function PricingPage() {
               <p className="mt-1 text-sm text-muted-foreground">{t.desc}</p>
               <div className="mt-6 flex items-baseline gap-1">
                 <span className="text-5xl font-bold tracking-tight">{t.price}</span>
-                {t.suffix && <span className="text-muted-foreground">{t.suffix}</span>}
+                
               </div>
               <ul className="mt-6 space-y-3 text-sm">
                 {t.features.map((f) => (
