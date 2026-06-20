@@ -39,7 +39,7 @@ export const joinTournament = createServerFn({ method: "POST" })
         _user_id: context.userId,
         _amount_cents: entryCents,
         _tournament_id: t.id,
-        _challenge_id: null,
+        _challenge_id: undefined,
         _description: `Entry: ${t.title}`,
       });
       if (dErr) throw new Error(dErr.message);
@@ -96,7 +96,7 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
         _type: "prize_payout",
         _description: `Prize: ${t.title}`,
         _tournament_id: t.id,
-        _challenge_id: null,
+        _challenge_id: undefined,
         _metadata: { pool_cents: poolCents, fee_cents: feeCents, fee_rate: fee.rate },
       });
       if (error) throw new Error(error.message);
@@ -133,7 +133,7 @@ export const cancelTournament = createServerFn({ method: "POST" })
         _type: "refund",
         _description: `Refund: ${t.title} cancelled`,
         _tournament_id: t.id,
-        _challenge_id: null,
+        _challenge_id: undefined,
         _metadata: { escrow_hold_id: h.id },
       });
       if (c.error) throw new Error(c.error.message);
@@ -174,7 +174,7 @@ export const createChallenge = createServerFn({ method: "POST" })
       const r = await supabaseAdmin.rpc("escrow_debit", {
         _user_id: context.userId,
         _amount_cents: entryCents,
-        _tournament_id: null,
+        _tournament_id: undefined,
         _challenge_id: ch.id,
         _description: `Challenge stake: ${data.game_slug}`,
       });
@@ -202,7 +202,7 @@ export const acceptChallenge = createServerFn({ method: "POST" })
       const r = await supabaseAdmin.rpc("escrow_debit", {
         _user_id: context.userId,
         _amount_cents: entryCents,
-        _tournament_id: null,
+        _tournament_id: undefined,
         _challenge_id: ch.id,
         _description: `Challenge stake: ${ch.game_slug}`,
       });
@@ -240,7 +240,7 @@ export const cancelChallenge = createServerFn({ method: "POST" })
         _amount_cents: Number(r.data),
         _type: "refund",
         _description: "Challenge cancelled",
-        _tournament_id: null,
+        _tournament_id: undefined,
         _challenge_id: ch.id,
         _metadata: { escrow_hold_id: h.id },
       });
@@ -292,7 +292,6 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
   });
 
 // shared payout core
-type AdminClient = Awaited<ReturnType<typeof import("@/integrations/supabase/client.server").getAdmin>> extends infer T ? any : any;
 async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
   const { data: holds } = await supabaseAdmin
     .from("escrow_holds").select("*").eq("challenge_id", ch.id).eq("status", "held");
@@ -316,7 +315,7 @@ async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
       _amount_cents: netCents,
       _type: "prize_payout",
       _description: `Challenge win: ${ch.game_slug}`,
-      _tournament_id: null,
+      _tournament_id: undefined,
       _challenge_id: ch.id,
       _metadata: { pool_cents: poolCents, fee_cents: feeCents, fee_rate: actual.rate, fee_preview: fee },
     });
