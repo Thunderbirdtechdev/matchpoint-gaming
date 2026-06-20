@@ -78,3 +78,22 @@ export function getHotWalletInfo() {
     return { address: null, configured: false };
   }
 }
+
+export async function getHotWalletBalances() {
+  const account = getAccount();
+  const rpc = getRpcUrl();
+  const publicClient = createPublicClient({ chain: base, transport: http(rpc) });
+  const [usdcRaw, ethRaw] = await Promise.all([
+    publicClient.readContract({
+      address: USDC_BASE,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [account.address],
+    }) as Promise<bigint>,
+    publicClient.getBalance({ address: account.address }),
+  ]);
+  return {
+    usdc: Number(formatUnits(usdcRaw, 6)),
+    eth: Number(formatUnits(ethRaw, 18)),
+  };
+}
