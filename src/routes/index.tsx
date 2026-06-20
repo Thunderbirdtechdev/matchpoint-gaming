@@ -26,11 +26,21 @@ export const Route = createFileRoute("/")({
   component: () => (
     <SiteShell>
       <Hero />
-      <Stats />
-      <Games />
-      <HowItWorks />
-      <Features />
-      <CTA />
+      <div className="animate-fade-in [animation-delay:100ms] [animation-fill-mode:both]">
+        <Stats />
+      </div>
+      <div className="animate-fade-in [animation-delay:150ms] [animation-fill-mode:both]">
+        <Games />
+      </div>
+      <div className="animate-fade-in [animation-delay:200ms] [animation-fill-mode:both]">
+        <HowItWorks />
+      </div>
+      <div className="animate-fade-in [animation-delay:200ms] [animation-fill-mode:both]">
+        <Features />
+      </div>
+      <div className="animate-fade-in [animation-delay:200ms] [animation-fill-mode:both]">
+        <CTA />
+      </div>
     </SiteShell>
   ),
 });
