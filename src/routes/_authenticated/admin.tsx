@@ -302,102 +302,117 @@ function PayoutsCard() {
     refetchInterval: 30_000,
   });
 
-  const pending = (data ?? []).filter((r) => r.status === "pending" || r.status === "processing");
-  const history = (data ?? []).filter((r) => r.status !== "pending" && r.status !== "processing");
+  const rows = data ?? [];
+  const pending = rows.filter((r) => r.status === "pending" || r.status === "processing");
+  const history = rows.filter((r) => r.status !== "pending" && r.status !== "processing");
+  const owed = pending.reduce((sum, r) => sum + r.net_cents, 0);
+
+  const speedLabel = speed === "same_day" ? "Same-day" : "Standard";
+  const speedHint = speed === "same_day" ? "30 min – 5 hr SLA" : "2–5 business days SLA";
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Banknote className="h-4 w-4" /> Payout management
+    <div className="rounded-2xl border border-border/60 bg-card">
+      <div className="flex items-start justify-between gap-4 border-b border-border/60 p-6">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Banknote className="h-4 w-4" /> Payout management
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Pay the user with the handle shown, then mark the request paid. Rejecting refunds their wallet.
+          </p>
         </div>
         <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Review and authorize manual payouts. Pay the user via PayPal or Cash App using the handle shown, then mark the request paid. Rejecting refunds the user's wallet.
-      </p>
 
-      <Tabs value={speed} onValueChange={(v) => setSpeed(v as "same_day" | "standard")} className="mt-4">
-        <TabsList>
-          <TabsTrigger value="same_day">Same-day (30 min – 5 hr)</TabsTrigger>
-          <TabsTrigger value="standard">Standard (2–5 days)</TabsTrigger>
-        </TabsList>
+      <div className="grid gap-px bg-border/60 sm:grid-cols-3">
+        <Stat label={`Awaiting action`} value={String(pending.length)} sub={speedHint} />
+        <Stat label="Total owed" value={`$${(owed / 100).toFixed(2)}`} sub={`${speedLabel} queue`} />
+        <Stat label="Recent history" value={String(history.length)} sub="Paid / rejected / failed" />
+      </div>
 
-        <TabsContent value={speed} className="mt-4 space-y-6">
-          {isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading payout requests…
-            </div>
-          ) : (
-            <>
-              <PayoutTable
-                title={`Awaiting action (${pending.length})`}
-                rows={pending}
-                actionable
-                onChanged={() => qc.invalidateQueries({ queryKey: ["admin-payouts"] })}
-              />
-              <PayoutTable
-                title={`Recent history (${history.length})`}
-                rows={history}
-                actionable={false}
-                onChanged={() => qc.invalidateQueries({ queryKey: ["admin-payouts"] })}
-              />
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+      <div className="p-6">
+        <Tabs value={speed} onValueChange={(v) => setSpeed(v as "same_day" | "standard")}>
+          <TabsList>
+            <TabsTrigger value="same_day">Same-day</TabsTrigger>
+            <TabsTrigger value="standard">Standard</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={speed} className="mt-5 space-y-6">
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading payout requests…
+              </div>
+            ) : (
+              <>
+                <PayoutSection
+                  title="Awaiting action"
+                  count={pending.length}
+                  rows={pending}
+                  actionable
+                  emptyHint="You're all caught up."
+                  onChanged={() => qc.invalidateQueries({ queryKey: ["admin-payouts"] })}
+                />
+                <PayoutSection
+                  title="Recent history"
+                  count={history.length}
+                  rows={history}
+                  actionable={false}
+                  emptyHint="No completed payouts yet."
+                  onChanged={() => qc.invalidateQueries({ queryKey: ["admin-payouts"] })}
+                />
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
 
-function PayoutTable({
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="bg-card px-6 py-4">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+function PayoutSection({
   title,
+  count,
   rows,
   actionable,
+  emptyHint,
   onChanged,
 }: {
   title: string;
+  count: number;
   rows: PayoutRow[];
   actionable: boolean;
+  emptyHint: string;
   onChanged: () => void;
 }) {
-  if (!rows.length) {
-    return (
-      <div>
-        <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{title}</div>
-        <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
-          Nothing here.
-        </div>
-      </div>
-    );
-  }
   return (
     <div>
-      <div className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{title}</div>
-      <div className="overflow-hidden rounded-lg border border-border/60">
-        <table className="w-full text-xs">
-          <thead className="bg-surface/50 uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left">Requested</th>
-              <th className="px-3 py-2 text-left">Player</th>
-              <th className="px-3 py-2 text-left">Method</th>
-              <th className="px-3 py-2 text-left">Send to</th>
-              <th className="px-3 py-2 text-right">Gross</th>
-              <th className="px-3 py-2 text-right">Fee</th>
-              <th className="px-3 py-2 text-right">Net to pay</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              {actionable && <th className="px-3 py-2 text-left">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <PayoutRowView key={r.id} row={r} actionable={actionable} onChanged={onChanged} />
-            ))}
-          </tbody>
-        </table>
+      <div className="mb-3 flex items-baseline gap-2">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <span className="text-xs text-muted-foreground">{count}</span>
       </div>
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+          {emptyHint}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((r) => (
+            <PayoutCard key={r.id} row={r} actionable={actionable} onChanged={onChanged} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -419,7 +434,15 @@ function statusBadge(status: PayoutRow["status"]) {
   );
 }
 
-function PayoutRowView({ row, actionable, onChanged }: { row: PayoutRow; actionable: boolean; onChanged: () => void }) {
+function timeAgo(iso: string) {
+  const d = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (d < 60) return `${Math.floor(d)}s ago`;
+  if (d < 3600) return `${Math.floor(d / 60)}m ago`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h ago`;
+  return `${Math.floor(d / 86400)}d ago`;
+}
+
+function PayoutCard({ row, actionable, onChanged }: { row: PayoutRow; actionable: boolean; onChanged: () => void }) {
   const updateFn = useServerFn(adminUpdatePayoutRequest);
   const [note, setNote] = useState("");
   const [openNote, setOpenNote] = useState(false);
@@ -437,83 +460,109 @@ function PayoutRowView({ row, actionable, onChanged }: { row: PayoutRow; actiona
   });
 
   const player = row.profiles?.display_name ?? row.profiles?.username ?? row.user_id.slice(0, 8);
+  const initials = player.slice(0, 2).toUpperCase();
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copied");
   };
 
   return (
-    <>
-      <tr className="border-t border-border/40 align-top">
-        <td className="px-3 py-2 text-muted-foreground">{new Date(row.created_at).toLocaleString()}</td>
-        <td className="px-3 py-2">
-          <div className="font-medium">{player}</div>
-          {row.profiles?.username && <div className="text-[10px] text-muted-foreground">@{row.profiles.username}</div>}
-        </td>
-        <td className="px-3 py-2 uppercase">{row.method === "paypal" ? "PayPal" : "Cash App"}</td>
-        <td className="px-3 py-2">
-          <button
-            type="button"
-            onClick={() => copy(row.handle)}
-            className="inline-flex items-center gap-1 rounded bg-black/30 px-2 py-1 font-mono text-[11px] hover:bg-black/40"
-            title="Click to copy"
-          >
-            {row.handle}
-            <Copy className="h-3 w-3" />
-          </button>
-        </td>
-        <td className="px-3 py-2 text-right">${(row.amount_cents / 100).toFixed(2)}</td>
-        <td className="px-3 py-2 text-right text-muted-foreground">${(row.fee_cents / 100).toFixed(2)}</td>
-        <td className="px-3 py-2 text-right font-semibold">${(row.net_cents / 100).toFixed(2)}</td>
-        <td className="px-3 py-2">{statusBadge(row.status)}</td>
+    <div className="rounded-xl border border-border/60 bg-surface/30 transition hover:border-border">
+      <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
+        {/* Left: player + handle */}
+        <div className="flex min-w-0 items-center gap-3">
+          {row.profiles?.avatar_url ? (
+            <img src={row.profiles.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+              {initials}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="truncate font-medium">{player}</div>
+              {statusBadge(row.status)}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+              {row.profiles?.username && <span>@{row.profiles.username}</span>}
+              <span>•</span>
+              <span>{timeAgo(row.created_at)}</span>
+              <span>•</span>
+              <span className="uppercase">{row.method === "paypal" ? "PayPal" : "Cash App"}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => copy(row.handle)}
+              className="mt-1.5 inline-flex max-w-full items-center gap-1.5 truncate rounded-md bg-black/30 px-2 py-1 font-mono text-[11px] hover:bg-black/50"
+              title="Copy handle"
+            >
+              <span className="truncate">{row.handle}</span>
+              <Copy className="h-3 w-3 flex-shrink-0" />
+            </button>
+          </div>
+        </div>
+
+        {/* Middle: amounts */}
+        <div className="flex items-center gap-6 md:gap-8">
+          <div className="text-right">
+            <div className="text-[10px] uppercase text-muted-foreground">Gross</div>
+            <div className="text-sm tabular-nums text-muted-foreground">${(row.amount_cents / 100).toFixed(2)}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase text-muted-foreground">Fee</div>
+            <div className="text-sm tabular-nums text-muted-foreground">${(row.fee_cents / 100).toFixed(2)}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[10px] uppercase text-muted-foreground">Net to pay</div>
+            <div className="text-lg font-semibold tabular-nums text-foreground">${(row.net_cents / 100).toFixed(2)}</div>
+          </div>
+        </div>
+
+        {/* Right: actions */}
         {actionable && (
-          <td className="px-3 py-2">
-            <div className="flex flex-wrap gap-1">
-              {row.status === "pending" && (
-                <Button size="sm" variant="outline" disabled={mut.isPending} onClick={() => mut.mutate("mark_processing")}>
-                  Mark processing
-                </Button>
-              )}
-              <Button size="sm" disabled={mut.isPending} onClick={() => mut.mutate("mark_paid")}>
-                {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark paid"}
+          <div className="flex flex-wrap items-center gap-2">
+            {row.status === "pending" && (
+              <Button size="sm" variant="outline" disabled={mut.isPending} onClick={() => mut.mutate("mark_processing")}>
+                Processing
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setOpenNote((v) => !v)}>
-                Reject…
-              </Button>
-            </div>
-          </td>
+            )}
+            <Button size="sm" disabled={mut.isPending} onClick={() => mut.mutate("mark_paid")}>
+              {mut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (<><Check className="mr-1 h-3.5 w-3.5" /> Mark paid</>)}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setOpenNote((v) => !v)}>
+              Reject
+            </Button>
+          </div>
         )}
-      </tr>
+      </div>
+
       {openNote && actionable && (
-        <tr className="border-t border-border/40 bg-surface/30">
-          <td colSpan={9} className="px-3 py-3">
-            <div className="flex flex-col gap-2 md:flex-row">
-              <Textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Reason (visible to admins only)…"
-                className="min-h-[60px] flex-1"
-              />
-              <div className="flex gap-2">
-                <Button size="sm" variant="destructive" disabled={mut.isPending} onClick={() => mut.mutate("reject")}>
-                  Reject & refund
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setOpenNote(false)}>
-                  Cancel
-                </Button>
-              </div>
+        <div className="border-t border-border/60 p-4">
+          <div className="flex flex-col gap-2 md:flex-row">
+            <Textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Reason (admin only)…"
+              className="min-h-[60px] flex-1"
+            />
+            <div className="flex gap-2 md:flex-col">
+              <Button size="sm" variant="destructive" disabled={mut.isPending} onClick={() => mut.mutate("reject")}>
+                Reject & refund
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setOpenNote(false)}>
+                Cancel
+              </Button>
             </div>
-          </td>
-        </tr>
+          </div>
+        </div>
       )}
+
       {!actionable && row.admin_note && (
-        <tr className="border-t border-border/40 bg-surface/20">
-          <td colSpan={9} className="px-3 py-2 text-xs text-muted-foreground">
-            <span className="font-semibold">Note:</span> {row.admin_note}
-          </td>
-        </tr>
+        <div className="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
+          <span className="font-semibold">Note:</span> {row.admin_note}
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
