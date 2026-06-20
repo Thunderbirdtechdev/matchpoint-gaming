@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { calculateWithdrawalFee } from "./fees";
 
 const MethodSchema = z.enum(["paypal", "cashapp"]);
-const SpeedSchema = z.enum(["standard", "instant"]);
+const SpeedSchema = z.enum(["standard", "same_day"]);
 
 const SaveHandleSchema = z.object({
   method: MethodSchema,
@@ -83,7 +83,7 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .eq("id", wallet.id);
     if (balErr) throw balErr;
 
-    const speedLabel = data.speed === "instant" ? "Instant" : "Standard";
+    const speedLabel = data.speed === "same_day" ? "Same-day" : "Standard";
 
     // Ledger row
     const { data: tx, error: txErr } = await supabaseAdmin
