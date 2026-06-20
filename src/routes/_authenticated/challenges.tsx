@@ -29,36 +29,59 @@ function ChallengesPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ game_slug: "fortnite", platform: "PC", entry_amount: "10", rules: "" });
+  const createFn = useServerFn(createChallengeFn);
+  const acceptFn = useServerFn(acceptChallengeFn);
+  const concedeFn = useServerFn(concedeChallenge);
+  const cancelFn = useServerFn(cancelChallenge);
 
   const { data: challenges } = useQuery({
     queryKey: ["challenges-all"],
     queryFn: async () => (await supabase.from("challenges").select("*").order("created_at", { ascending: false }).limit(50)).data ?? [],
   });
 
-  async function createChallenge() {
-    if (!user) return;
-    const { error } = await supabase.from("challenges").insert({
-      creator_id: user.id,
-      game_slug: form.game_slug,
-      platform: form.platform,
-      entry_amount: Number(form.entry_amount),
-      rules: form.rules,
-      status: "open",
-    });
-    if (error) return toast.error(error.message);
-    toast.success("Challenge posted");
-    setOpen(false);
+  function invalidateAll() {
     qc.invalidateQueries({ queryKey: ["challenges-all"] });
     qc.invalidateQueries({ queryKey: ["my-challenges"] });
     qc.invalidateQueries({ queryKey: ["open-challenges"] });
+    qc.invalidateQueries({ queryKey: ["my-wallet"] });
+  }
+
+  async function createChallenge() {
+    if (!user) return;
+    try {
+      await createFn({ data: {
+        game_slug: form.game_slug, platform: form.platform,
+        entry_amount: Number(form.entry_amount), rules: form.rules,
+      }});
+      toast.success("Challenge posted — stake held in escrow");
+      setOpen(false);
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
   }
 
   async function acceptChallenge(id: string) {
-    if (!user) return;
-    const { error } = await supabase.from("challenges").update({ opponent_id: user.id, status: "active" }).eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Challenge accepted! Good luck.");
-    qc.invalidateQueries({ queryKey: ["challenges-all"] });
+    try {
+      await acceptFn({ data: { challenge_id: id } });
+      toast.success("Challenge accepted — your stake is in escrow. GL!");
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
+
+  async function concede(id: string) {
+    if (!confirm("Concede this match? Your opponent will be paid the prize.")) return;
+    try {
+      const r = await concedeFn({ data: { challenge_id: id } });
+      toast.success(`Conceded. $${(r.net_cents/100).toFixed(2)} paid to opponent.`);
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
+
+  async function cancel(id: string) {
+    try {
+      await cancelFn({ data: { challenge_id: id } });
+      toast.success("Cancelled — stake refunded");
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
   }
 
   return (
