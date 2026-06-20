@@ -166,13 +166,23 @@ function MyTournamentsPage() {
                 </>
               );
             })()}
-            <div className="mt-4 flex items-center justify-between">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">{new Date(t.starts_at).toLocaleString()}</span>
-              {joinedIds.has(t.id) ? (
-                <span className="text-xs font-medium text-accent">Joined</span>
-              ) : (
-                <Button size="sm" onClick={() => joinTournament(t.id)} className="bg-gradient-brand text-primary-foreground">Join</Button>
-              )}
+              <div className="flex gap-2">
+                {t.host_id === user?.id && t.status !== "completed" && t.status !== "cancelled" && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => declareWinner(t.id)}><Crown className="mr-1 h-3 w-3" />Declare winner</Button>
+                    <Button size="sm" variant="ghost" onClick={() => cancel(t.id)}><X className="mr-1 h-3 w-3" />Cancel</Button>
+                  </>
+                )}
+                {joinedIds.has(t.id) ? (
+                  <span className="text-xs font-medium text-accent">Joined</span>
+                ) : (
+                  t.status !== "completed" && t.status !== "cancelled" && t.host_id !== user?.id && (
+                    <Button size="sm" onClick={() => joinTournament(t.id)} className="bg-gradient-brand text-primary-foreground">Join</Button>
+                  )
+                )}
+              </div>
             </div>
           </div>
         )) : <p className="text-sm text-muted-foreground">No tournaments yet.</p>}
