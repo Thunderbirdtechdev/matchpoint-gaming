@@ -143,3 +143,80 @@ export const adminListStaff = createServerFn({ method: "GET" })
     return (roleRows ?? []).map((r) => ({ ...r, profile: byId.get(r.user_id) ?? null }));
   });
 
+
+// ────────────────────── Company Wallet / Revenue ──────────────────────
+
+async function assertAdminAdmin(ctx: any) {
+  const { data: isAdmin, error } = await ctx.supabase.rpc("has_role", {
+    _user_id: ctx.userId,
+    _role: "admin",
+  });
+  if (error) throw error;
+  if (!isAdmin) throw new Error("Forbidden");
+}
+
+/** Admin-only: read the company wallet (running fee balance + lifetime totals). */
+export const getCompanyWallet = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdminAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("company_wallet")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ?? { balance_cents: 0, lifetime_revenue_cents: 0, lifetime_withdrawn_cents: 0, currency: "usd" };
+  });
+
+/** Admin-only: list recent platform-fee events (revenue ledger). */
+export const listCompanyRevenue = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(50) }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    await assertAdminAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("platform_fees")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (error) throw error;
+    return rows ?? [];
+  });
+
+/** Admin-only: record a sweep of company funds out to a bank/PayPal/etc. */
+export const withdrawCompanyFunds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    amount_cents: z.number().int().min(1),
+    destination: z.string().trim().min(2).max(200),
+    note: z.string().trim().max(500).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdminAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: wid, error } = await supabaseAdmin.rpc("company_wallet_withdraw", {
+      _amount_cents: data.amount_cents,
+      _destination: data.destination,
+      _note: data.note ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true, withdrawal_id: wid };
+  });
+
+/** Admin-only: list recent company-fund withdrawals. */
+export const listCompanyWithdrawals = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdminAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("company_withdrawals")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data ?? [];
+  });
