@@ -30,13 +30,8 @@ export function CTA() {
                 <Link to="/tournaments">Browse Competitions</Link>
               </Button>
             </div>
-            <div className="mt-4">
-              <Button size="lg" variant="ghost" className="text-accent hover:text-accent/80 hover:bg-accent/10" asChild>
-                <Link to="/host">
-                  <Trophy className="mr-2 h-4 w-4" />
-                  Host a Tournament
-                </Link>
-              </Button>
+            <div className="mt-6 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              No download required · Cross-platform · Skill-based matchmaking
             </div>
           </div>
         </div>
