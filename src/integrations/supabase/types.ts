@@ -59,6 +59,101 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_payout_addresses: {
+        Row: {
+          address: string
+          created_at: string
+          currency: Database["public"]["Enums"]["crypto_currency"]
+          id: string
+          label: string | null
+          network: Database["public"]["Enums"]["crypto_network"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          currency: Database["public"]["Enums"]["crypto_currency"]
+          id?: string
+          label?: string | null
+          network: Database["public"]["Enums"]["crypto_network"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["crypto_currency"]
+          id?: string
+          label?: string | null
+          network?: Database["public"]["Enums"]["crypto_network"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      crypto_payouts: {
+        Row: {
+          amount_cents: number
+          amount_crypto: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["crypto_currency"]
+          error: string | null
+          fee_cents: number
+          id: string
+          metadata: Json
+          network: Database["public"]["Enums"]["crypto_network"]
+          status: Database["public"]["Enums"]["crypto_payout_status"]
+          to_address: string
+          tx_hash: string | null
+          updated_at: string
+          user_id: string
+          wallet_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          amount_crypto?: number | null
+          created_at?: string
+          currency: Database["public"]["Enums"]["crypto_currency"]
+          error?: string | null
+          fee_cents?: number
+          id?: string
+          metadata?: Json
+          network: Database["public"]["Enums"]["crypto_network"]
+          status?: Database["public"]["Enums"]["crypto_payout_status"]
+          to_address: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id: string
+          wallet_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          amount_crypto?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["crypto_currency"]
+          error?: string | null
+          fee_cents?: number
+          id?: string
+          metadata?: Json
+          network?: Database["public"]["Enums"]["crypto_network"]
+          status?: Database["public"]["Enums"]["crypto_payout_status"]
+          to_address?: string
+          tx_hash?: string | null
+          updated_at?: string
+          user_id?: string
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crypto_payouts_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disputes: {
         Row: {
           challenge_id: string | null
@@ -811,6 +906,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      crypto_currency: "USDC" | "BTC"
+      crypto_network: "base" | "bitcoin"
+      crypto_payout_status:
+        | "pending"
+        | "sending"
+        | "sent"
+        | "failed"
+        | "cancelled"
       escrow_status: "held" | "released" | "refunded" | "forfeited"
       wallet_tx_status: "pending" | "completed" | "failed" | "reversed"
       wallet_tx_type:
@@ -951,6 +1054,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      crypto_currency: ["USDC", "BTC"],
+      crypto_network: ["base", "bitcoin"],
+      crypto_payout_status: [
+        "pending",
+        "sending",
+        "sent",
+        "failed",
+        "cancelled",
+      ],
       escrow_status: ["held", "released", "refunded", "forfeited"],
       wallet_tx_status: ["pending", "completed", "failed", "reversed"],
       wallet_tx_type: [

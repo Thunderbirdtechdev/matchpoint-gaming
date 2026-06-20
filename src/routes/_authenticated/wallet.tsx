@@ -15,15 +15,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, ExternalLink, Loader2, Mail } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, Loader2, Mail, Bitcoin, Coins, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
   createDepositCheckout,
-  createConnectOnboarding,
   createCashout,
 } from "@/lib/wallet.functions";
 import { savePaypalEmail, createPaypalCashout } from "@/lib/paypal.functions";
+import {
+  saveCryptoAddress,
+  listCryptoAddresses,
+  listCryptoPayouts,
+  requestCryptoPayout,
+} from "@/lib/crypto.functions";
 
 
 type SearchParams = { deposit?: string; connect?: string };
@@ -50,9 +55,12 @@ function WalletPage() {
   const search = useSearch({ from: "/_authenticated/wallet" });
   const fetchWallet = useServerFn(getMyWallet);
   const deposit = useServerFn(createDepositCheckout);
-  const onboard = useServerFn(createConnectOnboarding);
   const cashout = useServerFn(createCashout);
   const savePaypal = useServerFn(savePaypalEmail);
+  const fetchCryptoAddrs = useServerFn(listCryptoAddresses);
+  const fetchCryptoPayouts = useServerFn(listCryptoPayouts);
+  const saveAddr = useServerFn(saveCryptoAddress);
+  const sendCrypto = useServerFn(requestCryptoPayout);
   const paypalCashout = useServerFn(createPaypalCashout);
 
   const [depositAmount, setDepositAmount] = useState("25");
@@ -60,6 +68,9 @@ function WalletPage() {
   const [paypalEmail, setPaypalEmail] = useState("");
   const [paypalAmount, setPaypalAmount] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cryptoCurrency, setCryptoCurrency] = useState<"USDC" | "BTC">("USDC");
+  const [cryptoAddr, setCryptoAddr] = useState("");
+  const [cryptoAmount, setCryptoAmount] = useState("");
 
 
   const { data, isLoading } = useQuery({
@@ -87,11 +98,8 @@ function WalletPage() {
     onError: (e: Error) => toast.error(e.message || "Could not start deposit"),
   });
 
-  const onboardMut = useMutation({
-    mutationFn: async () => onboard(),
-    onSuccess: ({ url }) => { if (url) window.location.href = url; },
-    onError: (e: Error) => toast.error(e.message || "Could not start onboarding"),
-  });
+  // Stripe Connect bank payouts are paused.
+  void cashout; // keep import alive while feature is disabled
 
   const cashoutMut = useMutation({
     mutationFn: async (amount_cents: number) => cashout({ data: { amount_cents } }),
@@ -121,6 +129,47 @@ function WalletPage() {
       qc.invalidateQueries({ queryKey: ["wallet"] });
     },
     onError: (e: Error) => toast.error(e.message || "PayPal payout failed"),
+  });
+
+  const { data: cryptoAddresses } = useQuery({
+    queryKey: ["crypto-addresses"],
+    queryFn: () => fetchCryptoAddrs(),
+  });
+  const { data: cryptoPayoutHistory } = useQuery({
+    queryKey: ["crypto-payouts"],
+    queryFn: () => fetchCryptoPayouts(),
+  });
+
+  const savedAddrForCurrency =
+    cryptoAddresses?.find((a) => a.currency === cryptoCurrency)?.address ?? "";
+  useEffect(() => {
+    setCryptoAddr(savedAddrForCurrency);
+  }, [savedAddrForCurrency]);
+
+  const saveAddrMut = useMutation({
+    mutationFn: async () =>
+      saveAddr({ data: { currency: cryptoCurrency, address: cryptoAddr.trim() } }),
+    onSuccess: () => {
+      toast.success(`${cryptoCurrency} address saved.`);
+      qc.invalidateQueries({ queryKey: ["crypto-addresses"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not save address"),
+  });
+
+  const cryptoMut = useMutation({
+    mutationFn: async (amount_cents: number) =>
+      sendCrypto({ data: { currency: cryptoCurrency, amount_cents } }),
+    onSuccess: (res) => {
+      if (res.status === "sent") {
+        toast.success(`Sent! Tx ${res.txHash?.slice(0, 10)}…`);
+      } else {
+        toast.success(`${cryptoCurrency} payout request created — pending fulfillment.`);
+      }
+      setCryptoAmount("");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+      qc.invalidateQueries({ queryKey: ["crypto-payouts"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Crypto payout failed"),
   });
 
   const balance = data?.wallet?.balance_cents ?? 0;
@@ -181,56 +230,25 @@ function WalletPage() {
           </div>
         </div>
 
-        {/* Cash out / Connect */}
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
+        {/* Cash out / Bank — paused */}
+        <div className="rounded-2xl border border-border/60 bg-card p-6 opacity-70">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <Banknote className="h-4 w-4" /> Cash out
+            <Banknote className="h-4 w-4" /> Bank cash out
+            <span className="ml-auto rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+              Coming soon
+            </span>
           </div>
-          {!connect ? (
-            <>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Connect a payout account (bank) to withdraw winnings to your bank.
-              </p>
-              <Button className="mt-4 w-full" onClick={() => onboardMut.mutate()} disabled={onboardMut.isPending}>
-                {onboardMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Set up payouts <ExternalLink className="ml-2 h-4 w-4" /></>}
-              </Button>
-            </>
-          ) : !payoutsReady ? (
-            <>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Finish verifying your payout account to enable cash-outs.
-              </p>
-              <Button className="mt-4 w-full" variant="outline" onClick={() => onboardMut.mutate()} disabled={onboardMut.isPending}>
-                {onboardMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue verification <ExternalLink className="ml-2 h-4 w-4" /></>}
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="mt-2 text-xs text-muted-foreground">Withdraw to your verified bank account.</p>
-              <div className="mt-3 flex gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  max={balance / 100}
-                  value={cashoutAmount}
-                  onChange={(e) => setCashoutAmount(e.target.value)}
-                  placeholder="Amount USD"
-                />
-                <Button
-                  onClick={() => {
-                    const n = Number(cashoutAmount);
-                    if (!n || n < 1) return toast.error("Enter a valid amount");
-                    const cents = Math.round(n * 100);
-                    if (cents > balance) return toast.error("Exceeds balance");
-                    cashoutMut.mutate(cents);
-                  }}
-                  disabled={cashoutMut.isPending || balance <= 0}
-                >
-                  {cashoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Withdraw"}
-                </Button>
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">Available: {fmt(balance)}</p>
-            </>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Direct-to-bank payouts via Stripe are temporarily paused while we finalize Connect onboarding.
+            Use PayPal or the new crypto cash-out below.
+          </p>
+          <Button className="mt-4 w-full" disabled variant="outline">
+            Set up payouts <ExternalLink className="ml-2 h-4 w-4" />
+          </Button>
+          {connect && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {payoutsReady ? "Your bank account is verified — withdrawals will re-enable soon." : "Verification in progress."}
+            </p>
           )}
         </div>
       </div>
@@ -303,6 +321,121 @@ function WalletPage() {
           );
         })()}
       </div>
+
+      {/* Crypto cash-out */}
+      <div className="mt-6 rounded-2xl border border-border/60 bg-card p-6">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          {cryptoCurrency === "BTC" ? <Bitcoin className="h-4 w-4" /> : <Coins className="h-4 w-4" />}
+          Cash out to crypto
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          USDC on Base auto-sends instantly (~$0.01 network fee). BTC payouts are queued for fulfillment.
+          A 1% platform fee (min $0.25) is deducted from each payout.
+        </p>
+
+        <div className="mt-4 flex gap-2">
+          {(["USDC", "BTC"] as const).map((c) => (
+            <Button
+              key={c}
+              size="sm"
+              variant={cryptoCurrency === c ? "default" : "outline"}
+              onClick={() => setCryptoCurrency(c)}
+            >
+              {c === "BTC" ? <Bitcoin className="mr-1 h-3.5 w-3.5" /> : <Coins className="mr-1 h-3.5 w-3.5" />}
+              {c}
+            </Button>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <Input
+            value={cryptoAddr}
+            onChange={(e) => setCryptoAddr(e.target.value)}
+            placeholder={cryptoCurrency === "USDC" ? "0x… (Base network)" : "bc1… or 1… / 3…"}
+            className="font-mono text-xs"
+          />
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!cryptoAddr.trim()) return toast.error("Enter an address");
+              saveAddrMut.mutate();
+            }}
+            disabled={saveAddrMut.isPending || !cryptoAddr.trim() || cryptoAddr.trim() === savedAddrForCurrency}
+          >
+            {saveAddrMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAddrForCurrency ? "Update" : "Save"}
+          </Button>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <Input
+            type="number"
+            min={5}
+            max={balance / 100}
+            value={cryptoAmount}
+            onChange={(e) => setCryptoAmount(e.target.value)}
+            placeholder="Amount USD (min $5)"
+            disabled={!savedAddrForCurrency}
+          />
+          <Button
+            onClick={() => {
+              const n = Number(cryptoAmount);
+              if (!n || n < 5) return toast.error("Minimum payout is $5");
+              const cents = Math.round(n * 100);
+              if (cents > balance) return toast.error("Exceeds balance");
+              cryptoMut.mutate(cents);
+            }}
+            disabled={cryptoMut.isPending || balance <= 0 || !savedAddrForCurrency}
+          >
+            {cryptoMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Send ${cryptoCurrency}`}
+          </Button>
+        </div>
+
+        {cryptoAmount && Number(cryptoAmount) > 0 && (() => {
+          const gross = Math.round(Number(cryptoAmount) * 100);
+          const fee = Math.max(Math.round(gross * 0.01), 25);
+          const net = Math.max(0, gross - fee);
+          return (
+            <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+              <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(gross)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Platform fee (1%, min $0.25)</span><span className="font-medium text-rose-500">−{fmt(fee)}</span></div>
+              <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">≈ {fmt(net)} in {cryptoCurrency}</span></div>
+            </div>
+          );
+        })()}
+
+        {cryptoPayoutHistory && cryptoPayoutHistory.length > 0 && (
+          <div className="mt-4 border-t border-border/60 pt-3">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recent crypto payouts</div>
+            <ul className="mt-2 space-y-1.5">
+              {cryptoPayoutHistory.slice(0, 5).map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-mono text-muted-foreground">
+                    {new Date(p.created_at).toLocaleDateString()} · {p.currency} · {fmt(p.amount_cents)}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className={
+                      p.status === "sent" ? "text-emerald-500" :
+                      p.status === "failed" ? "text-rose-500" :
+                      "text-amber-500"
+                    }>{p.status}</span>
+                    {p.tx_hash && p.network === "base" && (
+                      <a
+                        href={`https://basescan.org/tx/${p.tx_hash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      >
+                        view <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
 
 
 
