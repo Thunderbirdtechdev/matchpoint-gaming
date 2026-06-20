@@ -157,3 +157,154 @@ export const listMyPayoutRequests = createServerFn({ method: "GET" })
       .limit(25);
     return data ?? [];
   });
+
+// ────────────────────────────── ADMIN ──────────────────────────────
+
+async function assertAdmin(supabase: any, userId: string) {
+  const { data: isAdmin, error } = await supabase.rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
+  if (error) throw error;
+  if (!isAdmin) throw new Error("Forbidden");
+}
+
+const AdminListSchema = z.object({
+  speed: SpeedSchema.optional(),
+  status: z.enum(["pending", "processing", "paid", "failed", "canceled"]).optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+});
+
+/** Admin-only: list payout requests, optionally filtered by speed/status. */
+export const adminListPayoutRequests = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => AdminListSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("manual_payout_requests")
+      .select("*, profiles:user_id(username, display_name, avatar_url)")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.speed) q = q.eq("speed", data.speed);
+    if (data.status) q = q.eq("status", data.status);
+    const { data: rows, error } = await q;
+    if (error) throw error;
+    return rows ?? [];
+  });
+
+const AdminUpdateSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(["mark_processing", "mark_paid", "reject"]),
+  admin_note: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Admin-only: update a payout request status.
+ *  - mark_processing: status → processing (no wallet change)
+ *  - mark_paid:       status → paid, ledger tx → completed
+ *  - reject:          status → canceled, refund wallet, ledger tx → failed
+ */
+export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => AdminUpdateSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: req, error: rErr } = await supabaseAdmin
+      .from("manual_payout_requests")
+      .select("*")
+      .eq("id", data.id)
+      .single();
+    if (rErr || !req) throw new Error("Payout request not found.");
+    if (req.status === "paid" || req.status === "canceled") {
+      throw new Error(`Payout already ${req.status}.`);
+    }
+
+    const now = new Date().toISOString();
+
+    if (data.action === "mark_processing") {
+      const { error } = await supabaseAdmin
+        .from("manual_payout_requests")
+        .update({
+          status: "processing",
+          admin_note: data.admin_note ?? req.admin_note,
+          processed_by: context.userId,
+          updated_at: now,
+        } as never)
+        .eq("id", req.id);
+      if (error) throw error;
+      return { ok: true, status: "processing" };
+    }
+
+    if (data.action === "mark_paid") {
+      const { error: uErr } = await supabaseAdmin
+        .from("manual_payout_requests")
+        .update({
+          status: "paid",
+          admin_note: data.admin_note ?? req.admin_note,
+          processed_by: context.userId,
+          processed_at: now,
+          updated_at: now,
+        } as never)
+        .eq("id", req.id);
+      if (uErr) throw uErr;
+      if (req.wallet_tx_id) {
+        await supabaseAdmin
+          .from("wallet_transactions")
+          .update({ status: "completed" })
+          .eq("id", req.wallet_tx_id);
+      }
+      return { ok: true, status: "paid" };
+    }
+
+    // reject → refund wallet
+    const { data: wallet, error: wErr } = await supabaseAdmin
+      .from("wallets")
+      .select("*")
+      .eq("user_id", req.user_id)
+      .single();
+    if (wErr || !wallet) throw new Error("Wallet not found for refund.");
+
+    const refunded = wallet.balance_cents + req.amount_cents;
+    const { error: balErr } = await supabaseAdmin
+      .from("wallets")
+      .update({ balance_cents: refunded, updated_at: now })
+      .eq("id", wallet.id);
+    if (balErr) throw balErr;
+
+    await supabaseAdmin.from("wallet_transactions").insert({
+      wallet_id: wallet.id,
+      user_id: req.user_id,
+      type: "refund",
+      status: "completed",
+      amount_cents: req.amount_cents,
+      balance_after_cents: refunded,
+      currency: wallet.currency,
+      description: `Payout rejected — refund${data.admin_note ? `: ${data.admin_note}` : ""}`,
+      metadata: { payout_request_id: req.id, rejected_by: context.userId },
+    } as never);
+
+    if (req.wallet_tx_id) {
+      await supabaseAdmin
+        .from("wallet_transactions")
+        .update({ status: "failed" })
+        .eq("id", req.wallet_tx_id);
+    }
+
+    const { error: uErr } = await supabaseAdmin
+      .from("manual_payout_requests")
+      .update({
+        status: "canceled",
+        admin_note: data.admin_note ?? req.admin_note,
+        processed_by: context.userId,
+        processed_at: now,
+        updated_at: now,
+      } as never)
+      .eq("id", req.id);
+    if (uErr) throw uErr;
+
+    return { ok: true, status: "canceled", refunded_cents: req.amount_cents };
+  });
