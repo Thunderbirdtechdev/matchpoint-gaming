@@ -221,3 +221,100 @@ export const listCompanyWithdrawals = createServerFn({ method: "GET" })
     if (error) throw error;
     return data ?? [];
   });
+
+// ────────────────────── Stripe Payouts (cash out to bank) ──────────────────────
+
+async function stripeFetch(path: string, init: { method?: string; body?: Record<string, string> } = {}) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY is not configured");
+  const body = init.body ? new URLSearchParams(init.body).toString() : undefined;
+  const res = await fetch(`https://api.stripe.com/v1${path}`, {
+    method: init.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const json: any = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error?.message || `Stripe ${res.status}`);
+  return json;
+}
+
+/** Admin-only: read Stripe platform balance (available + pending). */
+export const getStripeBalance = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdminAdmin(context);
+    const bal = await stripeFetch("/balance");
+    const pick = (arr: any[]) =>
+      (arr ?? []).map((b: any) => ({ amount: b.amount as number, currency: b.currency as string }));
+    return {
+      available: pick(bal.available),
+      pending: pick(bal.pending),
+      livemode: !!bal.livemode,
+    };
+  });
+
+/**
+ * Admin-only: trigger a real Stripe payout from the platform balance to the
+ * default external bank account configured on the Stripe account.
+ * If amount_cents is omitted, sweeps the full available balance for the currency.
+ */
+export const stripePayoutToBank = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        amount_cents: z.number().int().min(1).optional(),
+        currency: z.string().trim().length(3).default("usd"),
+        note: z.string().trim().max(500).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdminAdmin(context);
+    const currency = data.currency.toLowerCase();
+
+    let amount = data.amount_cents ?? 0;
+    if (!amount) {
+      const bal = await stripeFetch("/balance");
+      const row = (bal.available ?? []).find((b: any) => b.currency === currency);
+      amount = row?.amount ?? 0;
+      if (!amount || amount <= 0) {
+        throw new Error(`No available ${currency.toUpperCase()} balance to pay out.`);
+      }
+    }
+
+    const payout = await stripeFetch("/payouts", {
+      method: "POST",
+      body: {
+        amount: String(amount),
+        currency,
+        "metadata[source]": "admin_sweep",
+        "metadata[note]": data.note ?? "",
+        "metadata[initiated_by]": context.userId,
+      },
+    });
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const destination = `Stripe payout → bank (${payout.destination ?? "default"})`;
+    const note = [data.note, `stripe_payout_id=${payout.id}`].filter(Boolean).join(" · ");
+    const { error: rpcErr } = await supabaseAdmin.rpc("company_wallet_withdraw", {
+      _amount_cents: amount,
+      _destination: destination,
+      _note: note,
+      _created_by: context.userId,
+    } as never);
+    const ledger_warning = rpcErr ? rpcErr.message : null;
+
+    return {
+      ok: true,
+      payout_id: payout.id as string,
+      amount_cents: amount,
+      currency,
+      arrival_date: payout.arrival_date as number | null,
+      status: payout.status as string,
+      ledger_warning,
+    };
+  });
