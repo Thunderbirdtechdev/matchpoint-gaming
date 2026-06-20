@@ -15,23 +15,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, Loader2, Mail, Bitcoin, Coins, ExternalLink } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Mail, DollarSign, Clock } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
   createDepositCheckout,
-  createCashout,
 } from "@/lib/wallet.functions";
-import { savePaypalEmail, createPaypalCashout } from "@/lib/paypal.functions";
 import {
-  saveCryptoAddress,
-  listCryptoAddresses,
-  listCryptoPayouts,
-  requestCryptoPayout,
-} from "@/lib/crypto.functions";
-
+  savePayoutHandle,
+  requestManualPayout,
+  listMyPayoutRequests,
+} from "@/lib/payouts.functions";
 
 type SearchParams = { deposit?: string; connect?: string };
+type PayoutMethod = "paypal" | "cashapp";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({ meta: [{ title: "Wallet — MatchPoint" }] }),
@@ -55,27 +52,24 @@ function WalletPage() {
   const search = useSearch({ from: "/_authenticated/wallet" });
   const fetchWallet = useServerFn(getMyWallet);
   const deposit = useServerFn(createDepositCheckout);
-  const cashout = useServerFn(createCashout);
-  const savePaypal = useServerFn(savePaypalEmail);
-  const fetchCryptoAddrs = useServerFn(listCryptoAddresses);
-  const fetchCryptoPayouts = useServerFn(listCryptoPayouts);
-  const saveAddr = useServerFn(saveCryptoAddress);
-  const sendCrypto = useServerFn(requestCryptoPayout);
-  const paypalCashout = useServerFn(createPaypalCashout);
+  const saveHandle = useServerFn(savePayoutHandle);
+  const requestPayout = useServerFn(requestManualPayout);
+  const fetchPayouts = useServerFn(listMyPayoutRequests);
 
   const [depositAmount, setDepositAmount] = useState("25");
-  const [cashoutAmount, setCashoutAmount] = useState("");
-  const [paypalEmail, setPaypalEmail] = useState("");
-  const [paypalAmount, setPaypalAmount] = useState("");
+  const [method, setMethod] = useState<PayoutMethod>("paypal");
+  const [handle, setHandle] = useState("");
+  const [payoutAmount, setPayoutAmount] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [cryptoCurrency, setCryptoCurrency] = useState<"USDC" | "BTC">("USDC");
-  const [cryptoAddr, setCryptoAddr] = useState("");
-  const [cryptoAmount, setCryptoAmount] = useState("");
-
 
   const { data, isLoading } = useQuery({
     queryKey: ["wallet"],
     queryFn: () => fetchWallet(),
+  });
+
+  const { data: payouts } = useQuery({
+    queryKey: ["my-payout-requests"],
+    queryFn: () => fetchPayouts(),
   });
 
   useEffect(() => {
@@ -86,11 +80,7 @@ function WalletPage() {
       return () => { clearInterval(id); clearTimeout(stop); };
     }
     if (search.deposit === "cancel") toast.message("Deposit canceled.");
-    if (search.connect === "return") {
-      toast.success("Payout account updated.");
-      qc.invalidateQueries({ queryKey: ["wallet"] });
-    }
-  }, [search.deposit, search.connect, qc]);
+  }, [search.deposit, qc]);
 
   const depositMut = useMutation({
     mutationFn: async (amount_cents: number) => deposit({ data: { amount_cents } }),
@@ -98,87 +88,37 @@ function WalletPage() {
     onError: (e: Error) => toast.error(e.message || "Could not start deposit"),
   });
 
-  // Stripe Connect bank payouts are paused.
-  void cashout; // keep import alive while feature is disabled
+  const savedPaypal = data?.paypal_email ?? "";
+  const savedCashapp = data?.cashapp_tag ?? "";
+  const savedHandle = method === "paypal" ? savedPaypal : savedCashapp;
 
-  const cashoutMut = useMutation({
-    mutationFn: async (amount_cents: number) => cashout({ data: { amount_cents } }),
-    onSuccess: () => {
-      toast.success("Cash-out initiated.");
-      setCashoutAmount("");
-      qc.invalidateQueries({ queryKey: ["wallet"] });
-    },
-    onError: (e: Error) => toast.error(e.message || "Cash-out failed"),
-  });
-
-  const savePaypalMut = useMutation({
-    mutationFn: async (email: string) => savePaypal({ data: { paypal_email: email } }),
-    onSuccess: () => {
-      toast.success("PayPal email saved.");
-      qc.invalidateQueries({ queryKey: ["wallet"] });
-    },
-    onError: (e: Error) => toast.error(e.message || "Could not save PayPal email"),
-  });
-
-  const paypalMut = useMutation({
-    mutationFn: async ({ amount_cents, paypal_email }: { amount_cents: number; paypal_email: string }) =>
-      paypalCashout({ data: { amount_cents, paypal_email } }),
-    onSuccess: () => {
-      toast.success("PayPal payout sent.");
-      setPaypalAmount("");
-      qc.invalidateQueries({ queryKey: ["wallet"] });
-    },
-    onError: (e: Error) => toast.error(e.message || "PayPal payout failed"),
-  });
-
-  const { data: cryptoAddresses } = useQuery({
-    queryKey: ["crypto-addresses"],
-    queryFn: () => fetchCryptoAddrs(),
-  });
-  const { data: cryptoPayoutHistory } = useQuery({
-    queryKey: ["crypto-payouts"],
-    queryFn: () => fetchCryptoPayouts(),
-  });
-
-  const savedAddrForCurrency =
-    cryptoAddresses?.find((a) => a.currency === cryptoCurrency)?.address ?? "";
   useEffect(() => {
-    setCryptoAddr(savedAddrForCurrency);
-  }, [savedAddrForCurrency]);
+    setHandle(savedHandle ?? "");
+  }, [method, savedHandle]);
 
-  const saveAddrMut = useMutation({
-    mutationFn: async () =>
-      saveAddr({ data: { currency: cryptoCurrency, address: cryptoAddr.trim() } }),
+  const saveHandleMut = useMutation({
+    mutationFn: async () => saveHandle({ data: { method, handle: handle.trim() } }),
     onSuccess: () => {
-      toast.success(`${cryptoCurrency} address saved.`);
-      qc.invalidateQueries({ queryKey: ["crypto-addresses"] });
+      toast.success(method === "paypal" ? "PayPal email saved." : "Cash App $cashtag saved.");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not save address"),
+    onError: (e: Error) => toast.error(e.message || "Could not save"),
   });
 
-  const cryptoMut = useMutation({
+  const payoutMut = useMutation({
     mutationFn: async (amount_cents: number) =>
-      sendCrypto({ data: { currency: cryptoCurrency, amount_cents } }),
-    onSuccess: (res) => {
-      if (res.status === "sent") {
-        toast.success(`Sent! Tx ${res.txHash?.slice(0, 10)}…`);
-      } else {
-        toast.success(`${cryptoCurrency} payout request created — pending fulfillment.`);
-      }
-      setCryptoAmount("");
+      requestPayout({ data: { method, amount_cents, handle: handle.trim() } }),
+    onSuccess: () => {
+      toast.success("Payout requested — typically paid in 2–24 hours.");
+      setPayoutAmount("");
       qc.invalidateQueries({ queryKey: ["wallet"] });
-      qc.invalidateQueries({ queryKey: ["crypto-payouts"] });
+      qc.invalidateQueries({ queryKey: ["my-payout-requests"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Crypto payout failed"),
+    onError: (e: Error) => toast.error(e.message || "Payout request failed"),
   });
 
   const balance = data?.wallet?.balance_cents ?? 0;
-  const connect = data?.connect;
-  const savedPaypal = data?.paypal_email ?? null;
-  const payoutsReady = !!connect?.payouts_enabled;
-  useEffect(() => {
-    if (savedPaypal && !paypalEmail) setPaypalEmail(savedPaypal);
-  }, [savedPaypal, paypalEmail]);
+
 
   return (
     <DashboardShell title="Wallet" subtitle="Deposit, track winnings, and cash out.">
