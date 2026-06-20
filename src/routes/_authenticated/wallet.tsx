@@ -15,15 +15,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, ExternalLink, Loader2, Mail } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Banknote, Loader2, Mail, Bitcoin, Coins, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
   createDepositCheckout,
-  createConnectOnboarding,
   createCashout,
 } from "@/lib/wallet.functions";
 import { savePaypalEmail, createPaypalCashout } from "@/lib/paypal.functions";
+import {
+  saveCryptoAddress,
+  listCryptoAddresses,
+  listCryptoPayouts,
+  requestCryptoPayout,
+} from "@/lib/crypto.functions";
 
 
 type SearchParams = { deposit?: string; connect?: string };
@@ -50,9 +55,12 @@ function WalletPage() {
   const search = useSearch({ from: "/_authenticated/wallet" });
   const fetchWallet = useServerFn(getMyWallet);
   const deposit = useServerFn(createDepositCheckout);
-  const onboard = useServerFn(createConnectOnboarding);
   const cashout = useServerFn(createCashout);
   const savePaypal = useServerFn(savePaypalEmail);
+  const fetchCryptoAddrs = useServerFn(listCryptoAddresses);
+  const fetchCryptoPayouts = useServerFn(listCryptoPayouts);
+  const saveAddr = useServerFn(saveCryptoAddress);
+  const sendCrypto = useServerFn(requestCryptoPayout);
   const paypalCashout = useServerFn(createPaypalCashout);
 
   const [depositAmount, setDepositAmount] = useState("25");
@@ -87,11 +95,8 @@ function WalletPage() {
     onError: (e: Error) => toast.error(e.message || "Could not start deposit"),
   });
 
-  const onboardMut = useMutation({
-    mutationFn: async () => onboard(),
-    onSuccess: ({ url }) => { if (url) window.location.href = url; },
-    onError: (e: Error) => toast.error(e.message || "Could not start onboarding"),
-  });
+  // Stripe Connect bank payouts are paused.
+  void cashout; // keep import alive while feature is disabled
 
   const cashoutMut = useMutation({
     mutationFn: async (amount_cents: number) => cashout({ data: { amount_cents } }),
