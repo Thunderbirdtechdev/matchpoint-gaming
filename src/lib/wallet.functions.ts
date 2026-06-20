@@ -118,21 +118,32 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
     let stripeAccountId = row?.stripe_account_id;
 
     if (!stripeAccountId) {
-      const acct = await stripe.accounts.create({
-        type: "express",
-        capabilities: {
-          transfers: { requested: true },
-        },
-        metadata: { user_id: context.userId },
-      });
-      stripeAccountId = acct.id;
-      const { data: inserted } = await supabaseAdmin
-        .from("stripe_connect_accounts")
-        .insert({ user_id: context.userId, stripe_account_id: stripeAccountId, country: acct.country ?? null })
-        .select()
-        .single();
-      row = inserted;
+      try {
+        const acct = await stripe.accounts.create({
+          type: "express",
+          capabilities: {
+            transfers: { requested: true },
+          },
+          metadata: { user_id: context.userId },
+        });
+        stripeAccountId = acct.id;
+        const { data: inserted } = await supabaseAdmin
+          .from("stripe_connect_accounts")
+          .insert({ user_id: context.userId, stripe_account_id: stripeAccountId, country: acct.country ?? null })
+          .select()
+          .single();
+        row = inserted;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/signed up for Connect/i.test(msg)) {
+          throw new Error(
+            "Bank payouts aren't available yet — Stripe Connect isn't enabled on this platform. Use the PayPal cash-out below, or contact support.",
+          );
+        }
+        throw new Error(`Couldn't start payout onboarding: ${msg}`);
+      }
     }
+
 
     const base = origin();
     const link = await stripe.accountLinks.create({
