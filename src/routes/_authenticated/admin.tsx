@@ -46,6 +46,8 @@ function AdminPage() {
       <div className="h-6" />
       <PayoutsCard />
       <div className="h-6" />
+      <RolesCard />
+      <div className="h-6" />
       <AdminCreditWalletCard />
 
 
