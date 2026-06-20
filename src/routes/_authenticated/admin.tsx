@@ -517,3 +517,132 @@ function PayoutRowView({ row, actionable, onChanged }: { row: PayoutRow; actiona
   );
 }
 
+type StaffRow = {
+  user_id: string;
+  role: "admin" | "moderator";
+  created_at: string;
+  profile: { id: string; username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
+};
+
+function RolesCard() {
+  const listFn = useServerFn(adminListStaff);
+  const grantFn = useServerFn(adminGrantRole);
+  const revokeFn = useServerFn(adminRevokeRole);
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  const { data: staff, isLoading } = useQuery({
+    queryKey: ["admin-staff"],
+    queryFn: () => listFn({}) as Promise<StaffRow[]>,
+  });
+
+  const [target, setTarget] = useState("");
+  const [role, setRole] = useState<"admin" | "moderator">("moderator");
+
+  const grant = useMutation({
+    mutationFn: () => grantFn({ data: { target: target.trim(), role } }),
+    onSuccess: () => {
+      toast.success(`Granted ${role}.`);
+      setTarget("");
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Grant failed"),
+  });
+
+  const revoke = useMutation({
+    mutationFn: (vars: { userId: string; role: "admin" | "moderator" }) =>
+      revokeFn({ data: { target: vars.userId, role: vars.role } }),
+    onSuccess: () => {
+      toast.success("Role revoked.");
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Revoke failed"),
+  });
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-6">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Wallet className="h-4 w-4" /> Admin &amp; moderator roles
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Grant admin or moderator privileges to any existing player account — the role attaches to their normal gameplay account, no separate login. They'll see the admin tools next time they sign in.
+      </p>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_auto]">
+        <Input
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          placeholder="username, email, or user id"
+        />
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as "admin" | "moderator")}
+          className="h-10 rounded-md border border-border/60 bg-background px-3 text-sm"
+        >
+          <option value="moderator">Moderator</option>
+          <option value="admin">Admin</option>
+        </select>
+        <Button
+          onClick={() => {
+            if (!target.trim()) return toast.error("Enter a username, email, or id");
+            grant.mutate();
+          }}
+          disabled={grant.isPending}
+        >
+          {grant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Grant role"}
+        </Button>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-lg border border-border/60">
+        <table className="w-full text-xs">
+          <thead className="bg-surface/50 uppercase text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Player</th>
+              <th className="px-3 py-2 text-left">Role</th>
+              <th className="px-3 py-2 text-left">Granted</th>
+              <th className="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={4} className="px-3 py-4 text-muted-foreground">Loading…</td></tr>
+            ) : !staff?.length ? (
+              <tr><td colSpan={4} className="px-3 py-4 text-muted-foreground">No staff yet.</td></tr>
+            ) : (
+              staff.map((s) => {
+                const isSelf = s.user_id === user?.id;
+                const name = s.profile?.display_name ?? s.profile?.username ?? s.user_id.slice(0, 8);
+                return (
+                  <tr key={`${s.user_id}-${s.role}`} className="border-t border-border/40">
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{name} {isSelf && <span className="text-[10px] text-muted-foreground">(you)</span>}</div>
+                      {s.profile?.username && <div className="text-[10px] text-muted-foreground">@{s.profile.username}</div>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant="outline" className={s.role === "admin" ? "border-primary/40 text-primary" : "border-border"}>
+                        {s.role}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</td>
+                    <td className="px-3 py-2 text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={revoke.isPending || (s.role === "admin" && isSelf)}
+                        onClick={() => revoke.mutate({ userId: s.user_id, role: s.role })}
+                      >
+                        Revoke
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
