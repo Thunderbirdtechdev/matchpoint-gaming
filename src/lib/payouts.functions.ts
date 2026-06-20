@@ -14,7 +14,7 @@ const SaveHandleSchema = z.object({
 const RequestPayoutSchema = z.object({
   method: MethodSchema,
   speed: SpeedSchema.default("standard"),
-  amount_cents: z.number().int().min(100).max(500_000), // $1 – $5,000
+  amount_cents: z.number().int().min(1_000).max(500_000), // $10 – $5,000
   handle: z.string().trim().min(2).max(120),
 });
 
