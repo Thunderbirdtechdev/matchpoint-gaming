@@ -59,9 +59,9 @@ export function Hero() {
               variant="outline"
               className="h-12 border-border/80 bg-surface/40 px-7 text-sm font-semibold uppercase tracking-wider backdrop-blur hover:bg-surface"
             >
-              <Link to="/tournaments">
+              <Link to="/games">
                 <Play className="mr-1 h-4 w-4" />
-                Browse Tournaments
+                Browse Games
               </Link>
             </Button>
           </div>

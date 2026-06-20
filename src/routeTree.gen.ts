@@ -9,14 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TournamentsRouteImport } from './routes/tournaments'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as LeaderboardsRouteImport } from './routes/leaderboards'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as GamesRouteImport } from './routes/games'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -36,11 +34,6 @@ import { Route as AuthenticatedChallengesRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 
-const TournamentsRoute = TournamentsRouteImport.update({
-  id: '/tournaments',
-  path: '/tournaments',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -69,11 +62,6 @@ const PricingRoute = PricingRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LeaderboardsRoute = LeaderboardsRouteImport.update({
-  id: '/leaderboards',
-  path: '/leaderboards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HowItWorksRoute = HowItWorksRouteImport.update({
@@ -176,14 +164,12 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
   '/how-it-works': typeof HowItWorksRoute
-  '/leaderboards': typeof LeaderboardsRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/tournaments': typeof TournamentsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/challenges': typeof AuthenticatedChallengesRoute
@@ -203,14 +189,12 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
   '/how-it-works': typeof HowItWorksRoute
-  '/leaderboards': typeof LeaderboardsRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/tournaments': typeof TournamentsRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/challenges': typeof AuthenticatedChallengesRoute
@@ -232,14 +216,12 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
   '/how-it-works': typeof HowItWorksRoute
-  '/leaderboards': typeof LeaderboardsRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/terms': typeof TermsRoute
-  '/tournaments': typeof TournamentsRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
@@ -261,14 +243,12 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/games'
     | '/how-it-works'
-    | '/leaderboards'
     | '/login'
     | '/pricing'
     | '/privacy'
     | '/register'
     | '/reset-password'
     | '/terms'
-    | '/tournaments'
     | '/admin'
     | '/analytics'
     | '/challenges'
@@ -288,14 +268,12 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/games'
     | '/how-it-works'
-    | '/leaderboards'
     | '/login'
     | '/pricing'
     | '/privacy'
     | '/register'
     | '/reset-password'
     | '/terms'
-    | '/tournaments'
     | '/admin'
     | '/analytics'
     | '/challenges'
@@ -316,14 +294,12 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/games'
     | '/how-it-works'
-    | '/leaderboards'
     | '/login'
     | '/pricing'
     | '/privacy'
     | '/register'
     | '/reset-password'
     | '/terms'
-    | '/tournaments'
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
     | '/_authenticated/challenges'
@@ -345,25 +321,16 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GamesRoute: typeof GamesRoute
   HowItWorksRoute: typeof HowItWorksRoute
-  LeaderboardsRoute: typeof LeaderboardsRoute
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
-  TournamentsRoute: typeof TournamentsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tournaments': {
-      id: '/tournaments'
-      path: '/tournaments'
-      fullPath: '/tournaments'
-      preLoaderRoute: typeof TournamentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -404,13 +371,6 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/leaderboards': {
-      id: '/leaderboards'
-      path: '/leaderboards'
-      fullPath: '/leaderboards'
-      preLoaderRoute: typeof LeaderboardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/how-it-works': {
@@ -580,14 +540,12 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   GamesRoute: GamesRoute,
   HowItWorksRoute: HowItWorksRoute,
-  LeaderboardsRoute: LeaderboardsRoute,
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
-  TournamentsRoute: TournamentsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

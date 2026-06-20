@@ -25,8 +25,6 @@ export function Footer() {
             title="Platform"
             items={[
               { to: "/games", label: "Games" },
-              { to: "/tournaments", label: "Tournaments" },
-              { to: "/leaderboards", label: "Leaderboards" },
               { to: "/how-it-works", label: "How it works" },
               { to: "/contact", label: "Host a Tournament" },
             ]}
