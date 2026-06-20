@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { calculateWithdrawalFee } from "./fees";
 
 const MethodSchema = z.enum(["paypal", "cashapp"]);
+const SpeedSchema = z.enum(["standard", "instant"]);
 
 const SaveHandleSchema = z.object({
   method: MethodSchema,
@@ -11,7 +13,8 @@ const SaveHandleSchema = z.object({
 
 const RequestPayoutSchema = z.object({
   method: MethodSchema,
-  amount_cents: z.number().int().min(500).max(500_000), // $5 – $5,000
+  speed: SpeedSchema.default("standard"),
+  amount_cents: z.number().int().min(100).max(500_000), // $1 – $5,000
   handle: z.string().trim().min(2).max(120),
 });
 
@@ -24,11 +27,6 @@ function validateHandle(method: "paypal" | "cashapp", handle: string) {
     const ok = /^[a-zA-Z][a-zA-Z0-9_]{0,19}$/.test(v);
     if (!ok) throw new Error("Enter a valid Cash App $cashtag.");
   }
-}
-
-function feeCents(grossCents: number) {
-  // Flat 5% (min $0.25) platform fee for manual processing
-  return Math.max(Math.round(grossCents * 0.05), 25);
 }
 
 /** Save the user's PayPal email or Cash App $cashtag to their profile. */
