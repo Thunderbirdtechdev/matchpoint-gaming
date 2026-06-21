@@ -176,14 +176,6 @@ export function WaitlistOverlay() {
         </div>
 
         <footer className="mt-10 text-[11px] text-white/35">
-          Questions?{" "}
-          <a
-            href="mailto:hello@matchpointgaming.org"
-            className="text-white/60 underline-offset-2 hover:underline"
-          >
-            hello@matchpointgaming.org
-          </a>
-          <span className="mx-2" aria-hidden>·</span>
           <a href="/terms" className="text-white/60 underline-offset-2 hover:underline">Terms</a>
           <span className="mx-2" aria-hidden>·</span>
           <a href="/privacy" className="text-white/60 underline-offset-2 hover:underline">Privacy</a>
