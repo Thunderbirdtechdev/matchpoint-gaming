@@ -85,6 +85,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "MatchPoint" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:title", content: "MatchPoint — Play. Compete. Win." },
+      { name: "twitter:title", content: "MatchPoint — Play. Compete. Win." },
+      { property: "og:description", content: "Skill-based competitive gaming platform for tournaments, challenges and rewards." },
+      { name: "twitter:description", content: "Skill-based competitive gaming platform for tournaments, challenges and rewards." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/eUAVaa9kW3MOmlxVaMqISWkpEws2/social-images/social-1782087454486-matchpoint.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/eUAVaa9kW3MOmlxVaMqISWkpEws2/social-images/social-1782087454486-matchpoint.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
