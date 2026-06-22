@@ -7,7 +7,11 @@ export const Route = createFileRoute("/privacy")({
     meta: [
       { title: "Privacy Policy — MatchPoint" },
       { name: "description", content: "How MatchPoint collects, uses and protects your data." },
+      { property: "og:title", content: "Privacy Policy — MatchPoint" },
+      { property: "og:description", content: "What data MatchPoint collects, how we use it, and your rights." },
+      { property: "og:url", content: "https://matchpointgaming.org/privacy" },
     ],
+    links: [{ rel: "canonical", href: "https://matchpointgaming.org/privacy" }],
   }),
   component: () => (
     <SiteShell>
