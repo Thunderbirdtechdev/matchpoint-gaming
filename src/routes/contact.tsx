@@ -14,7 +14,9 @@ export const Route = createFileRoute("/contact")({
       { name: "description", content: "Get in touch with the MatchPoint team — partnerships, support, press." },
       { property: "og:title", content: "Contact MatchPoint" },
       { property: "og:description", content: "We reply to every message within one business day." },
+      { property: "og:url", content: "https://matchpointgaming.org/contact" },
     ],
+    links: [{ rel: "canonical", href: "https://matchpointgaming.org/contact" }],
   }),
   component: ContactPage,
 });
