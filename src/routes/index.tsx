@@ -16,14 +16,16 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Skill-based competitive gaming platform. Create challenges, join tournaments, climb leaderboards and earn rewards across Fortnite, Madden, NBA 2K, MLB The Show, Call of Duty and EA Sports FC.",
+          "Skill-based gaming platform. Compete in Fortnite, Madden, NBA 2K, MLB The Show, Call of Duty & EA Sports FC tournaments and win real cash prizes.",
       },
       { property: "og:title", content: "MatchPoint — Play. Compete. Win." },
       {
         property: "og:description",
         content: "Challenge players, enter tournaments, and prove your skills on MatchPoint.",
       },
+      { property: "og:url", content: "https://matchpointgaming.org/" },
     ],
+    links: [{ rel: "canonical", href: "https://matchpointgaming.org/" }],
   }),
   component: HomePage,
 });
