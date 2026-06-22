@@ -599,12 +599,10 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
-          cashapp_tag: string | null
           created_at: string
           display_name: string | null
           favorite_game: string | null
           id: string
-          paypal_email: string | null
           platform: string | null
           rank_tier: string
           region: string | null
@@ -616,12 +614,10 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
-          cashapp_tag?: string | null
           created_at?: string
           display_name?: string | null
           favorite_game?: string | null
           id: string
-          paypal_email?: string | null
           platform?: string | null
           rank_tier?: string
           region?: string | null
@@ -633,12 +629,10 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
-          cashapp_tag?: string | null
           created_at?: string
           display_name?: string | null
           favorite_game?: string | null
           id?: string
-          paypal_email?: string | null
           platform?: string | null
           rank_tier?: string
           region?: string | null
@@ -804,6 +798,30 @@ export type Database = {
           starts_at?: string
           status?: string
           title?: string
+        }
+        Relationships: []
+      }
+      user_payout_methods: {
+        Row: {
+          cashapp_tag: string | null
+          created_at: string
+          paypal_email: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cashapp_tag?: string | null
+          created_at?: string
+          paypal_email?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cashapp_tag?: string | null
+          created_at?: string
+          paypal_email?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
