@@ -18,9 +18,11 @@ export const savePaypalEmail = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
-      .from("profiles")
-      .update({ paypal_email: data.paypal_email })
-      .eq("id", context.userId);
+      .from("user_payout_methods")
+      .upsert(
+        { user_id: context.userId, paypal_email: data.paypal_email },
+        { onConflict: "user_id" },
+      );
     if (error) throw error;
     return { ok: true };
   });
@@ -37,19 +39,21 @@ export const createPaypalCashout = createServerFn({ method: "POST" })
     // save it first so the payout button works as a single action.
     if (data.paypal_email) {
       const { error: saveErr } = await supabaseAdmin
-        .from("profiles")
-        .update({ paypal_email: data.paypal_email })
-        .eq("id", context.userId);
+        .from("user_payout_methods")
+        .upsert(
+          { user_id: context.userId, paypal_email: data.paypal_email },
+          { onConflict: "user_id" },
+        );
       if (saveErr) throw saveErr;
     }
 
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
+    const { data: payout } = await supabaseAdmin
+      .from("user_payout_methods")
       .select("paypal_email")
-      .eq("id", context.userId)
-      .single();
+      .eq("user_id", context.userId)
+      .maybeSingle();
 
-    const recipient = (data.paypal_email ?? profile?.paypal_email)?.trim();
+    const recipient = (data.paypal_email ?? payout?.paypal_email)?.trim();
     if (!recipient) throw new Error("Add your PayPal email before cashing out.");
 
     // Check balance
