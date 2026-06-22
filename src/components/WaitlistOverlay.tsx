@@ -80,7 +80,15 @@ export function WaitlistOverlay() {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center justify-center px-5 py-12 text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+        <img
+          src={logo}
+          alt="MatchPoint Gaming"
+          className="mx-auto h-20 w-20 object-contain sm:h-24 sm:w-24"
+          width={96}
+          height={96}
+        />
+
+        <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
           <Sparkles className="h-3 w-3" />
           Launching soon
         </span>
