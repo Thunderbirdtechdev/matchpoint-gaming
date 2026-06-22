@@ -16,6 +16,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as HowItWorksRouteImport } from './routes/how-it-works'
 import { Route as GamesRouteImport } from './routes/games'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -78,6 +79,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HowItWorksRoute = HowItWorksRouteImport.update({
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/games': typeof GamesRoute
   '/how-it-works': typeof HowItWorksRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
@@ -345,6 +354,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/games'
     | '/how-it-works'
+    | '/llms.txt'
     | '/login'
     | '/privacy'
     | '/register'
@@ -381,6 +391,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/games'
     | '/how-it-works'
+    | '/llms.txt'
     | '/login'
     | '/privacy'
     | '/register'
@@ -418,6 +429,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/games'
     | '/how-it-works'
+    | '/llms.txt'
     | '/login'
     | '/privacy'
     | '/register'
@@ -456,6 +468,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GamesRoute: typeof GamesRoute
   HowItWorksRoute: typeof HowItWorksRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
@@ -523,6 +536,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/how-it-works': {
@@ -764,6 +784,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   GamesRoute: GamesRoute,
   HowItWorksRoute: HowItWorksRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
