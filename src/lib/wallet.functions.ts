@@ -43,18 +43,18 @@ export const getMyWallet = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
 
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
+    const { data: payout } = await supabaseAdmin
+      .from("user_payout_methods")
       .select("paypal_email, cashapp_tag")
-      .eq("id", context.userId)
+      .eq("user_id", context.userId)
       .maybeSingle();
 
     return {
       wallet,
       transactions: transactions ?? [],
       connect: connect ?? null,
-      paypal_email: profile?.paypal_email ?? null,
-      cashapp_tag: profile?.cashapp_tag ?? null,
+      paypal_email: payout?.paypal_email ?? null,
+      cashapp_tag: payout?.cashapp_tag ?? null,
     };
   });
 

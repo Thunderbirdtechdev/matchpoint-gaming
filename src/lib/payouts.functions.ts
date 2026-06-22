@@ -38,12 +38,11 @@ export const savePayoutHandle = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const patch =
       data.method === "paypal"
-        ? { paypal_email: data.handle }
-        : { cashapp_tag: data.handle.startsWith("$") ? data.handle : `$${data.handle}` };
+        ? { paypal_email: data.handle, cashapp_tag: null }
+        : { cashapp_tag: data.handle.startsWith("$") ? data.handle : `$${data.handle}`, paypal_email: null };
     const { error } = await supabaseAdmin
-      .from("profiles")
-      .update(patch)
-      .eq("id", context.userId);
+      .from("user_payout_methods")
+      .upsert({ user_id: context.userId, ...patch }, { onConflict: "user_id" });
     if (error) throw error;
     return { ok: true };
   });
@@ -139,7 +138,9 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       data.method === "paypal"
         ? { paypal_email: normalizedHandle }
         : { cashapp_tag: normalizedHandle };
-    await supabaseAdmin.from("profiles").update(patch).eq("id", context.userId);
+    await supabaseAdmin
+      .from("user_payout_methods")
+      .upsert({ user_id: context.userId, ...patch }, { onConflict: "user_id" });
 
     return { ok: true, request: req };
   });
