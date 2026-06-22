@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Trophy, Menu, X, LayoutDashboard } from "lucide-react";
+import { Menu, X, LayoutDashboard } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -18,9 +19,13 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand glow-primary transition-transform group-hover:scale-105">
-            <Trophy className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img
+            src={logo}
+            alt="MatchPoint Gaming"
+            className="h-9 w-9 rounded-lg object-contain transition-transform group-hover:scale-105"
+            width={36}
+            height={36}
+          />
           <span className="font-display text-lg font-extrabold uppercase tracking-[0.12em]">
             Match<span className="text-gradient-brand">Point</span>
           </span>
