@@ -11,7 +11,9 @@ export const Route = createFileRoute("/games")({
       { name: "description", content: "Six flagship esports titles supported at launch with live competitions and tournaments 24/7." },
       { property: "og:title", content: "Supported Games — MatchPoint" },
       { property: "og:description", content: "Browse all supported games on MatchPoint." },
+      { property: "og:url", content: "https://matchpointgaming.org/games" },
     ],
+    links: [{ rel: "canonical", href: "https://matchpointgaming.org/games" }],
   }),
   component: () => (
     <SiteShell>

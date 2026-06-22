@@ -19,7 +19,9 @@ export const Route = createFileRoute("/about")({
       { name: "description", content: "MatchPoint is the home of skill-based competitive gaming — built by players, for players." },
       { property: "og:title", content: "About MatchPoint" },
       { property: "og:description", content: "The home of skill-based competitive gaming." },
+      { property: "og:url", content: "https://matchpointgaming.org/about" },
     ],
+    links: [{ rel: "canonical", href: "https://matchpointgaming.org/about" }],
   }),
   component: AboutPage,
 });
@@ -42,7 +44,7 @@ function AboutPage() {
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
                 <v.icon className="h-5 w-5" />
               </div>
-              <h3 className="mt-5 text-lg font-semibold">{v.title}</h3>
+              <h2 className="mt-5 text-lg font-semibold">{v.title}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{v.desc}</p>
             </div>
           ))}

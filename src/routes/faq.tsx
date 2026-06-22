@@ -21,6 +21,22 @@ export const Route = createFileRoute("/faq")({
       { name: "description", content: "Answers to the most common questions about MatchPoint — payouts, disputes, supported games and more." },
       { property: "og:title", content: "MatchPoint FAQ" },
       { property: "og:description", content: "Common questions, answered." },
+      { property: "og:url", content: "https://matchpointgaming.org/faq" },
+    ],
+    links: [{ rel: "canonical", href: "https://matchpointgaming.org/faq" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }),
+      },
     ],
   }),
   component: () => (

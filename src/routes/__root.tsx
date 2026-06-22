@@ -83,6 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "MatchPoint — Play. Compete. Win." },
       { name: "description", content: "Skill-based competitive gaming platform for tournaments, challenges and rewards." },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "MatchPoint" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
@@ -92,6 +93,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "MatchPoint",
+          url: "https://matchpointgaming.org",
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "MatchPoint",
+          url: "https://matchpointgaming.org",
+        }),
       },
     ],
   }),

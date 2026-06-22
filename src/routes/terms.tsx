@@ -6,8 +6,12 @@ export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
       { title: "Terms of Service — MatchPoint" },
-      { name: "description", content: "MatchPoint Terms of Service." },
+      { name: "description", content: "MatchPoint Terms of Service — eligibility, fair play rules, payouts, dispute resolution and account policies." },
+      { property: "og:title", content: "Terms of Service — MatchPoint" },
+      { property: "og:description", content: "Account, fair play, payout and dispute terms for MatchPoint players." },
+      { property: "og:url", content: "https://matchpointgaming.org/terms" },
     ],
+    links: [{ rel: "canonical", href: "https://matchpointgaming.org/terms" }],
   }),
   component: () => (
     <SiteShell>
