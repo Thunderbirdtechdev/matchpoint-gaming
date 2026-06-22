@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, Trophy, Swords, Coins, ShieldCheck, CheckCircle2, Sparkles } from "lucide-react";
+import { Loader2, Swords, Coins, ShieldCheck, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { joinWaitlist } from "@/lib/waitlist.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import logo from "@/assets/logo.png";
 
 const STORAGE_KEY = "mp_waitlist_joined";
 

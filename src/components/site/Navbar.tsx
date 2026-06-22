@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Trophy, Menu, X, LayoutDashboard } from "lucide-react";
+import { Menu, X, LayoutDashboard } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
