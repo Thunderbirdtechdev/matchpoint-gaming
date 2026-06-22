@@ -44,7 +44,7 @@ function AboutPage() {
               <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
                 <v.icon className="h-5 w-5" />
               </div>
-              <h3 className="mt-5 text-lg font-semibold">{v.title}</h3>
+              <h2 className="mt-5 text-lg font-semibold">{v.title}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{v.desc}</p>
             </div>
           ))}
