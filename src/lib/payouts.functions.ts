@@ -340,8 +340,10 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
           _metadata: { method: req.method, speed: req.speed },
         });
       }
+      await sendUserStatusEmail("paid", data.admin_note ?? null);
       return { ok: true, status: "paid" };
     }
+
 
     // reject → refund wallet
     const { data: wallet, error: wErr } = await supabaseAdmin
