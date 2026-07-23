@@ -306,8 +306,10 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
         } as never)
         .eq("id", req.id);
       if (error) throw error;
+      await sendUserStatusEmail("processing", data.admin_note ?? null);
       return { ok: true, status: "processing" };
     }
+
 
     if (data.action === "mark_paid") {
       const { error: uErr } = await supabaseAdmin
