@@ -391,5 +391,7 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
       .eq("id", req.id);
     if (uErr) throw uErr;
 
+    await sendUserStatusEmail("rejected", data.admin_note ?? null);
     return { ok: true, status: "canceled", refunded_cents: req.amount_cents };
+
   });
