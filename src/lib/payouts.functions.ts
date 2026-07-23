@@ -142,8 +142,38 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .from("user_payout_methods")
       .upsert({ user_id: context.userId, ...patch }, { onConflict: "user_id" });
 
+    // Send confirmation email
+    try {
+      const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+      const recipient = userRes?.user?.email;
+      if (recipient) {
+        const currency = (wallet.currency ?? "usd").toUpperCase();
+        const fmt = (cents: number) =>
+          new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
+        const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+        await enqueueAppEmail({
+          templateName: "user-payout-update",
+          recipientEmail: recipient,
+          idempotencyKey: `payout-requested-${req.id}`,
+          templateData: {
+            status: "requested",
+            method: data.method,
+            speed: data.speed,
+            handle: normalizedHandle,
+            grossFormatted: fmt(data.amount_cents),
+            feeFormatted: fmt(fee),
+            netFormatted: fmt(net),
+            requestId: req.id,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[payouts] request email failed", e);
+    }
+
     return { ok: true, request: req };
   });
+
 
 /** List the user's recent manual payout requests. */
 export const listMyPayoutRequests = createServerFn({ method: "GET" })
