@@ -264,6 +264,37 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
 
     const now = new Date().toISOString();
 
+    const sendUserStatusEmail = async (status: "processing" | "paid" | "rejected", note?: string | null) => {
+      try {
+        const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(req.user_id);
+        const recipient = userRes?.user?.email;
+        if (!recipient) return;
+        const currency = "USD";
+        const fmt = (cents: number) =>
+          new Intl.NumberFormat("en-US", { style: "currency", currency }).format((cents ?? 0) / 100);
+        const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+        await enqueueAppEmail({
+          templateName: "user-payout-update",
+          recipientEmail: recipient,
+          idempotencyKey: `payout-${status}-${req.id}`,
+          templateData: {
+            status,
+            method: req.method,
+            speed: req.speed,
+            handle: req.handle,
+            grossFormatted: fmt(req.amount_cents),
+            feeFormatted: fmt(req.fee_cents ?? 0),
+            netFormatted: fmt(req.net_cents ?? req.amount_cents),
+            requestId: req.id,
+            adminNote: note ?? null,
+          },
+        });
+      } catch (e) {
+        console.error("[payouts] status email failed", e);
+      }
+    };
+
+
     if (data.action === "mark_processing") {
       const { error } = await supabaseAdmin
         .from("manual_payout_requests")
