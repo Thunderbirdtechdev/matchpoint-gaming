@@ -24,10 +24,26 @@ export const joinWaitlist = createServerFn({ method: "POST" })
       referrer: data.referrer ?? null,
     });
 
-    // 23505 = unique violation → treat duplicates as success.
-    if (error && (error as any).code !== "23505") {
+    // 23505 = unique violation → treat duplicates as success (but don't re-email).
+    const isDuplicate = !!error && (error as any).code === "23505";
+    if (error && !isDuplicate) {
       throw new Error(error.message);
+    }
+
+    if (!isDuplicate) {
+      try {
+        const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+        await enqueueAppEmail({
+          templateName: "waitlist-welcome",
+          recipientEmail: data.email,
+          idempotencyKey: `waitlist-welcome-${data.email}`,
+          templateData: { email: data.email },
+        });
+      } catch (e) {
+        console.error("[waitlist] failed to enqueue welcome email", e);
+      }
     }
 
     return { ok: true } as const;
   });
+

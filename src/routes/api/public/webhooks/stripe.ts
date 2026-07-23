@@ -151,7 +151,38 @@ async function creditDeposit(args: {
     .eq("type", "deposit")
     .eq("amount_cents", args.amountCents)
     .is("stripe_checkout_session_id", null);
+
+  // Send deposit confirmation email
+  try {
+    const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(args.userId);
+    const recipient = userRes?.user?.email;
+    if (recipient) {
+      const { data: wallet } = await supabaseAdmin
+        .from("wallets")
+        .select("balance_cents, currency")
+        .eq("user_id", args.userId)
+        .single();
+      const currency = (wallet?.currency ?? "usd").toUpperCase();
+      const fmt = (cents: number) =>
+        new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
+      const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+      await enqueueAppEmail({
+        templateName: "deposit-confirmation",
+        recipientEmail: recipient,
+        idempotencyKey: `deposit-${args.sessionId}`,
+        templateData: {
+          amountFormatted: fmt(args.amountCents),
+          currency,
+          newBalanceFormatted: wallet ? fmt(wallet.balance_cents) : undefined,
+          sessionId: args.sessionId,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("[stripe-webhook] deposit email failed", e);
+  }
 }
+
 
 async function refundDeposit(args: {
   paymentIntentId: string;

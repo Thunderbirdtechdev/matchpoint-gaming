@@ -142,8 +142,38 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .from("user_payout_methods")
       .upsert({ user_id: context.userId, ...patch }, { onConflict: "user_id" });
 
+    // Send confirmation email
+    try {
+      const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+      const recipient = userRes?.user?.email;
+      if (recipient) {
+        const currency = (wallet.currency ?? "usd").toUpperCase();
+        const fmt = (cents: number) =>
+          new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
+        const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+        await enqueueAppEmail({
+          templateName: "user-payout-update",
+          recipientEmail: recipient,
+          idempotencyKey: `payout-requested-${req.id}`,
+          templateData: {
+            status: "requested",
+            method: data.method,
+            speed: data.speed,
+            handle: normalizedHandle,
+            grossFormatted: fmt(data.amount_cents),
+            feeFormatted: fmt(fee),
+            netFormatted: fmt(net),
+            requestId: req.id,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[payouts] request email failed", e);
+    }
+
     return { ok: true, request: req };
   });
+
 
 /** List the user's recent manual payout requests. */
 export const listMyPayoutRequests = createServerFn({ method: "GET" })
@@ -234,6 +264,37 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
 
     const now = new Date().toISOString();
 
+    const sendUserStatusEmail = async (status: "processing" | "paid" | "rejected", note?: string | null) => {
+      try {
+        const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(req.user_id);
+        const recipient = userRes?.user?.email;
+        if (!recipient) return;
+        const currency = "USD";
+        const fmt = (cents: number) =>
+          new Intl.NumberFormat("en-US", { style: "currency", currency }).format((cents ?? 0) / 100);
+        const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+        await enqueueAppEmail({
+          templateName: "user-payout-update",
+          recipientEmail: recipient,
+          idempotencyKey: `payout-${status}-${req.id}`,
+          templateData: {
+            status,
+            method: req.method,
+            speed: req.speed,
+            handle: req.handle,
+            grossFormatted: fmt(req.amount_cents),
+            feeFormatted: fmt(req.fee_cents ?? 0),
+            netFormatted: fmt(req.net_cents ?? req.amount_cents),
+            requestId: req.id,
+            adminNote: note ?? null,
+          },
+        });
+      } catch (e) {
+        console.error("[payouts] status email failed", e);
+      }
+    };
+
+
     if (data.action === "mark_processing") {
       const { error } = await supabaseAdmin
         .from("manual_payout_requests")
@@ -245,8 +306,10 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
         } as never)
         .eq("id", req.id);
       if (error) throw error;
+      await sendUserStatusEmail("processing", data.admin_note ?? null);
       return { ok: true, status: "processing" };
     }
+
 
     if (data.action === "mark_paid") {
       const { error: uErr } = await supabaseAdmin
@@ -277,8 +340,10 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
           _metadata: { method: req.method, speed: req.speed },
         });
       }
+      await sendUserStatusEmail("paid", data.admin_note ?? null);
       return { ok: true, status: "paid" };
     }
+
 
     // reject → refund wallet
     const { data: wallet, error: wErr } = await supabaseAdmin
@@ -326,5 +391,7 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
       .eq("id", req.id);
     if (uErr) throw uErr;
 
+    await sendUserStatusEmail("rejected", data.admin_note ?? null);
     return { ok: true, status: "canceled", refunded_cents: req.amount_cents };
+
   });
