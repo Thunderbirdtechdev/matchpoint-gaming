@@ -1,5 +1,8 @@
 import type { ComponentType } from 'react'
 import { template as payoutStatusTemplate } from './payout-status'
+import { template as waitlistWelcomeTemplate } from './waitlist-welcome'
+import { template as depositConfirmationTemplate } from './deposit-confirmation'
+import { template as userPayoutUpdateTemplate } from './user-payout-update'
 
 export interface TemplateEntry {
   component: ComponentType<any>
@@ -15,4 +18,7 @@ export interface TemplateEntry {
  */
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'payout-status': payoutStatusTemplate,
+  'waitlist-welcome': waitlistWelcomeTemplate,
+  'deposit-confirmation': depositConfirmationTemplate,
+  'user-payout-update': userPayoutUpdateTemplate,
 }
