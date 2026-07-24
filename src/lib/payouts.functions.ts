@@ -329,8 +329,9 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
           .update({ status: "completed" })
           .eq("id", req.wallet_tx_id);
       }
+      let fee_warning: string | null = null;
       if (req.fee_cents && req.fee_cents > 0) {
-        await supabaseAdmin.rpc("record_platform_fee", {
+        const { error: feeErr } = await supabaseAdmin.rpc("record_platform_fee", {
           _source: req.speed === "same_day" ? "withdrawal_fee_same_day" : "withdrawal_fee_standard",
           _amount_cents: req.fee_cents,
           _user_id: req.user_id,
@@ -339,9 +340,16 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
           _net_cents: req.net_cents,
           _metadata: { method: req.method, speed: req.speed },
         });
+        if (feeErr) {
+          console.error("[payouts] record_platform_fee failed for paid payout", {
+            payout_id: req.id,
+            error: feeErr,
+          });
+          fee_warning = feeErr.message;
+        }
       }
       await sendUserStatusEmail("paid", data.admin_note ?? null);
-      return { ok: true, status: "paid" };
+      return { ok: true, status: "paid", fee_warning };
     }
 
 

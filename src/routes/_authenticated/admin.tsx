@@ -499,6 +499,9 @@ function PayoutCard({ row, actionable, onChanged }: { row: PayoutRow; actionable
       updateFn({ data: { id: row.id, action, admin_note: note.trim() || undefined } }),
     onSuccess: (res) => {
       toast.success(`Payout ${res.status}.`);
+      if ((res as { fee_warning?: string | null }).fee_warning) {
+        toast.warning(`Payout marked paid, but the platform fee wasn't recorded: ${(res as { fee_warning?: string | null }).fee_warning}`);
+      }
       setNote("");
       setOpenNote(false);
       onChanged();

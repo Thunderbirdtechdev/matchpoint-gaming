@@ -138,21 +138,25 @@ export const createPaypalCashout = createServerFn({ method: "POST" })
       throw pErr ?? new Error("Failed to create payout record");
     }
 
-    // Record collected platform fee in the platform_fees ledger
-    await supabaseAdmin.from("platform_fees").insert({
-      source: "paypal_payout",
-      user_id: context.userId,
-      amount_cents: fee,
-      currency,
-      gross_cents: gross,
-      net_cents: net,
-      reference_id: payoutRow.id,
-      metadata: {
+    // Record collected platform fee via the shared RPC so company_wallet's
+    // running balance/lifetime totals stay in sync with platform_fees
+    // (a previous direct insert here bypassed that and caused drift).
+    const { error: feeErr } = await supabaseAdmin.rpc("record_platform_fee", {
+      _source: "paypal_payout",
+      _amount_cents: fee,
+      _user_id: context.userId,
+      _reference_id: payoutRow.id,
+      _gross_cents: gross,
+      _net_cents: net,
+      _metadata: {
         recipient_email: recipient,
         wallet_tx_id: withdrawalTx?.id ?? null,
         fee_rate: 0.05,
       },
     });
+    if (feeErr) {
+      console.error("[paypal] record_platform_fee failed", { payout_id: payoutRow.id, error: feeErr });
+    }
 
 
     // Call PayPal
