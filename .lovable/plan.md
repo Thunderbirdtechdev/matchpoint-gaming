@@ -1,39 +1,43 @@
-## Waitlist overlay
+## 1. Confirm email + grant admin for faizanjawad02@gmail.com
 
-A full-screen "launching soon" overlay shown over every page. Visitors learn what MatchPoint is and can drop their email to be notified when we go live. Admins are automatically bypassed so the rest of the app stays usable for the team.
+Run a single `supabase--insert` that:
+- Marks `auth.users.email_confirmed_at = now()` for that email (so the account can sign in without waiting on the confirmation mail).
+- Inserts an `admin` row into `public.user_roles` for that user (`ON CONFLICT DO NOTHING`), matching how your own account was set up. This lets the waitlist overlay bypass fire (admins are auto-bypassed).
 
-### What the user sees
+No schema changes — this is a data-only update on existing tables.
 
-- A fixed, full-viewport overlay that sits on top of the whole app (covers every route, including the home page and dashboards).
-- Brand header: MatchPoint logo/wordmark, "Launching soon" badge.
-- Headline + short pitch: skill-based competitive gaming platform — tournaments, 1v1 challenges, instant payouts.
-- A "What you'll get at launch" section with 4 short bullets (Tournaments, 1v1 Challenges, Real cash prizes, Fair-play escrow).
-- A trust strip (e.g., "Secure escrow · Stripe & crypto payouts · 18+").
-- Email capture form: single email input + "Join the waitlist" button.
-- Success state replaces the form with a confirmation message once submitted; remembers the user via localStorage so they don't see the form again on return.
-- Subtle footer line: contact email + links to Terms / Privacy.
+## 2. Auth "Send Email" hook
 
-### Behavior
+Heads-up on how this actually works in Lovable Cloud: you don't get a Supabase dashboard, so the "Send Email hook" isn't something toggled in a Supabase UI here. In this project it's already wired end-to-end:
 
-- Overlay renders from the root layout so it appears on every route on first paint.
-- Hidden automatically when:
-  - The signed-in user has the `admin` role (so the team can keep building/testing).
-  - The visitor has already joined (flag stored in `localStorage`).
-- After successful signup the overlay switches to a "You're on the list" confirmation but stays mounted so the underlying app remains hidden until launch.
-- Duplicate emails are treated as success (idempotent).
+- Webhook route: `src/routes/lovable/email/auth/webhook.ts`
+- Templates: `src/lib/email-templates/{signup,magic-link,recovery,invite,email-change,reauthentication}.tsx`
+- Sender domain: `notify.matchpointgaming.org` (verified previously)
 
-### Backend
+I'll verify the hook is actually firing by:
+- Reading the webhook route to confirm it's the current handler.
+- Pulling recent `auth_logs` via `supabase--analytics_query` for `path` containing `/lovable/email/auth/webhook` to confirm Supabase is calling it on signup/recovery.
+- If no calls are landing, I'll flag it and we escalate — Lovable Cloud manages the hook binding; there is no self-serve config for me to flip.
 
-New `waitlist_signups` table (email unique, source, created_at, optional referrer). Row-level security:
-- `anon` and `authenticated` can INSERT only.
-- Only admins can SELECT (so the team can export the list later).
-A public server function `joinWaitlist({ email })` validates with Zod, normalizes the email, inserts, and returns `{ ok: true }` on success or duplicate.
+Payout / deposit / waitlist emails do NOT go through the auth hook — those are enqueued directly by our server code via `enqueueAppEmail` → `transactional_emails` queue → `src/routes/lovable/email/queue/process.ts`. Nothing to change there; they already use our branded templates.
 
-### Technical notes
+## 3. Site URL and Redirect URLs
 
-- New file `src/components/WaitlistOverlay.tsx` (client component with form state).
-- Mounted inside `RootComponent` in `src/routes/__root.tsx`, above `<Toaster />`, after `<Outlet />`.
-- New server function in `src/lib/waitlist.functions.ts` (no auth middleware — public).
-- Migration creates `public.waitlist_signups` with proper GRANTs, RLS enabled, and policies described above. Index on `lower(email)`.
-- LocalStorage key: `mp_waitlist_joined`.
-- Admin detection uses the existing `useAuth` hook + a lightweight role check (reuse the same pattern as the admin area).
+Same caveat: on Lovable Cloud there's no exposed Supabase Auth "Site URL / Redirect URLs" screen, and the `configure_auth` tool available to me does not accept `site_url` or `additional_redirect_urls`. Lovable Cloud manages the canonical Site URL automatically based on your published domain (`matchpointgaming.org` / `matchpoint-gaming.lovable.app`), which is why OAuth and password-reset redirects have been working end-to-end.
+
+I'll:
+- Call `supabase--debug_oauth_server` (read-only) to print the current Site URL and trusted redirect allow-list, so you can see the actual values instead of assuming `localhost:3000`.
+- If Site URL really is still `localhost:3000` or `matchpointgaming.org/**` is missing from the allow-list, I don't have a tool to write those directly — I'll tell you exactly what's set and we'll open a Lovable support request (this is the only path to change managed auth Site URL for a Cloud project).
+
+## Order of operations
+
+1. `supabase--insert` — confirm email + insert admin role.
+2. `supabase--debug_oauth_server` — dump current Site URL + redirect allow-list.
+3. `supabase--analytics_query` on `auth_logs` — verify the auth webhook is being called.
+4. Report findings for #2 and #3; act only on what my tools can actually change.
+
+## Not doing
+
+- No code changes to templates, webhooks, or the waitlist overlay.
+- No schema migrations.
+- No changes to Stripe, payouts, or fees.
