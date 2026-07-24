@@ -15,7 +15,7 @@ const STORAGE_KEY = "mp_waitlist_joined";
 
 // Routes a non-admin visitor must be able to reach — otherwise nobody can
 // ever log in (or reset a password) to be recognized as admin in the first place.
-const OVERLAY_EXEMPT_PATHS = ["/login", "/reset-password"];
+const OVERLAY_EXEMPT_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 export function WaitlistOverlay() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
