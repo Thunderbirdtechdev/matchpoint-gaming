@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2, Trophy, Swords, Coins, ShieldCheck, CheckCircle2, Sparkles } from "lucide-react";
@@ -12,7 +13,12 @@ import logo from "@/assets/logo.png";
 
 const STORAGE_KEY = "mp_waitlist_joined";
 
+// Routes a non-admin visitor must be able to reach — otherwise nobody can
+// ever log in (or reset a password) to be recognized as admin in the first place.
+const OVERLAY_EXEMPT_PATHS = ["/login", "/reset-password"];
+
 export function WaitlistOverlay() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user, loading } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [joined, setJoined] = useState(false);
@@ -63,6 +69,8 @@ export function WaitlistOverlay() {
       cancelled = true;
     };
   }, [user]);
+
+  if (OVERLAY_EXEMPT_PATHS.includes(pathname)) return null;
 
   // Don't render until we know auth state — avoids a flash for admins.
   if (!mounted || loading || isAdmin === null) return null;
