@@ -15,21 +15,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Mail, DollarSign, Clock, Zap, CalendarClock } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Landmark, Zap, CalendarClock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
   createDepositCheckout,
+  createConnectOnboarding,
+  createCashout,
 } from "@/lib/wallet.functions";
-import {
-  savePayoutHandle,
-  requestManualPayout,
-  listMyPayoutRequests,
-} from "@/lib/payouts.functions";
 import { calculateWithdrawalFee, type WithdrawalSpeed } from "@/lib/fees";
 
 type SearchParams = { deposit?: string; connect?: string };
-type PayoutMethod = "paypal" | "cashapp";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({ meta: [{ title: "Wallet — MatchPoint" }] }),
@@ -53,25 +49,17 @@ function WalletPage() {
   const search = useSearch({ from: "/_authenticated/wallet" });
   const fetchWallet = useServerFn(getMyWallet);
   const deposit = useServerFn(createDepositCheckout);
-  const saveHandle = useServerFn(savePayoutHandle);
-  const requestPayout = useServerFn(requestManualPayout);
-  const fetchPayouts = useServerFn(listMyPayoutRequests);
+  const connectOnboarding = useServerFn(createConnectOnboarding);
+  const cashout = useServerFn(createCashout);
 
   const [depositAmount, setDepositAmount] = useState("25");
-  const [method, setMethod] = useState<PayoutMethod>("paypal");
   const [speed, setSpeed] = useState<WithdrawalSpeed>("standard");
-  const [handle, setHandle] = useState("");
   const [payoutAmount, setPayoutAmount] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["wallet"],
     queryFn: () => fetchWallet(),
-  });
-
-  const { data: payouts } = useQuery({
-    queryKey: ["my-payout-requests"],
-    queryFn: () => fetchPayouts(),
   });
 
   useEffect(() => {
@@ -84,46 +72,47 @@ function WalletPage() {
     if (search.deposit === "cancel") toast.message("Deposit canceled.");
   }, [search.deposit, qc]);
 
+  useEffect(() => {
+    if (search.connect === "return") {
+      toast.success("Payout account setup received — checking status…");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+    }
+    if (search.connect === "refresh") {
+      toast.message("Payout setup link expired — start again below.");
+    }
+  }, [search.connect, qc]);
+
   const depositMut = useMutation({
     mutationFn: async (amount_cents: number) => deposit({ data: { amount_cents } }),
     onSuccess: ({ url }) => { if (url) window.location.href = url; },
     onError: (e: Error) => toast.error(e.message || "Could not start deposit"),
   });
 
-  const savedPaypal = data?.paypal_email ?? "";
-  const savedCashapp = data?.cashapp_tag ?? "";
-  const savedHandle = method === "paypal" ? savedPaypal : savedCashapp;
-
-  useEffect(() => {
-    setHandle(savedHandle ?? "");
-  }, [method, savedHandle]);
-
-  const saveHandleMut = useMutation({
-    mutationFn: async () => saveHandle({ data: { method, handle: handle.trim() } }),
-    onSuccess: () => {
-      toast.success(method === "paypal" ? "PayPal email saved." : "Cash App $cashtag saved.");
-      qc.invalidateQueries({ queryKey: ["wallet"] });
-    },
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+  const connectMut = useMutation({
+    mutationFn: async () => connectOnboarding(),
+    onSuccess: ({ url }) => { if (url) window.location.href = url; },
+    onError: (e: Error) => toast.error(e.message || "Could not start payout setup"),
   });
 
   const payoutMut = useMutation({
-    mutationFn: async (amount_cents: number) =>
-      requestPayout({ data: { method, speed, amount_cents, handle: handle.trim() } }),
-    onSuccess: () => {
+    mutationFn: async (amount_cents: number) => cashout({ data: { amount_cents, speed } }),
+    onSuccess: (res) => {
       toast.success(
         speed === "same_day"
-          ? "Same-day payout requested — typically paid in 30 minutes to 5 hours."
-          : "Standard payout requested — typically paid in 2–5 business days.",
+          ? "Same-day cash out sent — typically arrives in 30 minutes to 5 hours."
+          : "Standard cash out sent — typically arrives in 2–5 business days.",
       );
+      if (res.fee_warning) {
+        toast.warning(`Cash out sent, but the platform fee wasn't recorded: ${res.fee_warning}`);
+      }
       setPayoutAmount("");
       qc.invalidateQueries({ queryKey: ["wallet"] });
-      qc.invalidateQueries({ queryKey: ["my-payout-requests"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Payout request failed"),
+    onError: (e: Error) => toast.error(e.message || "Cash out failed"),
   });
 
   const balance = data?.wallet?.balance_cents ?? 0;
+  const payoutsEnabled = !!data?.connect?.payouts_enabled;
 
 
   return (
@@ -177,165 +166,117 @@ function WalletPage() {
         </div>
       </div>
 
-      {/* Cash out — manual PayPal / Cash App */}
+      {/* Cash out — automatic via Stripe, no admin approval */}
       <div className="mt-6 rounded-2xl border border-border/60 bg-card p-6">
         <div className="flex items-center gap-2 text-sm font-medium">
           <ArrowUpCircle className="h-4 w-4" /> Cash out
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Choose a payout method and how fast you want it. <span className="font-medium text-foreground">Standard</span>{" "}
-          payouts are <span className="font-medium text-foreground">free</span> and arrive in 2–5 business days.
-          <span className="font-medium text-foreground"> Same-day</span> payouts land in 30 minutes – 5 hours for a small fee.
-        </p>
 
-        {/* Method selector */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant={method === "paypal" ? "default" : "outline"}
-            onClick={() => setMethod("paypal")}
-            className="justify-start"
-          >
-            <Mail className="mr-2 h-4 w-4" /> PayPal
-          </Button>
-          <Button
-            type="button"
-            variant={method === "cashapp" ? "default" : "outline"}
-            onClick={() => setMethod("cashapp")}
-            className="justify-start"
-          >
-            <DollarSign className="mr-2 h-4 w-4" /> Cash App
-          </Button>
-        </div>
-
-        {/* Speed selector */}
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setSpeed("standard")}
-            className={`rounded-lg border p-3 text-left text-xs transition ${
-              speed === "standard"
-                ? "border-primary bg-primary/10"
-                : "border-border/60 hover:border-border"
-            }`}
-          >
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <CalendarClock className="h-3.5 w-3.5" /> Standard
-              <span className="ml-auto text-emerald-500">FREE</span>
+        {!payoutsEnabled ? (
+          <>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Connect a bank account to cash out — a quick, secure setup through Stripe (the same processor you deposit with).
+              Once connected, withdrawals are automatic — no approval needed.
+            </p>
+            <Button className="mt-4" onClick={() => connectMut.mutate()} disabled={connectMut.isPending}>
+              {connectMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Landmark className="mr-2 h-4 w-4" /> {data?.connect ? "Finish payout setup" : "Set up payouts"}
+                </>
+              )}
+            </Button>
+            <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" /> Handled securely by Stripe — MatchPoint never sees your bank details.
             </div>
-            <div className="mt-1 text-muted-foreground">2–5 business days</div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSpeed("same_day")}
-            className={`rounded-lg border p-3 text-left text-xs transition ${
-              speed === "same_day"
-                ? "border-primary bg-primary/10"
-                : "border-border/60 hover:border-border"
-            }`}
-          >
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <Zap className="h-3.5 w-3.5" /> Same-day
-              <span className="ml-auto text-muted-foreground">Fee applies</span>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Cash out automatically to your linked bank account. <span className="font-medium text-foreground">Standard</span>{" "}
+              payouts are <span className="font-medium text-foreground">free</span> and arrive in 2–5 business days.
+              <span className="font-medium text-foreground"> Same-day</span> payouts land in 30 minutes – 5 hours for a small fee.
+            </p>
+
+            {/* Speed selector */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSpeed("standard")}
+                className={`rounded-lg border p-3 text-left text-xs transition ${
+                  speed === "standard"
+                    ? "border-primary bg-primary/10"
+                    : "border-border/60 hover:border-border"
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium text-foreground">
+                  <CalendarClock className="h-3.5 w-3.5" /> Standard
+                  <span className="ml-auto text-emerald-500">FREE</span>
+                </div>
+                <div className="mt-1 text-muted-foreground">2–5 business days</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSpeed("same_day")}
+                className={`rounded-lg border p-3 text-left text-xs transition ${
+                  speed === "same_day"
+                    ? "border-primary bg-primary/10"
+                    : "border-border/60 hover:border-border"
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium text-foreground">
+                  <Zap className="h-3.5 w-3.5" /> Same-day
+                  <span className="ml-auto text-muted-foreground">Fee applies</span>
+                </div>
+                <div className="mt-1 text-muted-foreground">30 minutes – 5 hours</div>
+              </button>
             </div>
-            <div className="mt-1 text-muted-foreground">30 minutes – 5 hours</div>
-          </button>
-        </div>
 
-        {/* Handle */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Input
-            type={method === "paypal" ? "email" : "text"}
-            value={handle}
-            onChange={(e) => setHandle(e.target.value)}
-            placeholder={method === "paypal" ? "your-paypal@example.com" : "$yourcashtag"}
-          />
-          <Button
-            variant="outline"
-            onClick={() => {
-              const v = handle.trim();
-              if (!v) return toast.error(method === "paypal" ? "Enter your PayPal email" : "Enter your $cashtag");
-              saveHandleMut.mutate();
-            }}
-            disabled={saveHandleMut.isPending || !handle.trim() || handle.trim() === (savedHandle ?? "")}
-          >
-            {saveHandleMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : savedHandle ? "Update" : "Save"}
-          </Button>
-        </div>
-
-        {/* Amount */}
-        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Input
-            type="number"
-            min={10}
-            max={balance / 100}
-            value={payoutAmount}
-            onChange={(e) => setPayoutAmount(e.target.value)}
-            placeholder="Amount USD (min $10)"
-            disabled={!handle.trim()}
-          />
-          <Button
-            onClick={() => {
-              if (!handle.trim()) return toast.error("Enter your payout details");
-              const n = Number(payoutAmount);
-              if (!n || n < 10) return toast.error("Minimum payout is $10");
-              const cents = Math.round(n * 100);
-              if (cents > balance) return toast.error("Exceeds balance");
-              setConfirmOpen(true);
-            }}
-            disabled={payoutMut.isPending || balance < 1_000 || !handle.trim()}
-          >
-            {payoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request payout"}
-          </Button>
-        </div>
-
-        {payoutAmount && Number(payoutAmount) > 0 && (() => {
-          const gross = Math.round(Number(payoutAmount) * 100);
-          const b = calculateWithdrawalFee(gross, speed);
-          return (
-            <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-              <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  {speed === "same_day" ? "Same-day fee" : "Standard fee"}
-                </span>
-                <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
-                  {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
-                </span>
-              </div>
-              <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span></div>
-              <div className="mt-1 text-[10px] text-muted-foreground">{b.etaLabel}</div>
+            {/* Amount */}
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+              <Input
+                type="number"
+                min={10}
+                max={balance / 100}
+                value={payoutAmount}
+                onChange={(e) => setPayoutAmount(e.target.value)}
+                placeholder="Amount USD (min $10)"
+              />
+              <Button
+                onClick={() => {
+                  const n = Number(payoutAmount);
+                  if (!n || n < 10) return toast.error("Minimum cash out is $10");
+                  const cents = Math.round(n * 100);
+                  if (cents > balance) return toast.error("Exceeds balance");
+                  setConfirmOpen(true);
+                }}
+                disabled={payoutMut.isPending || balance < 1_000}
+              >
+                {payoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cash out"}
+              </Button>
             </div>
-          );
-        })()}
 
-        {payouts && payouts.length > 0 && (
-          <div className="mt-5 border-t border-border/60 pt-4">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recent payout requests</div>
-            <ul className="mt-2 space-y-1.5">
-              {payouts.slice(0, 8).map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    {p.status === "pending" || p.status === "processing" ? (
-                      <Clock className="h-3 w-3 text-amber-500" />
-                    ) : p.method === "paypal" ? (
-                      <Mail className="h-3 w-3" />
-                    ) : (
-                      <DollarSign className="h-3 w-3" />
-                    )}
-                    <span className="font-mono">
-                      {new Date(p.created_at).toLocaleDateString()} · {p.method === "paypal" ? "PayPal" : "Cash App"} · {fmt(p.amount_cents)}
+            {payoutAmount && Number(payoutAmount) > 0 && (() => {
+              const gross = Math.round(Number(payoutAmount) * 100);
+              const b = calculateWithdrawalFee(gross, speed);
+              return (
+                <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {speed === "same_day" ? "Same-day fee" : "Standard fee"}
                     </span>
-                  </span>
-                  <span className={
-                    p.status === "paid" ? "text-emerald-500" :
-                    p.status === "failed" || p.status === "canceled" ? "text-rose-500" :
-                    "text-amber-500"
-                  }>{p.status}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+                    <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
+                      {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span></div>
+                  <div className="mt-1 text-[10px] text-muted-foreground">{b.etaLabel}</div>
+                </div>
+              );
+            })()}
+          </>
         )}
       </div>
 
@@ -399,7 +340,7 @@ function WalletPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Confirm {speed === "same_day" ? "same-day" : "standard"} {method === "paypal" ? "PayPal" : "Cash App"} payout
+              Confirm {speed === "same_day" ? "same-day" : "standard"} cash out
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               {(() => {
@@ -407,11 +348,7 @@ function WalletPage() {
                 const b = calculateWithdrawalFee(gross, speed);
                 return (
                   <div className="space-y-3 text-sm">
-                    <p>
-                      Send funds to{" "}
-                      <span className="font-medium">{handle.trim()}</span> via{" "}
-                      {method === "paypal" ? "PayPal" : "Cash App"}?
-                    </p>
+                    <p>Send funds to your connected bank account?</p>
                     <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
                       <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
                       <div className="flex justify-between">

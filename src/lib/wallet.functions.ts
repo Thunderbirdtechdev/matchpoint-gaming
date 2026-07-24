@@ -8,7 +8,8 @@ const DepositSchema = z.object({
 });
 
 const CashoutSchema = z.object({
-  amount_cents: z.number().int().min(100),
+  amount_cents: z.number().int().min(1_000).max(500_000), // $10 – $5,000
+  speed: z.enum(["standard", "same_day"]).default("standard"),
 });
 
 function origin() {
@@ -157,13 +158,19 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
     return { url: link.url };
   });
 
-/** Cash out wallet balance to the user's Connect account via Stripe Transfer. */
+/**
+ * Cash out wallet balance to the user's Stripe Connect account, fully
+ * automatically — no admin approval. Applies the same-day/standard fee
+ * schedule and transfers the net amount; the fee is recorded on the
+ * platform revenue ledger via record_platform_fee.
+ */
 export const createCashout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => CashoutSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { getStripe } = await import("@/lib/stripe.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { calculateWithdrawalFee } = await import("./fees");
     const stripe = getStripe();
 
     const { data: connect } = await supabaseAdmin
@@ -186,6 +193,9 @@ export const createCashout = createServerFn({ method: "POST" })
       throw new Error("Insufficient wallet balance.");
     }
 
+    const breakdown = calculateWithdrawalFee(data.amount_cents, data.speed);
+    const fee = breakdown.feeCents;
+    const net = breakdown.netCents;
     const newBalance = wallet.balance_cents - data.amount_cents;
 
     // Debit wallet first
@@ -195,14 +205,14 @@ export const createCashout = createServerFn({ method: "POST" })
       .eq("id", wallet.id);
     if (balErr) throw balErr;
 
-    // Transfer to connected account
+    // Transfer the NET amount (after fee) to the connected account
     let transferId: string | null = null;
     try {
       const transfer = await stripe.transfers.create({
-        amount: data.amount_cents,
+        amount: net,
         currency: wallet.currency,
         destination: connect.stripe_account_id,
-        metadata: { kind: "wallet_cashout", user_id: context.userId },
+        metadata: { kind: "wallet_cashout", user_id: context.userId, speed: data.speed },
       });
       transferId = transfer.id;
     } catch (err) {
@@ -214,17 +224,71 @@ export const createCashout = createServerFn({ method: "POST" })
       throw err;
     }
 
-    await supabaseAdmin.from("wallet_transactions").insert({
-      wallet_id: wallet.id,
-      user_id: context.userId,
-      type: "withdrawal",
-      status: "completed",
-      amount_cents: -data.amount_cents,
-      balance_after_cents: newBalance,
-      currency: wallet.currency,
-      description: "Cash out to bank",
-      stripe_transfer_id: transferId,
-    });
+    const speedLabel = data.speed === "same_day" ? "Same-day" : "Standard";
+    const { data: tx, error: txErr } = await supabaseAdmin
+      .from("wallet_transactions")
+      .insert({
+        wallet_id: wallet.id,
+        user_id: context.userId,
+        type: "withdrawal",
+        status: "completed",
+        amount_cents: -data.amount_cents,
+        balance_after_cents: newBalance,
+        currency: wallet.currency,
+        description: `${speedLabel} withdrawal to bank (Stripe)`,
+        stripe_transfer_id: transferId,
+        metadata: { speed: data.speed, fee_cents: fee, net_cents: net },
+      })
+      .select("id")
+      .single();
+    if (txErr) throw txErr;
 
-    return { ok: true, transferId };
+    let fee_warning: string | null = null;
+    if (fee > 0) {
+      const { error: feeErr } = await supabaseAdmin.rpc("record_platform_fee", {
+        _source: data.speed === "same_day" ? "withdrawal_fee_same_day" : "withdrawal_fee_standard",
+        _amount_cents: fee,
+        _user_id: context.userId,
+        _reference_id: tx?.id,
+        _gross_cents: data.amount_cents,
+        _net_cents: net,
+        _metadata: { method: "stripe", speed: data.speed },
+      });
+      if (feeErr) {
+        console.error("[wallet] record_platform_fee failed for stripe cashout", {
+          user_id: context.userId,
+          transferId,
+          error: feeErr,
+        });
+        fee_warning = feeErr.message;
+      }
+    }
+
+    try {
+      const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+      const recipient = userRes?.user?.email;
+      if (recipient) {
+        const fmtUsd = (cents: number) =>
+          new Intl.NumberFormat("en-US", { style: "currency", currency: (wallet.currency ?? "usd").toUpperCase() }).format(cents / 100);
+        const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
+        await enqueueAppEmail({
+          templateName: "user-payout-update",
+          recipientEmail: recipient,
+          idempotencyKey: `stripe-cashout-${tx.id}`,
+          templateData: {
+            status: "paid",
+            method: "stripe",
+            speed: data.speed,
+            grossFormatted: fmtUsd(data.amount_cents),
+            feeFormatted: fmtUsd(fee),
+            netFormatted: fmtUsd(net),
+            requestId: tx.id,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[wallet] cashout confirmation email failed", e);
+    }
+
+    return { ok: true, transferId, fee_cents: fee, net_cents: net, fee_warning };
   });
