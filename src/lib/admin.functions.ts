@@ -222,6 +222,64 @@ export const listCompanyWithdrawals = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+/** Admin-only: today / week / month / year / lifetime platform revenue. */
+export const getRevenueSummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdminAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("admin_revenue_summary" as never);
+    if (error) throw error;
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { today_cents: number; week_cents: number; month_cents: number; year_cents: number; lifetime_cents: number }
+      | null;
+    return row ?? { today_cents: 0, week_cents: 0, month_cents: 0, year_cents: 0, lifetime_cents: 0 };
+  });
+
+/** Admin-only: platform revenue broken down by fee source. */
+export const getRevenueBySource = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdminAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("admin_revenue_by_source" as never);
+    if (error) throw error;
+    return (data ?? []) as { source: string; total_cents: number; event_count: number }[];
+  });
+
+/** Admin-only: platform-wide totals — deposits, withdrawals, competitions, tournaments. */
+export const getPlatformTotals = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdminAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [walletRes, challengesRes, tournamentsRes] = await Promise.all([
+      supabaseAdmin.rpc("admin_wallet_totals" as never),
+      supabaseAdmin.from("challenges").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("tournaments").select("*", { count: "exact", head: true }),
+    ]);
+    if (walletRes.error) throw walletRes.error;
+
+    const wallet = (Array.isArray(walletRes.data) ? walletRes.data[0] : walletRes.data) as
+      | {
+          total_deposits_cents: number;
+          deposit_count: number;
+          total_withdrawals_cents: number;
+          withdrawal_count: number;
+        }
+      | null;
+
+    return {
+      total_deposits_cents: wallet?.total_deposits_cents ?? 0,
+      deposit_count: wallet?.deposit_count ?? 0,
+      total_withdrawals_cents: wallet?.total_withdrawals_cents ?? 0,
+      withdrawal_count: wallet?.withdrawal_count ?? 0,
+      total_competitions: challengesRes.count ?? 0,
+      total_tournaments: tournamentsRes.count ?? 0,
+    };
+  });
+
 // ────────────────────── Stripe Payouts (cash out to bank) ──────────────────────
 
 async function stripeFetch(path: string, init: { method?: string; body?: Record<string, string> } = {}) {

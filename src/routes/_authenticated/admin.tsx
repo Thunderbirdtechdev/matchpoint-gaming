@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank } from "@/lib/admin.functions";
+import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
 import { getHotWalletStatus } from "@/lib/crypto.functions";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
 
@@ -52,6 +52,8 @@ function AdminPage() {
 
   return (
     <DashboardShell title="Admin Dashboard" subtitle="Manage users and platform health.">
+      <RevenueReportsCard />
+      <div className="h-6" />
       <CompanyRevenueCard />
       <div className="h-6" />
       <HotWalletCard isAdmin={!!isAdmin} />
@@ -745,6 +747,78 @@ function fmtUsd(cents: number | null | undefined) {
   return `$${(((cents ?? 0) as number) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function RevenueReportsCard() {
+  const fetchSummary = useServerFn(getRevenueSummary);
+  const fetchBySource = useServerFn(getRevenueBySource);
+  const fetchTotals = useServerFn(getPlatformTotals);
+
+  const summaryQ = useQuery({ queryKey: ["revenue-summary"], queryFn: () => fetchSummary() });
+  const bySourceQ = useQuery({ queryKey: ["revenue-by-source"], queryFn: () => fetchBySource() });
+  const totalsQ = useQuery({ queryKey: ["platform-totals"], queryFn: () => fetchTotals() });
+
+  const s = summaryQ.data;
+  const t = totalsQ.data;
+
+  const sourceLabels: Record<string, string> = {
+    challenge_fee: "1v1 challenge fees",
+    tournament_fee: "Tournament fees",
+    withdrawal_fee_same_day: "Same-day withdrawal fees",
+    withdrawal_fee_standard: "Standard withdrawal fees",
+    crypto_payout: "Crypto payout fees",
+  };
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-gradient-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Revenue Reports</h2>
+          <p className="text-xs text-muted-foreground">Platform fee revenue by period, source, and platform-wide totals.</p>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => { summaryQ.refetch(); bySourceQ.refetch(); totalsQ.refetch(); }}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <RevStat label="Today" value={fmtUsd(s?.today_cents)} />
+        <RevStat label="This week" value={fmtUsd(s?.week_cents)} />
+        <RevStat label="This month" value={fmtUsd(s?.month_cents)} />
+        <RevStat label="This year" value={fmtUsd(s?.year_cents)} />
+        <RevStat label="Lifetime" value={fmtUsd(s?.lifetime_cents)} accent />
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <RevStat label="Total deposits" value={fmtUsd(t?.total_deposits_cents)} sub={t ? `${t.deposit_count} deposits` : undefined} />
+        <RevStat label="Total withdrawals" value={fmtUsd(t?.total_withdrawals_cents)} sub={t ? `${t.withdrawal_count} withdrawals` : undefined} />
+        <RevStat label="Total competitions" value={String(t?.total_competitions ?? 0)} sub="1v1 challenges" />
+        <RevStat label="Total tournaments" value={String(t?.total_tournaments ?? 0)} />
+      </div>
+
+      <div className="mt-5 rounded-xl border border-border/50 overflow-hidden">
+        <div className="bg-surface/50 px-3 py-2 text-xs uppercase tracking-wide text-muted-foreground">Revenue by source</div>
+        <div className="divide-y divide-border/40">
+          {(bySourceQ.data ?? []).length === 0 && (
+            <div className="p-3 text-xs text-muted-foreground">No fee revenue yet.</div>
+          )}
+          {(bySourceQ.data ?? []).map((row) => (
+            <div key={row.source} className="flex items-center justify-between px-3 py-2 text-sm">
+              <div>
+                <div className="font-medium">{sourceLabels[row.source] ?? row.source}</div>
+                <div className="text-[11px] text-muted-foreground">{row.event_count} events</div>
+              </div>
+              <div className="font-mono text-success">{fmtUsd(row.total_cents)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CompanyRevenueCard() {
   const qc = useQueryClient();
   const fetchWallet = useServerFn(getCompanyWallet);
@@ -849,11 +923,12 @@ function CompanyRevenueCard() {
   );
 }
 
-function RevStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function RevStat({ label, value, accent, sub }: { label: string; value: string; accent?: boolean; sub?: string }) {
   return (
     <div className={`rounded-xl border p-4 ${accent ? "border-primary/40 bg-primary/5" : "border-border/50 bg-surface/30"}`}>
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className={`mt-1 text-xl font-semibold ${accent ? "text-primary" : ""}`}>{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
     </div>
   );
 }
