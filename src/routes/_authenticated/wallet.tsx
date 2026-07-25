@@ -146,7 +146,7 @@ function WalletPage() {
           <div className="mt-3 flex gap-2">
             <Input
               type="number"
-              min={5}
+              min={10}
               max={5000}
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
@@ -155,7 +155,7 @@ function WalletPage() {
             <Button
               onClick={() => {
                 const n = Number(depositAmount);
-                if (!n || n < 5) return toast.error("Minimum deposit is $5");
+                if (!n || n < 10) return toast.error("Minimum deposit is $10");
                 depositMut.mutate(Math.round(n * 100));
               }}
               disabled={depositMut.isPending}

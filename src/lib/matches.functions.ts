@@ -9,6 +9,43 @@ const toCents = (usd: number) => Math.round(Number(usd || 0) * 100);
 // TOURNAMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const CreateTournamentSchema = z.object({
+  title: z.string().trim().min(3).max(200),
+  description: z.string().trim().max(2000).optional().default(""),
+  game_slug: z.string().min(1),
+  platform: z.string().trim().min(1).max(100),
+  max_players: z.number().int().min(2).max(256),
+  entry_fee: z.number().min(0).max(5000)
+    .refine((v) => v === 0 || v >= 5, { message: "Entry fee must be $0 (free) or at least $5" }),
+  prize_pool: z.number().min(0).max(500_000).optional().default(0),
+  starts_at: z.string().refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid start date" }),
+});
+
+/** Create a tournament. Validates entry-fee floor, player caps, and dates server-side. */
+export const createTournament = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => CreateTournamentSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: t, error } = await supabaseAdmin
+      .from("tournaments")
+      .insert({
+        host_id: context.userId,
+        title: data.title,
+        description: data.description,
+        game_slug: data.game_slug,
+        platform: data.platform,
+        max_players: data.max_players,
+        entry_fee: data.entry_fee,
+        prize_pool: data.prize_pool,
+        starts_at: new Date(data.starts_at).toISOString(),
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return { ok: true, tournament: t };
+  });
+
 /** Join a tournament: debit wallet, place entry fee in escrow, insert entry. */
 export const joinTournament = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -165,7 +202,8 @@ export const createChallenge = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     game_slug: z.string().min(1),
     platform: z.string().min(1),
-    entry_amount: z.number().min(0).max(5000),
+    entry_amount: z.number().min(0).max(5000)
+      .refine((v) => v === 0 || v >= 5, { message: "Entry must be $0 (free) or at least $5" }),
     rules: z.string().max(2000).optional().default(""),
   }).parse(d))
   .handler(async ({ data, context }) => {

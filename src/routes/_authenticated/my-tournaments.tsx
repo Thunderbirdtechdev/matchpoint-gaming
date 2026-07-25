@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { joinTournament as joinFn, declareTournamentWinner, cancelTournament } from "@/lib/matches.functions";
+import { joinTournament as joinFn, declareTournamentWinner, cancelTournament, createTournament as createTournamentFn } from "@/lib/matches.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,21 +45,27 @@ function MyTournamentsPage() {
 
   const joinedIds = new Set(myEntries?.map((e) => e.tournament_id));
 
+  const createTournamentSF = useServerFn(createTournamentFn);
+
   async function createTournament() {
     if (!user) return;
     if (!form.title || !form.starts_at) return toast.error("Title and start date are required");
-    const { error } = await supabase.from("tournaments").insert({
-      host_id: user.id,
-      title: form.title,
-      description: form.description,
-      game_slug: form.game_slug,
-      platform: form.platform,
-      max_players: Number(form.max_players),
-      entry_fee: Number(form.entry_fee),
-      prize_pool: Number(form.prize_pool),
-      starts_at: new Date(form.starts_at).toISOString(),
-    });
-    if (error) return toast.error(error.message);
+    try {
+      await createTournamentSF({
+        data: {
+          title: form.title,
+          description: form.description,
+          game_slug: form.game_slug,
+          platform: form.platform,
+          max_players: Number(form.max_players),
+          entry_fee: Number(form.entry_fee),
+          prize_pool: Number(form.prize_pool),
+          starts_at: new Date(form.starts_at).toISOString(),
+        },
+      });
+    } catch (e: any) {
+      return toast.error(e?.message ?? "Failed to create tournament");
+    }
     toast.success("Tournament created");
     setOpen(false);
     qc.invalidateQueries({ queryKey: ["all-tournaments"] });
