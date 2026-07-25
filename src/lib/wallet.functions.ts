@@ -12,6 +12,13 @@ const CashoutSchema = z.object({
   speed: z.enum(["standard", "same_day"]).default("standard"),
 });
 
+// Basic anti-fraud velocity limits for withdrawals, since they're now fully
+// automatic with no admin review. Conservative starting defaults — tune once
+// real volume/patterns are known.
+const WITHDRAWAL_VELOCITY_WINDOW_HOURS = 24;
+const WITHDRAWAL_VELOCITY_MAX_COUNT = 3;
+const WITHDRAWAL_VELOCITY_MAX_CENTS = 200_000; // $2,000 / rolling 24h
+
 function origin() {
   const host = getRequestHost();
   const proto = host.startsWith("localhost") ? "http" : "https";
@@ -191,6 +198,35 @@ export const createCashout = createServerFn({ method: "POST" })
 
     if (!wallet || wallet.balance_cents < data.amount_cents) {
       throw new Error("Insufficient wallet balance.");
+    }
+
+    // Velocity check: cap count and total amount of withdrawals per rolling
+    // window, since these now process automatically with no admin review.
+    const since = new Date(Date.now() - WITHDRAWAL_VELOCITY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+    const { data: recentWithdrawals, error: velErr } = await supabaseAdmin
+      .from("wallet_transactions")
+      .select("amount_cents")
+      .eq("user_id", context.userId)
+      .eq("type", "withdrawal")
+      .eq("status", "completed")
+      .gte("created_at", since);
+    if (velErr) throw velErr;
+
+    const priorCount = recentWithdrawals?.length ?? 0;
+    const priorTotalCents = (recentWithdrawals ?? []).reduce(
+      (sum: number, r: { amount_cents: number }) => sum + Math.abs(r.amount_cents),
+      0,
+    );
+
+    if (priorCount + 1 > WITHDRAWAL_VELOCITY_MAX_COUNT) {
+      throw new Error(
+        `For your security, you can only make ${WITHDRAWAL_VELOCITY_MAX_COUNT} withdrawals per ${WITHDRAWAL_VELOCITY_WINDOW_HOURS} hours. Please try again later or contact support.`,
+      );
+    }
+    if (priorTotalCents + data.amount_cents > WITHDRAWAL_VELOCITY_MAX_CENTS) {
+      throw new Error(
+        `For your security, withdrawals are capped at $${(WITHDRAWAL_VELOCITY_MAX_CENTS / 100).toFixed(0)} per ${WITHDRAWAL_VELOCITY_WINDOW_HOURS} hours. Please try again later or contact support.`,
+      );
     }
 
     const breakdown = calculateWithdrawalFee(data.amount_cents, data.speed);
