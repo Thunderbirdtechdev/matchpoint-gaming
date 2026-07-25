@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
-import { createChallenge as createChallengeFn, acceptChallenge as acceptChallengeFn, concedeChallenge, cancelChallenge } from "@/lib/matches.functions";
+import { createChallenge as createChallengeFn, acceptChallenge as acceptChallengeFn, concedeChallenge, cancelChallenge, reportChallengeResult } from "@/lib/matches.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Swords, Flag, X } from "lucide-react";
+import { Plus, Swords, Flag, X, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { calculateChallengeFee } from "@/lib/fees";
 
@@ -33,6 +33,8 @@ function ChallengesPage() {
   const acceptFn = useServerFn(acceptChallengeFn);
   const concedeFn = useServerFn(concedeChallenge);
   const cancelFn = useServerFn(cancelChallenge);
+  const reportResultFn = useServerFn(reportChallengeResult);
+  const [reportFor, setReportFor] = useState<any>(null);
 
   const { data: challenges } = useQuery({
     queryKey: ["challenges-all"],
@@ -80,6 +82,22 @@ function ChallengesPage() {
     try {
       await cancelFn({ data: { challenge_id: id } });
       toast.success("Cancelled — stake refunded");
+      invalidateAll();
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
+
+  async function reportResult(reportedWinnerId: string) {
+    if (!reportFor) return;
+    try {
+      const r = await reportResultFn({ data: { challenge_id: reportFor.id, reported_winner_id: reportedWinnerId } });
+      if (r.status === "waiting") {
+        toast.success("Result recorded — waiting for your opponent to confirm.");
+      } else if (r.status === "settled") {
+        toast.success(`Match settled — $${(r.net_cents / 100).toFixed(2)} paid out.`);
+      } else if (r.status === "disputed") {
+        toast.warning("You and your opponent reported different winners. Funds are locked — our fair play team will review.");
+      }
+      setReportFor(null);
       invalidateAll();
     } catch (e: any) { toast.error(e?.message ?? "Failed"); }
   }
@@ -163,12 +181,44 @@ function ChallengesPage() {
                 <Button size="sm" variant="outline" onClick={() => cancel(c.id)}><X className="mr-1 h-3 w-3" />Cancel</Button>
               )}
               {c.status === "active" && (c.creator_id === user?.id || c.opponent_id === user?.id) && (
-                <Button size="sm" variant="outline" onClick={() => concede(c.id)}><Flag className="mr-1 h-3 w-3" />Concede</Button>
+                <>
+                  <Button size="sm" onClick={() => setReportFor(c)} className="bg-gradient-brand text-primary-foreground">
+                    <Trophy className="mr-1 h-3 w-3" />Report result
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => concede(c.id)}><Flag className="mr-1 h-3 w-3" />Concede</Button>
+                </>
+              )}
+              {c.status === "disputed" && (c.creator_id === user?.id || c.opponent_id === user?.id) && (
+                <span className="text-xs font-medium text-amber-500">Under review by fair play team — funds locked</span>
               )}
             </div>
           </div>
         )) : <p className="text-sm text-muted-foreground">No challenges yet. Be the first.</p>}
       </div>
+
+      <Dialog open={!!reportFor} onOpenChange={(o) => { if (!o) setReportFor(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Who won this match?</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Both players need to agree. If you and your opponent report different winners, funds
+            are locked and our fair play team will review before anything is paid out.
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            <Button onClick={() => reportResult(user?.id ?? "")} className="bg-gradient-brand text-primary-foreground">
+              I won
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const opponentId = reportFor?.creator_id === user?.id ? reportFor?.opponent_id : reportFor?.creator_id;
+                reportResult(opponentId);
+              }}
+            >
+              My opponent won
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardShell>
   );
 }

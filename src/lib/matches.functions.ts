@@ -438,12 +438,68 @@ export const concedeChallenge = createServerFn({ method: "POST" })
     return settleChallenge(supabaseAdmin, ch, winnerId);
   });
 
-/** Admin resolves a disputed challenge by picking a winner. */
+/**
+ * Each player reports who they think won. If both reports agree, the match
+ * auto-settles immediately. If they disagree, the challenge is marked
+ * 'disputed' - escrow stays held, funds are locked, and the fair play team
+ * reviews via adminResolveChallenge. No payout happens on disagreement.
+ */
+export const reportChallengeResult = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    challenge_id: z.string().uuid(),
+    reported_winner_id: z.string().uuid(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: chRow } = await supabaseAdmin.from("challenges").select("*").eq("id", data.challenge_id).single();
+    if (!chRow) throw new Error("Challenge not found");
+    const ch = chRow as unknown as {
+      id: string; creator_id: string; opponent_id: string | null; status: string;
+      creator_reported_winner_id: string | null; opponent_reported_winner_id: string | null;
+    };
+    if (ch.status !== "active") throw new Error("Challenge is not active");
+    if (ch.creator_id !== context.userId && ch.opponent_id !== context.userId) throw new Error("Not a participant");
+    if (![ch.creator_id, ch.opponent_id].includes(data.reported_winner_id)) {
+      throw new Error("Reported winner must be a participant");
+    }
+
+    const isCreator = ch.creator_id === context.userId;
+    const myColumn = isCreator ? "creator_reported_winner_id" : "opponent_reported_winner_id";
+    const otherReport = isCreator ? ch.opponent_reported_winner_id : ch.creator_reported_winner_id;
+
+    const { error: uErr } = await supabaseAdmin
+      .from("challenges")
+      .update({ [myColumn]: data.reported_winner_id } as never)
+      .eq("id", ch.id);
+    if (uErr) throw uErr;
+
+    if (!otherReport) {
+      return { ok: true, status: "waiting" as const };
+    }
+
+    if (otherReport === data.reported_winner_id) {
+      const result = await settleChallenge(supabaseAdmin, ch, data.reported_winner_id);
+      return { status: "settled" as const, ...result };
+    }
+
+    await supabaseAdmin.from("challenges").update({ status: "disputed" } as never).eq("id", ch.id);
+    await supabaseAdmin.from("disputes").insert({
+      challenge_id: ch.id,
+      opened_by: context.userId,
+      reason: "Players reported different match winners",
+      status: "open",
+    } as never);
+    return { ok: true, status: "disputed" as const };
+  });
+
+/** Admin resolves a disputed (or active) challenge by picking a winner. Also closes any linked dispute. */
 export const adminResolveChallenge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
     challenge_id: z.string().uuid(),
     winner_id: z.string().uuid(),
+    resolution_note: z.string().trim().max(500).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -454,7 +510,13 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
     if (ch.status === "completed") throw new Error("Already settled");
     if (![ch.creator_id, ch.opponent_id].includes(data.winner_id))
       throw new Error("Winner must be a participant");
-    return settleChallenge(supabaseAdmin, ch, data.winner_id);
+    const result = await settleChallenge(supabaseAdmin, ch, data.winner_id);
+    await supabaseAdmin
+      .from("disputes")
+      .update({ status: "resolved", resolution: data.resolution_note ?? `Resolved - winner: ${data.winner_id}` } as never)
+      .eq("challenge_id", ch.id)
+      .eq("status", "open");
+    return result;
   });
 
 // shared payout core

@@ -2,14 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import { adminResolveChallenge } from "@/lib/matches.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ShieldAlert, Plus } from "lucide-react";
+import { ShieldAlert, Plus, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dispute-center")({
@@ -22,12 +24,32 @@ function DisputePage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ challenge_id: "", reason: "", evidence_url: "" });
+  const resolveFn = useServerFn(adminResolveChallenge);
+  const [resolving, setResolving] = useState<any>(null);
+
+  const { data: roles } = useQuery({
+    queryKey: ["roles", user?.id],
+    enabled: !!user,
+    queryFn: async () => (await supabase.from("user_roles").select("role").eq("user_id", user!.id)).data?.map((r) => r.role) ?? [],
+  });
+  const canModerate = !!roles?.includes("admin") || !!roles?.includes("moderator");
 
   const { data: disputes } = useQuery({
     queryKey: ["my-disputes", user?.id],
     enabled: !!user,
-    queryFn: async () => (await supabase.from("disputes").select("*").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("disputes").select("*, challenge:challenges(*)").order("created_at", { ascending: false })).data ?? [],
   });
+
+  async function resolve(winnerId: string) {
+    if (!resolving) return;
+    try {
+      const r = await resolveFn({ data: { challenge_id: resolving.challenge.id, winner_id: winnerId } });
+      toast.success(`Resolved — $${(r.net_cents / 100).toFixed(2)} paid out.`);
+      setResolving(null);
+      qc.invalidateQueries({ queryKey: ["my-disputes"] });
+    } catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  }
 
   async function submit() {
     if (!user) return;
@@ -74,10 +96,35 @@ function DisputePage() {
               </div>
               <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium capitalize text-primary">{d.status}</span>
             </div>
+            {(d as any).challenge && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" /> Funds locked — {(d as any).challenge.game_slug} · ${Number((d as any).challenge.entry_amount).toFixed(2)} entry
+              </div>
+            )}
             {d.resolution && <p className="mt-2 text-xs text-muted-foreground">Resolution: {d.resolution}</p>}
+            {canModerate && d.status === "open" && (d as any).challenge && (
+              <Button size="sm" className="mt-3 bg-gradient-brand text-primary-foreground" onClick={() => setResolving(d)}>
+                Resolve
+              </Button>
+            )}
           </div>
         )) : <p className="text-sm text-muted-foreground">No disputes yet.</p>}
       </div>
+
+      <Dialog open={!!resolving} onOpenChange={(o) => { if (!o) setResolving(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Resolve dispute — pick the winner</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">{resolving?.reason}</p>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <Button onClick={() => resolve(resolving?.challenge?.creator_id)} className="bg-gradient-brand text-primary-foreground">
+              Creator won
+            </Button>
+            <Button variant="outline" onClick={() => resolve(resolving?.challenge?.opponent_id)}>
+              Opponent won
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardShell>
   );
 }
