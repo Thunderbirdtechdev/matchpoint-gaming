@@ -1,13 +1,17 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { Trophy, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/use-auth";
+import { linkReferral } from "@/lib/promo.functions";
 import { toast } from "sonner";
+
+type SearchParams = { ref?: string };
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -16,12 +20,17 @@ export const Route = createFileRoute("/register")({
       { name: "description", content: "Create a free MatchPoint account to challenge players, enter tournaments and earn rewards." },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>): SearchParams => ({
+    ref: typeof s.ref === "string" ? s.ref : undefined,
+  }),
   component: RegisterPage,
 });
 
 function RegisterPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const search = useSearch({ from: "/register" });
+  const linkReferralSF = useServerFn(linkReferral);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,6 +54,15 @@ function RegisterPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
+
+    if (search.ref) {
+      try {
+        await linkReferralSF({ data: { referrer_username: search.ref } });
+      } catch {
+        // Non-critical — a referral link failing to attach shouldn't block signup.
+      }
+    }
+
     toast.success("Account created! Check your email if confirmation is required.");
     navigate({ to: "/dashboard" });
   }

@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Landmark, Zap, CalendarClock, ShieldCheck } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Landmark, Zap, CalendarClock, ShieldCheck, Gift, Users, Copy } from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
@@ -23,6 +23,7 @@ import {
   createConnectOnboarding,
   createCashout,
 } from "@/lib/wallet.functions";
+import { redeemPromoCode, getMyReferralInfo } from "@/lib/promo.functions";
 import { calculateWithdrawalFee, type WithdrawalSpeed } from "@/lib/fees";
 
 type SearchParams = { deposit?: string; connect?: string };
@@ -51,15 +52,23 @@ function WalletPage() {
   const deposit = useServerFn(createDepositCheckout);
   const connectOnboarding = useServerFn(createConnectOnboarding);
   const cashout = useServerFn(createCashout);
+  const redeemPromo = useServerFn(redeemPromoCode);
+  const fetchReferralInfo = useServerFn(getMyReferralInfo);
 
   const [depositAmount, setDepositAmount] = useState("25");
   const [speed, setSpeed] = useState<WithdrawalSpeed>("standard");
   const [payoutAmount, setPayoutAmount] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["wallet"],
     queryFn: () => fetchWallet(),
+  });
+
+  const { data: referralInfo } = useQuery({
+    queryKey: ["referral-info"],
+    queryFn: () => fetchReferralInfo(),
   });
 
   useEffect(() => {
@@ -109,6 +118,16 @@ function WalletPage() {
       qc.invalidateQueries({ queryKey: ["wallet"] });
     },
     onError: (e: Error) => toast.error(e.message || "Cash out failed"),
+  });
+
+  const redeemPromoMut = useMutation({
+    mutationFn: async () => redeemPromo({ data: { code: promoCode.trim() } }),
+    onSuccess: (res) => {
+      toast.success(`Promo applied — $${(res.credited_cents / 100).toFixed(2)} added to your wallet.`);
+      setPromoCode("");
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Invalid promo code"),
   });
 
   const balance = data?.wallet?.balance_cents ?? 0;
@@ -280,8 +299,65 @@ function WalletPage() {
         )}
       </div>
 
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        {/* Promo code */}
+        <div className="rounded-2xl border border-border/60 bg-card p-6">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Gift className="h-4 w-4" /> Have a promo code?
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Input
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+              placeholder="Enter code"
+            />
+            <Button
+              onClick={() => {
+                if (!promoCode.trim()) return toast.error("Enter a promo code");
+                redeemPromoMut.mutate();
+              }}
+              disabled={redeemPromoMut.isPending}
+            >
+              {redeemPromoMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Redeem"}
+            </Button>
+          </div>
+        </div>
 
-
+        {/* Referrals */}
+        <div className="rounded-2xl border border-border/60 bg-card p-6">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Users className="h-4 w-4" /> Refer a friend
+          </div>
+          {referralInfo?.username ? (
+            <>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Share your link — you both get a bonus once they make their first deposit.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <code className="flex-1 truncate rounded-md bg-black/20 px-2 py-2 text-xs">
+                  {typeof window !== "undefined" ? window.location.origin : ""}/register?ref={referralInfo.username}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/register?ref=${referralInfo.username}`);
+                    toast.success("Link copied");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                {referralInfo.paid_count} friend{referralInfo.paid_count === 1 ? "" : "s"} joined ·{" "}
+                <span className="text-emerald-500 font-medium">{fmt(referralInfo.total_earned_cents)}</span> earned
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">Loading your referral link…</p>
+          )}
+        </div>
+      </div>
 
 
       {/* Transactions */}

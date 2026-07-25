@@ -152,6 +152,14 @@ async function creditDeposit(args: {
     .eq("amount_cents", args.amountCents)
     .is("stripe_checkout_session_id", null);
 
+  // Pay a pending referral bonus if this is the referred user's first deposit
+  try {
+    const { error: refErr } = await supabaseAdmin.rpc("pay_referral_bonus_if_eligible" as never, { _user_id: args.userId } as never);
+    if (refErr) console.error("[stripe webhook] referral bonus check failed", refErr);
+  } catch (e) {
+    console.error("[stripe webhook] referral bonus check failed", e);
+  }
+
   // Send deposit confirmation email
   try {
     const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(args.userId);

@@ -20,11 +20,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock } from "lucide-react";
+import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
 import { getHotWalletStatus } from "@/lib/crypto.functions";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
+import { adminCreatePromoCode, adminListPromoCodes, adminTogglePromoCode } from "@/lib/promo.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — MatchPoint" }] }),
@@ -62,6 +63,8 @@ function AdminPage() {
       <div className="h-6" />
       <RolesCard />
       <div className="h-6" />
+      <PromoCodesCard />
+      <div className="h-6" />
       <AdminCreditWalletCard />
 
 
@@ -90,6 +93,128 @@ function AdminPage() {
         </table>
       </div>
     </DashboardShell>
+  );
+}
+
+type PromoCodeRow = {
+  id: string;
+  code: string;
+  amount_cents: number;
+  max_redemptions: number | null;
+  redemption_count: number;
+  active: boolean;
+  expires_at: string | null;
+  created_at: string;
+};
+
+function PromoCodesCard() {
+  const createFn = useServerFn(adminCreatePromoCode);
+  const listFn = useServerFn(adminListPromoCodes);
+  const toggleFn = useServerFn(adminTogglePromoCode);
+  const qc = useQueryClient();
+
+  const { data: codes, isLoading } = useQuery({
+    queryKey: ["admin-promo-codes"],
+    queryFn: () => listFn() as Promise<PromoCodeRow[]>,
+  });
+
+  const [code, setCode] = useState("");
+  const [amount, setAmount] = useState("10");
+  const [maxRedemptions, setMaxRedemptions] = useState("");
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      createFn({
+        data: {
+          code: code.trim(),
+          amount_cents: Math.round(Number(amount) * 100),
+          max_redemptions: maxRedemptions.trim() ? Number(maxRedemptions) : undefined,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Promo code created.");
+      setCode(""); setAmount("10"); setMaxRedemptions("");
+      qc.invalidateQueries({ queryKey: ["admin-promo-codes"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to create promo code"),
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: (vars: { id: string; active: boolean }) => toggleFn({ data: vars }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-promo-codes"] }),
+    onError: (e: Error) => toast.error(e.message || "Failed to update"),
+  });
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-6">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Gift className="h-4 w-4" /> Promo codes
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Create a code players can redeem once each for a flat wallet credit.
+      </p>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+        <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="CODE" />
+        <Input type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount USD" />
+        <Input type="number" min={1} value={maxRedemptions} onChange={(e) => setMaxRedemptions(e.target.value)} placeholder="Max uses (optional)" />
+        <Button
+          onClick={() => {
+            if (!code.trim()) return toast.error("Enter a code");
+            const n = Number(amount);
+            if (!n || n <= 0) return toast.error("Enter a valid amount");
+            createMut.mutate();
+          }}
+          disabled={createMut.isPending}
+        >
+          {createMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+        </Button>
+      </div>
+
+      <div className="mt-5 overflow-hidden rounded-lg border border-border/60">
+        <table className="w-full text-xs">
+          <thead className="bg-surface/50 uppercase text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Code</th>
+              <th className="px-3 py-2 text-right">Amount</th>
+              <th className="px-3 py-2 text-right">Redeemed</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">Loading…</td></tr>
+            ) : !codes?.length ? (
+              <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">No promo codes yet.</td></tr>
+            ) : (
+              codes.map((c) => (
+                <tr key={c.id} className="border-t border-border/40">
+                  <td className="px-3 py-2 font-mono">{c.code}</td>
+                  <td className="px-3 py-2 text-right">${(c.amount_cents / 100).toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right">{c.redemption_count}{c.max_redemptions ? ` / ${c.max_redemptions}` : ""}</td>
+                  <td className="px-3 py-2">
+                    <Badge variant="outline" className={c.active ? "border-emerald-500/40 text-emerald-500" : "border-border"}>
+                      {c.active ? "Active" : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={toggleMut.isPending}
+                      onClick={() => toggleMut.mutate({ id: c.id, active: !c.active })}
+                    >
+                      {c.active ? "Deactivate" : "Activate"}
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
