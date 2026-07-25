@@ -9,6 +9,12 @@ const toCents = (usd: number) => Math.round(Number(usd || 0) * 100);
 // TOURNAMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PayoutPlaceSchema = z.object({
+  place: z.number().int().min(1).max(20),
+  percent: z.number().min(0).max(100).optional(),
+  amount_cents: z.number().int().min(0).optional(),
+});
+
 const CreateTournamentSchema = z.object({
   title: z.string().trim().min(3).max(200),
   description: z.string().trim().max(2000).optional().default(""),
@@ -19,9 +25,35 @@ const CreateTournamentSchema = z.object({
     .refine((v) => v === 0 || v >= 5, { message: "Entry fee must be $0 (free) or at least $5" }),
   prize_pool: z.number().min(0).max(500_000).optional().default(0),
   starts_at: z.string().refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid start date" }),
+  payout_type: z.enum(["winner_take_all", "fixed", "percentage"]).optional().default("winner_take_all"),
+  payout_structure: z.array(PayoutPlaceSchema).max(20).optional().default([]),
+}).superRefine((data, ctx) => {
+  const places = data.payout_structure.map((p) => p.place);
+  if (new Set(places).size !== places.length) {
+    ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Duplicate places in payout structure" });
+  }
+  if (data.payout_type === "percentage") {
+    if (!data.payout_structure.length) {
+      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Percentage payout requires at least one place" });
+      return;
+    }
+    const total = data.payout_structure.reduce((s, p) => s + (p.percent ?? 0), 0);
+    if (Math.round(total) !== 100) {
+      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: `Payout percentages must add up to 100% (currently ${total}%)` });
+    }
+  }
+  if (data.payout_type === "fixed") {
+    if (!data.payout_structure.length) {
+      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Fixed payout requires at least one place" });
+      return;
+    }
+    if (data.payout_structure.some((p) => p.amount_cents == null)) {
+      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Every place needs a fixed dollar amount" });
+    }
+  }
 });
 
-/** Create a tournament. Validates entry-fee floor, player caps, and dates server-side. */
+/** Create a tournament. Validates entry-fee floor, player caps, dates, and payout structure server-side. */
 export const createTournament = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => CreateTournamentSchema.parse(d))
@@ -39,7 +71,9 @@ export const createTournament = createServerFn({ method: "POST" })
         entry_fee: data.entry_fee,
         prize_pool: data.prize_pool,
         starts_at: new Date(data.starts_at).toISOString(),
-      })
+        payout_type: data.payout_type,
+        payout_structure: data.payout_structure,
+      } as never)
       .select()
       .single();
     if (error) throw error;
@@ -89,13 +123,22 @@ export const joinTournament = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Host (or admin) declares a tournament winner. Releases escrow, pays out, charges platform fee. */
+const DeclareWinnerSchema = z.object({
+  tournament_id: z.string().uuid(),
+  winners: z.array(z.object({
+    user_id: z.string().uuid(),
+    place: z.number().int().min(1),
+  })).min(1).max(20),
+});
+
+/**
+ * Host (or admin) declares tournament winner(s). Releases escrow, pays out
+ * per the tournament's payout_type (winner_take_all / fixed / percentage),
+ * and charges the platform fee.
+ */
 export const declareTournamentWinner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    tournament_id: z.string().uuid(),
-    winner_id: z.string().uuid(),
-  }).parse(d))
+  .inputValidator((d) => DeclareWinnerSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -106,10 +149,18 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
     const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (t.host_id !== context.userId && !isAdmin) throw new Error("Only the host or an admin can declare the winner");
 
-    const { data: winnerEntry } = await supabaseAdmin
-      .from("tournament_entries").select("id")
-      .eq("tournament_id", t.id).eq("user_id", data.winner_id).maybeSingle();
-    if (!winnerEntry) throw new Error("Winner is not a participant");
+    const places = data.winners.map((w) => w.place);
+    if (new Set(places).size !== places.length) throw new Error("Duplicate places in winners list");
+    const userIds = data.winners.map((w) => w.user_id);
+    if (new Set(userIds).size !== userIds.length) throw new Error("Duplicate winners");
+
+    const { data: entries } = await supabaseAdmin
+      .from("tournament_entries").select("user_id")
+      .eq("tournament_id", t.id).in("user_id", userIds);
+    const participantIds = new Set((entries ?? []).map((e: { user_id: string }) => e.user_id));
+    for (const w of data.winners) {
+      if (!participantIds.has(w.user_id)) throw new Error(`One of the selected winners is not a participant`);
+    }
 
     const { data: holds } = await supabaseAdmin
       .from("escrow_holds").select("*")
@@ -126,24 +177,83 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
     const feeCents = Math.round(fee.serviceFee * 100);
     const netCents = poolCents - feeCents;
 
-    if (netCents > 0) {
-      const { error } = await supabaseAdmin.rpc("wallet_credit", {
-        _user_id: data.winner_id,
-        _amount_cents: netCents,
-        _type: "prize_payout",
-        _description: `Prize: ${t.title}`,
-        _tournament_id: t.id,
-        _challenge_id: undefined,
-        _metadata: { pool_cents: poolCents, fee_cents: feeCents, fee_rate: fee.rate },
-      });
-      if (error) throw new Error(error.message);
+    const tExtra = t as unknown as { payout_type?: string; payout_structure?: unknown };
+    const payoutType = (tExtra.payout_type ?? "winner_take_all") as "winner_take_all" | "fixed" | "percentage";
+    const structure = (tExtra.payout_structure ?? []) as Array<{ place: number; percent?: number; amount_cents?: number }>;
+
+    const placeAmounts = new Map<number, number>();
+    if (payoutType === "winner_take_all") {
+      if (data.winners.length !== 1) throw new Error("Winner-take-all tournaments have exactly one winner");
+      if (netCents > 0) placeAmounts.set(data.winners[0].place, netCents);
+    } else if (payoutType === "percentage") {
+      const sorted = [...data.winners].sort((a, b) => a.place - b.place);
+      let allocated = 0;
+      for (const w of sorted) {
+        const entry = structure.find((s) => s.place === w.place);
+        if (!entry || entry.percent == null) throw new Error(`No payout percentage configured for place ${w.place}`);
+        const amt = Math.round(netCents * (entry.percent / 100));
+        placeAmounts.set(w.place, amt);
+        allocated += amt;
+      }
+      // Give any rounding remainder to 1st place so the full net pool is always distributed.
+      const remainder = netCents - allocated;
+      if (remainder !== 0 && sorted.length) {
+        const firstPlace = sorted[0].place;
+        placeAmounts.set(firstPlace, (placeAmounts.get(firstPlace) ?? 0) + remainder);
+      }
+    } else {
+      let totalFixed = 0;
+      for (const w of data.winners) {
+        const entry = structure.find((s) => s.place === w.place);
+        if (!entry || entry.amount_cents == null) throw new Error(`No fixed payout configured for place ${w.place}`);
+        placeAmounts.set(w.place, entry.amount_cents);
+        totalFixed += entry.amount_cents;
+      }
+      if (totalFixed > netCents) {
+        throw new Error(
+          `Fixed payouts total $${(totalFixed / 100).toFixed(2)} but the actual prize pool is only $${(netCents / 100).toFixed(2)}. Adjust the payout structure or declare fewer places.`,
+        );
+      }
+    }
+
+    for (const w of data.winners) {
+      const amt = placeAmounts.get(w.place) ?? 0;
+      if (amt > 0) {
+        const { error } = await supabaseAdmin.rpc("wallet_credit", {
+          _user_id: w.user_id,
+          _amount_cents: amt,
+          _type: "prize_payout",
+          _description: `Prize (place ${w.place}): ${t.title}`,
+          _tournament_id: t.id,
+          _challenge_id: undefined,
+          _metadata: { pool_cents: poolCents, fee_cents: feeCents, fee_rate: fee.rate, place: w.place, payout_type: payoutType },
+        });
+        if (error) throw new Error(error.message);
+      }
+    }
+
+    // Fixed payouts may not consume the whole net pool - sweep any leftover
+    // to platform revenue rather than leaving it unaccounted for.
+    if (payoutType === "fixed") {
+      const totalPaid = Array.from(placeAmounts.values()).reduce((s, v) => s + v, 0);
+      const leftover = netCents - totalPaid;
+      if (leftover > 0) {
+        await supabaseAdmin.rpc("record_platform_fee", {
+          _source: "tournament_unclaimed_prize",
+          _amount_cents: leftover,
+          _reference_id: t.id,
+          _gross_cents: poolCents,
+          _net_cents: netCents,
+          _metadata: { tournament_title: t.title, reason: "fixed payout below net pool" },
+        });
+      }
     }
 
     if (feeCents > 0) {
       await supabaseAdmin.rpc("record_platform_fee", {
         _source: "tournament_fee",
         _amount_cents: feeCents,
-        _user_id: data.winner_id,
+        _user_id: data.winners[0]?.user_id,
         _reference_id: t.id,
         _gross_cents: poolCents,
         _net_cents: netCents,
@@ -155,7 +265,13 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
       .update({ status: "completed" })
       .eq("id", t.id);
 
-    return { ok: true, pool_cents: poolCents, fee_cents: feeCents, net_cents: netCents };
+    return {
+      ok: true,
+      pool_cents: poolCents,
+      fee_cents: feeCents,
+      net_cents: netCents,
+      payouts: Array.from(placeAmounts.entries()).map(([place, amount_cents]) => ({ place, amount_cents })),
+    };
   });
 
 /** Host cancels a tournament before completion: refund all escrow holds. */
