@@ -18,10 +18,12 @@ export type Database = {
         Row: {
           created_at: string
           creator_id: string
+          creator_reported_winner_id: string | null
           entry_amount: number
           game_slug: string
           id: string
           opponent_id: string | null
+          opponent_reported_winner_id: string | null
           platform: string
           rules: string | null
           scheduled_for: string | null
@@ -32,10 +34,12 @@ export type Database = {
         Insert: {
           created_at?: string
           creator_id: string
+          creator_reported_winner_id?: string | null
           entry_amount?: number
           game_slug: string
           id?: string
           opponent_id?: string | null
+          opponent_reported_winner_id?: string | null
           platform: string
           rules?: string | null
           scheduled_for?: string | null
@@ -46,10 +50,12 @@ export type Database = {
         Update: {
           created_at?: string
           creator_id?: string
+          creator_reported_winner_id?: string | null
           entry_amount?: number
           game_slug?: string
           id?: string
           opponent_id?: string | null
+          opponent_reported_winner_id?: string | null
           platform?: string
           rules?: string | null
           scheduled_for?: string | null
@@ -643,6 +649,101 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_codes: {
+        Row: {
+          active: boolean
+          amount_cents: number
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          max_redemptions: number | null
+          redemption_count: number
+        }
+        Insert: {
+          active?: boolean
+          amount_cents: number
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          max_redemptions?: number | null
+          redemption_count?: number
+        }
+        Update: {
+          active?: boolean
+          amount_cents?: number
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          max_redemptions?: number | null
+          redemption_count?: number
+        }
+        Relationships: []
+      }
+      promo_redemptions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          id: string
+          promo_code_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          id?: string
+          promo_code_id: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          id?: string
+          promo_code_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_redemptions_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          bonus_cents: number
+          bonus_paid: boolean
+          created_at: string
+          id: string
+          referred_id: string
+          referrer_id: string
+        }
+        Insert: {
+          bonus_cents?: number
+          bonus_paid?: boolean
+          created_at?: string
+          id?: string
+          referred_id: string
+          referrer_id: string
+        }
+        Update: {
+          bonus_cents?: number
+          bonus_paid?: boolean
+          created_at?: string
+          id?: string
+          referred_id?: string
+          referrer_id?: string
+        }
+        Relationships: []
+      }
       stripe_connect_accounts: {
         Row: {
           charges_enabled: boolean
@@ -763,6 +864,8 @@ export type Database = {
           host_id: string
           id: string
           max_players: number
+          payout_structure: Json
+          payout_type: string
           platform: string
           prize_pool: number
           starts_at: string
@@ -778,6 +881,8 @@ export type Database = {
           host_id: string
           id?: string
           max_players?: number
+          payout_structure?: Json
+          payout_type?: string
           platform: string
           prize_pool?: number
           starts_at: string
@@ -793,6 +898,8 @@ export type Database = {
           host_id?: string
           id?: string
           max_players?: number
+          payout_structure?: Json
+          payout_type?: string
           platform?: string
           prize_pool?: number
           starts_at?: string
@@ -984,6 +1091,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_revenue_by_source: {
+        Args: never
+        Returns: {
+          event_count: number
+          source: string
+          total_cents: number
+        }[]
+      }
+      admin_revenue_summary: {
+        Args: never
+        Returns: {
+          lifetime_cents: number
+          month_cents: number
+          today_cents: number
+          week_cents: number
+          year_cents: number
+        }[]
+      }
+      admin_wallet_totals: {
+        Args: never
+        Returns: {
+          deposit_count: number
+          total_deposits_cents: number
+          total_withdrawals_cents: number
+          withdrawal_count: number
+        }[]
+      }
       company_wallet_withdraw: {
         Args: {
           _amount_cents: number
@@ -1052,6 +1186,10 @@ export type Database = {
         }
         Returns: number
       }
+      pay_referral_bonus_if_eligible: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -1071,6 +1209,10 @@ export type Database = {
           _user_id?: string
         }
         Returns: string
+      }
+      redeem_promo_code: {
+        Args: { _code: string; _user_id: string }
+        Returns: number
       }
       wallet_credit: {
         Args: {
