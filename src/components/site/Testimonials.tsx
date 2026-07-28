@@ -26,40 +26,32 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <section className="relative border-y border-border/50 bg-surface/30 py-20 md:py-28">
+    <section className="relative border-y border-border/50 bg-surface/25 py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-accent">
-            Player Stories
-          </p>
-          <h2 className="mt-3 font-display text-4xl font-black uppercase tracking-tight sm:text-5xl">
+        <div className="max-w-2xl">
+          <p className="font-display text-sm tracking-[0.28em] text-accent">Player stories</p>
+          <h2 className="mt-3 font-display text-5xl tracking-wide sm:text-6xl">
             From players who actually win
           </h2>
-          <p className="mt-4 text-muted-foreground">
-            Real reviews from the MatchPoint community.
-          </p>
         </div>
 
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
+        <div className="mt-14 grid gap-10 md:grid-cols-3">
           {testimonials.map((t) => (
-            <figure
-              key={t.handle}
-              className="group relative flex h-full flex-col rounded-2xl border border-border/60 bg-gradient-card p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-elevated"
-            >
+            <figure key={t.handle} className="flex h-full flex-col border-t border-border/60 pt-6">
               <div className="flex gap-0.5 text-accent">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="h-4 w-4 fill-current" />
+                  <Star key={i} className="h-3.5 w-3.5 fill-current" />
                 ))}
               </div>
-              <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-foreground/90">
-                "{t.quote}"
+              <blockquote className="mt-5 flex-1 text-lg leading-relaxed text-foreground/90">
+                “{t.quote}”
               </blockquote>
-              <figcaption className="mt-6 flex items-center justify-between border-t border-border/50 pt-4">
-                <div>
-                  <div className="text-sm font-semibold">{t.name}</div>
-                  <div className="text-xs text-muted-foreground">{t.handle}</div>
+              <figcaption className="mt-6 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{t.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">{t.handle}</div>
                 </div>
-                <span className="rounded-full border border-border/60 bg-background/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="shrink-0 font-display text-xs tracking-[0.18em] text-muted-foreground">
                   {t.game}
                 </span>
               </figcaption>

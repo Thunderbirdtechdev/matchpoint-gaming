@@ -10,28 +10,28 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="how" className="relative border-t border-border/50 bg-surface/40 py-20 md:py-28">
+    <section id="how" className="relative border-b border-border/50 py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-accent">How it works</p>
-          <h2 className="mt-3 font-display text-4xl font-black uppercase tracking-tight sm:text-5xl">
+        <div className="max-w-2xl">
+          <p className="font-display text-sm tracking-[0.28em] text-accent">How it works</p>
+          <h2 className="mt-3 font-display text-5xl tracking-wide sm:text-6xl">
             From signup to payout in 5 steps
           </h2>
         </div>
 
         <div className="relative mt-16">
-          <div className="absolute left-0 right-0 top-8 hidden h-px bg-gradient-to-r from-transparent via-border to-transparent lg:block" />
-          <ol className="grid gap-8 lg:grid-cols-5">
+          <div className="absolute left-0 right-0 top-7 hidden h-px bg-gradient-to-r from-transparent via-border to-transparent lg:block" />
+          <ol className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5 lg:gap-6">
             {steps.map((s, i) => (
-              <li key={s.title} className="relative text-center">
-                <div className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-gradient-card shadow-card ring-1 ring-border">
-                  <s.icon className="h-7 w-7 text-primary" />
-                  <span className="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full bg-gradient-brand text-xs font-bold text-primary-foreground">
+              <li key={s.title} className="relative">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-border/60 bg-gradient-card font-display text-2xl tracking-wide text-primary-glow shadow-card">
                     {i + 1}
                   </span>
+                  <s.icon className="h-5 w-5 shrink-0 text-muted-foreground" />
                 </div>
-                <h3 className="mt-5 font-semibold">{s.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
+                <h3 className="mt-5 font-display text-2xl tracking-wide">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.desc}</p>
               </li>
             ))}
           </ol>
