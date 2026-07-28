@@ -38,70 +38,73 @@
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Orbitron", "Rajdhani", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Rajdhani", "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bebas Neue", "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Barlow Condensed", ui-monospace, monospace;
+
+  --color-primary-glow: var(--primary-glow);
 }
 
 :root {
   --radius: 0.875rem;
 
-  /* Dark esports base */
-  --background: oklch(0.16 0.025 265);
-  --foreground: oklch(0.97 0.01 250);
+  /* Midnight Indigo base — #0a0a1a / #141432 / #1e1e5a / #4f46e5 */
+  --background: oklch(0.13 0.032 285);
+  --foreground: oklch(0.97 0.008 275);
 
-  --surface: oklch(0.20 0.03 265);
-  --surface-elevated: oklch(0.24 0.035 265);
+  --surface: oklch(0.20 0.055 285);
+  --surface-elevated: oklch(0.28 0.095 283);
 
-  --card: oklch(0.20 0.03 265);
-  --card-foreground: oklch(0.97 0.01 250);
-  --popover: oklch(0.20 0.03 265);
-  --popover-foreground: oklch(0.97 0.01 250);
+  --card: oklch(0.20 0.055 285);
+  --card-foreground: oklch(0.97 0.008 275);
+  --popover: oklch(0.19 0.05 285);
+  --popover-foreground: oklch(0.97 0.008 275);
 
-  /* #2563EB electric blue */
-  --primary: oklch(0.58 0.22 264);
+  /* #4f46e5 electric indigo */
+  --primary: oklch(0.51 0.23 277);
   --primary-foreground: oklch(0.99 0 0);
+  --primary-glow: oklch(0.66 0.19 279);
 
-  /* #7C3AED royal violet */
-  --secondary: oklch(0.52 0.27 295);
+  /* Cooler violet-blue between surface and primary */
+  --secondary: oklch(0.42 0.17 280);
   --secondary-foreground: oklch(0.99 0 0);
 
-  --muted: oklch(0.26 0.025 265);
-  --muted-foreground: oklch(0.72 0.02 260);
+  --muted: oklch(0.24 0.05 285);
+  --muted-foreground: oklch(0.72 0.03 280);
 
-  /* #FBBF24 gold accent */
-  --accent: oklch(0.84 0.17 86);
-  --accent-foreground: oklch(0.20 0.03 265);
+  /* Restrained gold — ranks & prizes only */
+  --accent: oklch(0.84 0.16 88);
+  --accent-foreground: oklch(0.16 0.045 285);
 
   --destructive: oklch(0.62 0.24 25);
   --destructive-foreground: oklch(0.99 0 0);
 
-  --border: oklch(0.30 0.03 265 / 0.6);
-  --input: oklch(0.30 0.03 265 / 0.8);
-  --ring: oklch(0.58 0.22 264);
+  --border: oklch(0.36 0.08 283 / 0.55);
+  --input: oklch(0.36 0.08 283 / 0.8);
+  --ring: oklch(0.51 0.23 277);
 
   /* Brand gradients & glows */
-  --gradient-brand: linear-gradient(135deg, oklch(0.58 0.22 264) 0%, oklch(0.52 0.27 295) 100%);
-  --gradient-hero: radial-gradient(ellipse at top, oklch(0.30 0.18 270 / 0.6), transparent 60%),
-                   radial-gradient(ellipse at bottom right, oklch(0.40 0.22 295 / 0.4), transparent 50%),
-                   linear-gradient(180deg, oklch(0.16 0.025 265) 0%, oklch(0.12 0.02 265) 100%);
-  --gradient-card: linear-gradient(160deg, oklch(0.24 0.035 265 / 0.9), oklch(0.18 0.025 265 / 0.9));
-  --gradient-gold: linear-gradient(135deg, oklch(0.84 0.17 86), oklch(0.74 0.18 60));
+  --gradient-brand: linear-gradient(135deg, oklch(0.51 0.23 277) 0%, oklch(0.66 0.19 279) 100%);
+  --gradient-hero: radial-gradient(ellipse at top left, oklch(0.42 0.20 278 / 0.45), transparent 58%),
+                   radial-gradient(ellipse at bottom right, oklch(0.34 0.16 285 / 0.5), transparent 55%),
+                   linear-gradient(180deg, oklch(0.13 0.032 285) 0%, oklch(0.11 0.028 285) 100%);
+  --gradient-card: linear-gradient(160deg, oklch(0.24 0.07 284 / 0.9), oklch(0.16 0.04 285 / 0.92));
+  --gradient-gold: linear-gradient(135deg, oklch(0.86 0.15 90), oklch(0.76 0.16 66));
 
-  --glow-primary: 0 0 40px oklch(0.58 0.22 264 / 0.45);
-  --glow-secondary: 0 0 40px oklch(0.52 0.27 295 / 0.45);
-  --glow-gold: 0 0 30px oklch(0.84 0.17 86 / 0.45);
+  --glow-primary: 0 0 44px oklch(0.51 0.23 277 / 0.5);
+  --glow-secondary: 0 0 40px oklch(0.66 0.19 279 / 0.4);
+  --glow-gold: 0 0 30px oklch(0.84 0.16 88 / 0.4);
 
-  --shadow-card: 0 10px 30px -10px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.05) inset;
-  --shadow-elevated: 0 25px 60px -20px oklch(0 0 0 / 0.7), 0 0 0 1px oklch(1 0 0 / 0.06) inset;
+  --shadow-card: 0 10px 30px -10px oklch(0 0 0 / 0.65), 0 0 0 1px oklch(1 0 0 / 0.05) inset;
+  --shadow-elevated: 0 25px 60px -20px oklch(0 0 0 / 0.75), 0 0 0 1px oklch(1 0 0 / 0.07) inset;
 
   --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark {
   /* Same tokens — app is dark-first */
-  --background: oklch(0.16 0.025 265);
-  --foreground: oklch(0.97 0.01 250);
+  --background: oklch(0.13 0.032 285);
+  --foreground: oklch(0.97 0.008 275);
 }
 
 @layer base {
@@ -118,11 +121,14 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    font-feature-settings: "cv11", "ss01";
+  }
+
+  .font-display {
+    letter-spacing: 0.01em;
   }
 
   ::selection {
-    background: oklch(0.58 0.22 264 / 0.4);
+    background: oklch(0.51 0.23 277 / 0.45);
     color: var(--foreground);
   }
 }
@@ -171,16 +177,16 @@
 
 @utility grid-pattern {
   background-image:
-    linear-gradient(oklch(0.58 0.22 264 / 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.58 0.22 264 / 0.08) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(oklch(0.66 0.19 279 / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.66 0.19 279 / 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
 }
 
 @utility hex-pattern {
   background-color: transparent;
   background-image:
-    radial-gradient(oklch(0.58 0.22 264 / 0.12) 1px, transparent 1px),
-    radial-gradient(oklch(0.52 0.27 295 / 0.10) 1px, transparent 1px);
+    radial-gradient(oklch(0.66 0.19 279 / 0.12) 1px, transparent 1px),
+    radial-gradient(oklch(0.51 0.23 277 / 0.10) 1px, transparent 1px);
   background-size: 28px 28px, 28px 28px;
   background-position: 0 0, 14px 14px;
 }
@@ -200,7 +206,7 @@
 }
 
 @utility text-glow-primary {
-  text-shadow: 0 0 24px oklch(0.58 0.22 264 / 0.55), 0 0 60px oklch(0.52 0.27 295 / 0.35);
+  text-shadow: 0 0 24px oklch(0.51 0.23 277 / 0.55), 0 0 60px oklch(0.66 0.19 279 / 0.32);
 }
 
 @keyframes float-slow {

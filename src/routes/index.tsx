@@ -31,12 +31,13 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  // Soft scroll-to-top on mount so the landing always opens at the hero.
+  // Always open the landing page at the hero.
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo(0, 0);
     }
   }, []);
+
 
   return (
     <SiteShell>

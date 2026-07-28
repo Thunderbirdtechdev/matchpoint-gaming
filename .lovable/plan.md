@@ -1,43 +1,39 @@
-## 1. Confirm email + grant admin for faizanjawad02@gmail.com
+## Homepage Redesign — Midnight Indigo / Bold Sport / Split Hero
 
-Run a single `supabase--insert` that:
-- Marks `auth.users.email_confirmed_at = now()` for that email (so the account can sign in without waiting on the confirmation mail).
-- Inserts an `admin` row into `public.user_roles` for that user (`ON CONFLICT DO NOTHING`), matching how your own account was set up. This lets the waitlist overlay bypass fire (admins are auto-bypassed).
+The waitlist overlay stays exactly as-is (still covers the homepage for non-admins). All work is presentation-only — no changes to auth, payouts, wallet, or admin logic.
 
-No schema changes — this is a data-only update on existing tables.
+### 1. Design tokens (`src/styles.css`)
+Retune the existing dark esports system to the Midnight Indigo palette:
+- `--background` → deep near-black navy (`#0a0a1a`), `--surface` → `#141432`, `--surface-elevated` → `#1e1e5a`
+- `--primary` → electric indigo `#4f46e5`; keep a lighter indigo `--primary-glow` for gradients
+- `--secondary` → a cooler violet-blue that sits between surface and primary
+- `--accent` → keep a restrained gold/amber only for rank + prize highlights (small doses)
+- Update `--gradient-brand`, `--gradient-hero`, `--gradient-card`, and glow shadows to the new indigo values
 
-## 2. Auth "Send Email" hook
+Typography: load **Bebas Neue** + **Barlow** via `<link>` tags in `src/routes/__root.tsx` head (never `@import` a URL in styles.css). Set `--font-display: "Bebas Neue"` and `--font-sans: "Barlow"` in `@theme`. Bebas is all-caps by nature, so drop redundant `uppercase font-black` and use wide tracking instead.
 
-Heads-up on how this actually works in Lovable Cloud: you don't get a Supabase dashboard, so the "Send Email hook" isn't something toggled in a Supabase UI here. In this project it's already wired end-to-end:
+### 2. Hero → split-screen (`src/components/site/Hero.tsx`)
+Full rewrite as a two-column layout (stacked on mobile, `lg:grid-cols-2`):
+- **Left:** live status pill, oversized Bebas headline ("Play. Compete. Win."), one-line subhead, two CTAs (Enter the Arena / Browse Games), and a thin trust row (verified matches · fast payouts · anti-cheat)
+- **Right:** a "live arena" panel — a glass card showing a mock live 1v1 match card (two players, stakes, timer) stacked with a compact top-3 leaderboard strip and a prize-pool counter. Static presentation data, no backend calls.
+- Background: subtle grid pattern + two soft indigo glows; keep the hero image at low opacity behind the right panel only.
 
-- Webhook route: `src/routes/lovable/email/auth/webhook.ts`
-- Templates: `src/lib/email-templates/{signup,magic-link,recovery,invite,email-change,reauthentication}.tsx`
-- Sender domain: `notify.matchpointgaming.org` (verified previously)
+### 3. Section refresh (presentation only)
+- **Stats** — pared to 4 numbers, mono-styled figures with Bebas labels, thin divider rules instead of card chrome
+- **HowItWorks** — 5 steps become a horizontal numbered rail with connecting line; big Bebas step numerals
+- **Features** — 8 cards keep the grid but adopt tighter borders, indigo icon wells, and hover lift consistent with the new tokens
+- **LeaderboardPreview** — restyled to match the hero's panel treatment (shared visual language)
+- **Testimonials** — 3 quote cards with larger pull-quote type and less card weight
+- **CTA** — full-width indigo gradient band with oversized Bebas headline
+- **Footer / Navbar** — token-driven updates only, so they inherit the new palette and fonts
 
-I'll verify the hook is actually firing by:
-- Reading the webhook route to confirm it's the current handler.
-- Pulling recent `auth_logs` via `supabase--analytics_query` for `path` containing `/lovable/email/auth/webhook` to confirm Supabase is calling it on signup/recovery.
-- If no calls are landing, I'll flag it and we escalate — Lovable Cloud manages the hook binding; there is no self-serve config for me to flip.
+### 4. Page flow (`src/routes/index.tsx`)
+Keep section order and fade-in stagger; remove the smooth `scrollTo` on mount (it fights the overlay and causes a visible jump) in favor of an instant top position.
 
-Payout / deposit / waitlist emails do NOT go through the auth hook — those are enqueued directly by our server code via `enqueueAppEmail` → `transactional_emails` queue → `src/routes/lovable/email/queue/process.ts`. Nothing to change there; they already use our branded templates.
+### 5. SEO
+Keep the existing head metadata on `/` intact; no title/description changes.
 
-## 3. Site URL and Redirect URLs
-
-Same caveat: on Lovable Cloud there's no exposed Supabase Auth "Site URL / Redirect URLs" screen, and the `configure_auth` tool available to me does not accept `site_url` or `additional_redirect_urls`. Lovable Cloud manages the canonical Site URL automatically based on your published domain (`matchpointgaming.org` / `matchpoint-gaming.lovable.app`), which is why OAuth and password-reset redirects have been working end-to-end.
-
-I'll:
-- Call `supabase--debug_oauth_server` (read-only) to print the current Site URL and trusted redirect allow-list, so you can see the actual values instead of assuming `localhost:3000`.
-- If Site URL really is still `localhost:3000` or `matchpointgaming.org/**` is missing from the allow-list, I don't have a tool to write those directly — I'll tell you exactly what's set and we'll open a Lovable support request (this is the only path to change managed auth Site URL for a Cloud project).
-
-## Order of operations
-
-1. `supabase--insert` — confirm email + insert admin role.
-2. `supabase--debug_oauth_server` — dump current Site URL + redirect allow-list.
-3. `supabase--analytics_query` on `auth_logs` — verify the auth webhook is being called.
-4. Report findings for #2 and #3; act only on what my tools can actually change.
-
-## Not doing
-
-- No code changes to templates, webhooks, or the waitlist overlay.
-- No schema migrations.
-- No changes to Stripe, payouts, or fees.
+### Technical notes
+- Every color stays a semantic token — no hardcoded hex in components
+- Header/stat rows use the `grid-cols-[minmax(0,1fr)_auto]` + `min-w-0` + `shrink-0` responsive pattern
+- Verify with a Playwright screenshot at desktop and mobile widths before finishing

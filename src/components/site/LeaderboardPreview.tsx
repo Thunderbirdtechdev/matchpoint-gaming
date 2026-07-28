@@ -12,9 +12,9 @@ const top = [
 
 const rankIcon = (r: number) => {
   if (r === 1) return <Crown className="h-4 w-4 text-accent" />;
-  if (r === 2) return <Medal className="h-4 w-4 text-secondary" />;
+  if (r === 2) return <Medal className="h-4 w-4 text-primary-glow" />;
   if (r === 3) return <Medal className="h-4 w-4 text-primary" />;
-  return <span className="text-xs font-bold text-muted-foreground">#{r}</span>;
+  return <span className="font-display text-sm tracking-wide text-muted-foreground">{r}</span>;
 };
 
 export function LeaderboardPreview() {
@@ -23,10 +23,8 @@ export function LeaderboardPreview() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid items-start gap-12 lg:grid-cols-[1fr_1.4fr]">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wider text-accent">
-              Leaderboards
-            </p>
-            <h2 className="mt-3 font-display text-4xl font-black uppercase tracking-tight sm:text-5xl">
+            <p className="font-display text-sm tracking-[0.28em] text-accent">Leaderboards</p>
+            <h2 className="mt-3 font-display text-5xl tracking-wide sm:text-6xl">
               Climb the global ranks
             </h2>
             <p className="mt-4 text-muted-foreground">
@@ -35,24 +33,24 @@ export function LeaderboardPreview() {
             </p>
             <div className="mt-6 flex flex-wrap gap-6 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Trophy className="h-4 w-4 text-primary" />
+                <Trophy className="h-4 w-4 shrink-0 text-primary-glow" />
                 Season resets monthly
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <TrendingUp className="h-4 w-4 text-accent" />
+                <TrendingUp className="h-4 w-4 shrink-0 text-accent" />
                 Live rank updates
               </div>
             </div>
             <Button
               asChild
-              className="mt-8 bg-gradient-brand font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90"
+              className="mt-8 h-12 bg-gradient-brand px-7 font-display text-lg tracking-[0.12em] text-primary-foreground hover:opacity-90"
             >
               <Link to="/register">Get on the Board</Link>
             </Button>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-border/60 bg-gradient-card shadow-card">
-            <div className="grid grid-cols-[60px_1fr_120px_100px] gap-4 border-b border-border/50 bg-background/40 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="overflow-hidden rounded-2xl border border-border/60 bg-gradient-card shadow-elevated">
+            <div className="grid grid-cols-[48px_minmax(0,1fr)_100px] gap-4 border-b border-border/50 bg-background/40 px-5 py-3 font-display text-xs tracking-[0.2em] text-muted-foreground sm:grid-cols-[48px_minmax(0,1fr)_120px_100px]">
               <span>Rank</span>
               <span>Player</span>
               <span className="hidden sm:block">Game</span>
@@ -62,21 +60,21 @@ export function LeaderboardPreview() {
               {top.map((p) => (
                 <li
                   key={p.handle}
-                  className="grid grid-cols-[60px_1fr_120px_100px] items-center gap-4 border-b border-border/30 px-5 py-4 text-sm transition-colors last:border-0 hover:bg-background/30"
+                  className="grid grid-cols-[48px_minmax(0,1fr)_100px] items-center gap-4 border-b border-border/30 px-5 py-4 text-sm transition-colors last:border-0 hover:bg-background/30 sm:grid-cols-[48px_minmax(0,1fr)_120px_100px]"
                 >
-                  <div className="flex h-6 w-6 items-center justify-center">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center">
                     {rankIcon(p.rank)}
                   </div>
-                  <div>
-                    <div className="font-semibold">{p.handle}</div>
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold">{p.handle}</div>
                     <div className="text-xs text-muted-foreground">
                       {p.wins.toLocaleString()} wins
                     </div>
                   </div>
-                  <span className="hidden text-xs text-muted-foreground sm:block">
+                  <span className="hidden truncate text-xs text-muted-foreground sm:block">
                     {p.game}
                   </span>
-                  <span className="text-right font-display text-base font-bold text-gradient-brand">
+                  <span className="text-right font-display text-lg tracking-wide text-gradient-brand">
                     {p.earnings}
                   </span>
                 </li>
