@@ -206,7 +206,7 @@
 }
 
 @utility text-glow-primary {
-  text-shadow: 0 0 24px oklch(0.58 0.22 264 / 0.55), 0 0 60px oklch(0.52 0.27 295 / 0.35);
+  text-shadow: 0 0 24px oklch(0.51 0.23 277 / 0.55), 0 0 60px oklch(0.66 0.19 279 / 0.32);
 }
 
 @keyframes float-slow {
