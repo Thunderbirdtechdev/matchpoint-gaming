@@ -177,16 +177,16 @@
 
 @utility grid-pattern {
   background-image:
-    linear-gradient(oklch(0.58 0.22 264 / 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, oklch(0.58 0.22 264 / 0.08) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(oklch(0.66 0.19 279 / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.66 0.19 279 / 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
 }
 
 @utility hex-pattern {
   background-color: transparent;
   background-image:
-    radial-gradient(oklch(0.58 0.22 264 / 0.12) 1px, transparent 1px),
-    radial-gradient(oklch(0.52 0.27 295 / 0.10) 1px, transparent 1px);
+    radial-gradient(oklch(0.66 0.19 279 / 0.12) 1px, transparent 1px),
+    radial-gradient(oklch(0.51 0.23 277 / 0.10) 1px, transparent 1px);
   background-size: 28px 28px, 28px 28px;
   background-position: 0 0, 14px 14px;
 }
