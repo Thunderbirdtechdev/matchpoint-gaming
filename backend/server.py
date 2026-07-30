@@ -1,59 +1,990 @@
-from fastapi import FastAPI, APIRouter
+"""MatchPoint Backend - FastAPI + MongoDB
+Skill-based competitive gaming platform with wallet, H2H, tournaments.
+"""
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-import os
-import logging
+from pydantic import BaseModel, EmailStr, Field
+from typing import List, Optional, Literal
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List
-import uuid
-from datetime import datetime
-
+import os, uuid, secrets, hashlib, logging, httpx, jwt, bcrypt, stripe, asyncio, random
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+MONGO_URL = os.environ["MONGO_URL"]
+DB_NAME = os.environ["DB_NAME"]
+JWT_SECRET = os.environ["JWT_SECRET"]
+JWT_ACCESS_MIN = int(os.environ.get("JWT_ACCESS_MINUTES", "60"))
+JWT_REFRESH_DAYS = int(os.environ.get("JWT_REFRESH_DAYS", "30"))
+STRIPE_API_KEY = os.environ["STRIPE_API_KEY"]
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY", "")
+EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "MatchPoint")
+APP_URL = os.environ.get("APP_URL", "http://localhost")
+PLATFORM_FEE_PCT = float(os.environ.get("PLATFORM_FEE_PERCENT", "10"))
+WITHDRAWAL_FEE_PCT = float(os.environ.get("WITHDRAWAL_FEE_PERCENT", "2"))
+EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 
-# Create the main app without a prefix
-app = FastAPI()
+stripe.api_key = STRIPE_API_KEY
 
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DB_NAME]
 
+app = FastAPI(title="MatchPoint API")
+api = APIRouter(prefix="/api")
+security = HTTPBearer(auto_error=False)
 
-# Define Models
-class StatusCheck(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+# ------------------------- Helpers -------------------------
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
+def _otp_expired(otp: dict) -> bool:
+    """Compare OTP expires_at with utcnow, normalizing tz-naive datetimes returned from Mongo."""
+    exp = otp.get("expires_at")
+    if exp is None:
+        return True
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=timezone.utc)
+    return exp < utcnow()
+
+def uid() -> str:
+    return str(uuid.uuid4())
+
+def hash_pw(pw: str) -> str:
+    return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
+
+def verify_pw(pw: str, h: str) -> bool:
+    try:
+        return bcrypt.checkpw(pw.encode(), h.encode())
+    except Exception:
+        return False
+
+def make_jwt(user_id: str, minutes: int = JWT_ACCESS_MIN) -> str:
+    now = utcnow()
+    return jwt.encode(
+        {"sub": user_id, "iat": int(now.timestamp()), "exp": int((now + timedelta(minutes=minutes)).timestamp())},
+        JWT_SECRET, algorithm="HS256"
+    )
+
+def sha(t: str) -> str:
+    return hashlib.sha256(t.encode()).hexdigest()
+
+def make_otp() -> str:
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+def serialize(doc: dict) -> dict:
+    """Strip Mongo _id from a doc."""
+    if not doc:
+        return doc
+    doc.pop("_id", None)
+    return doc
+
+async def send_email(to: str, subject: str, html: str):
+    """Non-blocking email via Emergent-managed Resend."""
+    if not EMAIL_KEY:
+        logger.warning(f"[EMAIL MOCKED] To={to} Subject={subject}")
+        return
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post(
+                f"{EMAIL_BASE_URL}/api/v1/email/send",
+                headers={"X-Email-Key": EMAIL_KEY},
+                json={"to": [to], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME},
+            )
+            if r.status_code >= 400:
+                logger.error(f"Email send failed: {r.status_code} {r.text}")
+    except Exception as e:
+        logger.error(f"Email error: {e}")
+
+def otp_email(code: str, purpose: str) -> str:
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#111210;padding:32px;font-family:Arial,sans-serif;">
+      <tr><td align="center">
+        <div style="background:#191B18;border:1px solid #2C3129;border-radius:12px;padding:32px;max-width:480px;">
+          <h1 style="color:#CCFF00;margin:0 0 16px;font-size:28px;">MatchPoint</h1>
+          <p style="color:#F4F5F0;font-size:16px;">Your {purpose} code:</p>
+          <p style="color:#CCFF00;font-size:40px;font-weight:bold;letter-spacing:8px;margin:24px 0;">{code}</p>
+          <p style="color:#9CA394;font-size:14px;">This code expires in 10 minutes.</p>
+        </div>
+      </td></tr>
+    </table>
+    """
+
+async def current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    if not credentials or not credentials.credentials:
+        raise HTTPException(401, "Not authenticated")
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["sub"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "Token expired")
+    except Exception:
+        raise HTTPException(401, "Invalid token")
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(401, "User not found")
+    if user.get("suspended"):
+        raise HTTPException(403, "Account suspended")
+    return serialize(user)
+
+async def require_admin(user: dict = Depends(current_user)) -> dict:
+    if not user.get("is_admin"):
+        raise HTTPException(403, "Admin only")
+    return user
+
+# ------------------------- Models -------------------------
+class RegisterIn(BaseModel):
+    email: EmailStr
+    password: str
+    username: str
+
+class VerifyOtpIn(BaseModel):
+    email: EmailStr
+    code: str
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+    device_name: Optional[str] = "Mobile"
+
+class ResetIn(BaseModel):
+    email: EmailStr
+    code: str
+    new_password: str
+
+class ProfileUpdate(BaseModel):
+    username: Optional[str] = None
+    bio: Optional[str] = None
+    avatar: Optional[str] = None  # base64
+    favorite_games: Optional[List[str]] = None
+
+class DepositIn(BaseModel):
+    amount: float  # in dollars
+
+class WithdrawIn(BaseModel):
+    amount: float
+    bank_account: Optional[str] = "****1234"
+
+class ChallengeIn(BaseModel):
+    game: str
+    platform: str  # PC / PS5 / Xbox / Mobile
+    stake: float
+    region: str = "GLOBAL"
+    notes: Optional[str] = ""
+
+class ChallengeResultIn(BaseModel):
+    winner_id: str  # "me" or opponent id
+    evidence: Optional[str] = None  # base64 screenshot
+
+class TournamentIn(BaseModel):
+    name: str
+    game: str
+    platform: str
+    entry_fee: float
+    max_players: int = 16
+    prize_pool: float = 0
+    tournament_type: Literal["public", "private", "invite", "sponsored"] = "public"
+    start_at: Optional[str] = None
+    banner: Optional[str] = None
+    sponsor: Optional[str] = None
+    description: Optional[str] = ""
+
+class TicketIn(BaseModel):
+    subject: str
+    message: str
+    category: str = "general"
+
+class ReportIn(BaseModel):
+    target_type: Literal["player", "bug", "challenge"]
+    target_id: Optional[str] = None
+    reason: str
+    evidence: Optional[str] = None
+
+class AdIn(BaseModel):
+    title: str
+    image: str
+    link: Optional[str] = ""
+    placement: Literal["home", "discover", "tournaments"] = "home"
+    active: bool = True
+
+# ------------------------- Seed / init -------------------------
+GAMES = ["FIFA 25", "Call of Duty", "Fortnite", "Rocket League", "Street Fighter 6", "Valorant", "Apex Legends", "Mortal Kombat 1"]
+PLATFORMS = ["PC", "PS5", "Xbox", "Mobile"]
+REGIONS = ["NA", "EU", "APAC", "LATAM", "GLOBAL"]
+
+@app.on_event("startup")
+async def startup():
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("id", unique=True)
+    await db.users.create_index("username")
+    await db.otp.create_index([("email", 1), ("purpose", 1)])
+    await db.otp.create_index("expires_at", expireAfterSeconds=0)
+    await db.sessions.create_index("id", unique=True)
+    await db.challenges.create_index("id", unique=True)
+    await db.tournaments.create_index("id", unique=True)
+    await db.wallet_tx.create_index("id", unique=True)
+    await db.stripe_events.create_index("id", unique=True)
+    # Seed admin if none exists
+    admin = await db.users.find_one({"email": "admin@matchpoint.gg"})
+    if not admin:
+        await db.users.insert_one({
+            "id": uid(), "email": "admin@matchpoint.gg", "username": "admin",
+            "password_hash": hash_pw("Admin@123"),
+            "email_verified": True, "is_admin": True, "suspended": False,
+            "bio": "MatchPoint Administrator", "avatar": "", "favorite_games": [],
+            "wallet_balance": 0.0, "pending_balance": 0.0,
+            "stats": {"wins": 0, "losses": 0, "earnings": 0.0, "rank": 1500, "matches": 0},
+            "badges": ["founder"], "created_at": utcnow().isoformat(),
+        })
+    # Seed demo user
+    demo = await db.users.find_one({"email": "demo@matchpoint.gg"})
+    if not demo:
+        await db.users.insert_one({
+            "id": uid(), "email": "demo@matchpoint.gg", "username": "ProGamer",
+            "password_hash": hash_pw("Demo@123"),
+            "email_verified": True, "is_admin": False, "suspended": False,
+            "bio": "Ranked #1 in Call of Duty", "avatar": "", "favorite_games": ["Call of Duty", "Valorant"],
+            "wallet_balance": 500.0, "pending_balance": 0.0,
+            "stats": {"wins": 24, "losses": 11, "earnings": 1250.0, "rank": 1780, "matches": 35},
+            "badges": ["early_adopter", "verified"], "created_at": utcnow().isoformat(),
+        })
+    # Seed a few sample tournaments if empty
+    if await db.tournaments.count_documents({}) == 0:
+        samples = [
+            {"name": "Nightfall Championship", "game": "Call of Duty", "sponsor": "Red Bull Gaming", "tournament_type": "sponsored", "banner": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800"},
+            {"name": "Rocket League Blitz", "game": "Rocket League", "tournament_type": "public", "banner": ""},
+            {"name": "FIFA Weekly Cup", "game": "FIFA 25", "tournament_type": "public", "banner": ""},
+            {"name": "Valorant Masters", "game": "Valorant", "sponsor": "Logitech G", "tournament_type": "sponsored", "banner": ""},
+        ]
+        for s in samples:
+            await db.tournaments.insert_one({
+                "id": uid(), "name": s["name"], "game": s["game"], "platform": "PC",
+                "entry_fee": 10.0, "max_players": 16, "prize_pool": 500.0,
+                "tournament_type": s["tournament_type"], "sponsor": s.get("sponsor"),
+                "banner": s.get("banner", ""), "description": "Compete against top players for glory.",
+                "start_at": (utcnow() + timedelta(days=random.randint(1, 7))).isoformat(),
+                "status": "open", "registered": [], "brackets": [],
+                "created_by": "system", "created_at": utcnow().isoformat(),
+            })
+
+# ============================================================
+# AUTH
+# ============================================================
+@api.post("/auth/register")
+async def register(data: RegisterIn):
+    if len(data.password) < 6:
+        raise HTTPException(400, "Password too short (min 6)")
+    existing = await db.users.find_one({"email": data.email})
+    if existing:
+        # Enumeration-safe generic message but still 400 for client UX
+        raise HTTPException(400, "Email already registered")
+    user_id = uid()
+    await db.users.insert_one({
+        "id": user_id, "email": data.email, "username": data.username,
+        "password_hash": hash_pw(data.password),
+        "email_verified": False, "is_admin": False, "suspended": False,
+        "bio": "", "avatar": "", "favorite_games": [],
+        "wallet_balance": 0.0, "pending_balance": 0.0,
+        "stats": {"wins": 0, "losses": 0, "earnings": 0.0, "rank": 1500, "matches": 0},
+        "badges": [], "created_at": utcnow().isoformat(),
+    })
+    code = make_otp()
+    await db.otp.insert_one({
+        "email": data.email, "purpose": "verify_email",
+        "code_hash": sha(code), "attempts": 0,
+        "expires_at": utcnow() + timedelta(minutes=10),
+    })
+    asyncio.create_task(send_email(data.email, "Verify your MatchPoint email", otp_email(code, "email verification")))
+    return {"ok": True, "message": "Verification code sent", "dev_code": code}  # dev_code for testing
+
+@api.post("/auth/verify-email")
+async def verify_email(data: VerifyOtpIn):
+    otp = await db.otp.find_one({"email": data.email, "purpose": "verify_email", "used": {"$ne": True}}, sort=[("expires_at", -1)])
+    if not otp or otp["code_hash"] != sha(data.code) or _otp_expired(otp):
+        raise HTTPException(400, "Invalid or expired code")
+    await db.otp.update_one({"_id": otp["_id"]}, {"$set": {"used": True}})
+    await db.users.update_one({"email": data.email}, {"$set": {"email_verified": True}})
+    return {"ok": True}
+
+@api.post("/auth/login")
+async def login(data: LoginIn):
+    user = await db.users.find_one({"email": data.email})
+    if not user or not verify_pw(data.password, user["password_hash"]):
+        raise HTTPException(401, "Invalid credentials")
+    if user.get("suspended"):
+        raise HTTPException(403, "Account suspended")
+    if not user.get("email_verified"):
+        # Auto-resend verification code
+        code = make_otp()
+        await db.otp.insert_one({
+            "email": data.email, "purpose": "verify_email",
+            "code_hash": sha(code), "attempts": 0,
+            "expires_at": utcnow() + timedelta(minutes=10),
+        })
+        asyncio.create_task(send_email(data.email, "Verify your MatchPoint email", otp_email(code, "email verification")))
+        return {"require_verification": True, "dev_code": code}
+    # Issue 2FA challenge
+    code = make_otp()
+    await db.otp.insert_one({
+        "email": data.email, "purpose": "login_2fa",
+        "code_hash": sha(code), "attempts": 0,
+        "expires_at": utcnow() + timedelta(minutes=10),
+    })
+    asyncio.create_task(send_email(data.email, "Your MatchPoint login code", otp_email(code, "2FA login")))
+    return {"require_2fa": True, "email": data.email, "dev_code": code}
+
+@api.post("/auth/verify-2fa")
+async def verify_2fa(data: VerifyOtpIn, x_device_name: Optional[str] = Header(default="Mobile")):
+    otp = await db.otp.find_one({"email": data.email, "purpose": "login_2fa", "used": {"$ne": True}}, sort=[("expires_at", -1)])
+    if not otp or otp["code_hash"] != sha(data.code) or _otp_expired(otp):
+        raise HTTPException(400, "Invalid or expired code")
+    await db.otp.update_one({"_id": otp["_id"]}, {"$set": {"used": True}})
+    user = await db.users.find_one({"email": data.email})
+    if not user:
+        raise HTTPException(404, "User not found")
+    token = make_jwt(user["id"])
+    session_id = uid()
+    await db.sessions.insert_one({
+        "id": session_id, "user_id": user["id"], "device_name": x_device_name or "Mobile",
+        "created_at": utcnow().isoformat(), "last_seen": utcnow().isoformat(),
+        "revoked": False,
+    })
+    return {"access_token": token, "user": serialize({**user, "password_hash": None}), "session_id": session_id}
+
+@api.post("/auth/forgot-password")
+async def forgot_password(data: dict):
+    email = data.get("email")
+    if not email:
+        raise HTTPException(400, "Email required")
+    user = await db.users.find_one({"email": email})
+    if user:
+        code = make_otp()
+        await db.otp.insert_one({
+            "email": email, "purpose": "reset_password",
+            "code_hash": sha(code), "attempts": 0,
+            "expires_at": utcnow() + timedelta(minutes=10),
+        })
+        asyncio.create_task(send_email(email, "Reset your MatchPoint password", otp_email(code, "password reset")))
+        return {"ok": True, "dev_code": code}
+    return {"ok": True}
+
+@api.post("/auth/reset-password")
+async def reset_password(data: ResetIn):
+    otp = await db.otp.find_one({"email": data.email, "purpose": "reset_password", "used": {"$ne": True}}, sort=[("expires_at", -1)])
+    if not otp or otp["code_hash"] != sha(data.code) or _otp_expired(otp):
+        raise HTTPException(400, "Invalid or expired code")
+    if len(data.new_password) < 6:
+        raise HTTPException(400, "Password too short")
+    await db.otp.update_one({"_id": otp["_id"]}, {"$set": {"used": True}})
+    await db.users.update_one({"email": data.email}, {"$set": {"password_hash": hash_pw(data.new_password)}})
+    # Revoke all sessions
+    user = await db.users.find_one({"email": data.email})
+    if user:
+        await db.sessions.update_many({"user_id": user["id"]}, {"$set": {"revoked": True}})
+    return {"ok": True}
+
+@api.get("/auth/me")
+async def me(user: dict = Depends(current_user)):
+    user["password_hash"] = None
+    return user
+
+@api.get("/auth/sessions")
+async def list_sessions(user: dict = Depends(current_user)):
+    cursor = db.sessions.find({"user_id": user["id"], "revoked": False}, {"_id": 0})
+    return await cursor.to_list(100)
+
+@api.post("/auth/sessions/{session_id}/revoke")
+async def revoke_session(session_id: str, user: dict = Depends(current_user)):
+    await db.sessions.update_one({"id": session_id, "user_id": user["id"]}, {"$set": {"revoked": True}})
+    return {"ok": True}
+
+@api.post("/auth/logout")
+async def logout(user: dict = Depends(current_user)):
+    return {"ok": True}
+
+# ============================================================
+# PROFILE
+# ============================================================
+@api.get("/profile/{user_id}")
+async def get_profile(user_id: str, _: dict = Depends(current_user)):
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(404, "User not found")
+    return user
+
+@api.patch("/profile")
+async def update_profile(data: ProfileUpdate, user: dict = Depends(current_user)):
+    updates = {k: v for k, v in data.dict().items() if v is not None}
+    if updates:
+        await db.users.update_one({"id": user["id"]}, {"$set": updates})
+    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 0})
+    return updated
+
+@api.get("/profile/{user_id}/matches")
+async def user_matches(user_id: str, _: dict = Depends(current_user)):
+    cursor = db.challenges.find({
+        "$or": [{"creator_id": user_id}, {"opponent_id": user_id}],
+        "status": {"$in": ["finalized", "cancelled"]},
+    }, {"_id": 0}).sort("created_at", -1).limit(50)
+    return await cursor.to_list(50)
+
+# ============================================================
+# WALLET
+# ============================================================
+@api.get("/wallet")
+async def wallet(user: dict = Depends(current_user)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    return {
+        "balance": u.get("wallet_balance", 0),
+        "pending": u.get("pending_balance", 0),
+        "available": u.get("wallet_balance", 0) - u.get("pending_balance", 0),
+        "earnings": u.get("stats", {}).get("earnings", 0),
+    }
+
+@api.get("/wallet/transactions")
+async def wallet_txs(user: dict = Depends(current_user)):
+    cursor = db.wallet_tx.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).limit(100)
+    return await cursor.to_list(100)
+
+@api.post("/wallet/deposit")
+async def create_deposit(data: DepositIn, user: dict = Depends(current_user)):
+    if data.amount < 5 or data.amount > 10000:
+        raise HTTPException(400, "Amount must be between $5 and $10,000")
+    try:
+        session = stripe.checkout.Session.create(
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": "MatchPoint Wallet Deposit"},
+                    "unit_amount": int(data.amount * 100),
+                },
+                "quantity": 1,
+            }],
+            success_url=f"{APP_URL}/wallet/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{APP_URL}/wallet",
+            metadata={"user_id": user["id"], "amount_cents": str(int(data.amount * 100))},
+        )
+        # Record pending tx
+        tx_id = uid()
+        await db.wallet_tx.insert_one({
+            "id": tx_id, "user_id": user["id"], "type": "deposit",
+            "amount": data.amount, "status": "pending",
+            "stripe_session_id": session.id,
+            "created_at": utcnow().isoformat(),
+        })
+        return {"url": session.url, "session_id": session.id, "tx_id": tx_id}
+    except Exception as e:
+        logger.error(f"Stripe error: {e}")
+        raise HTTPException(500, f"Payment provider error: {str(e)}")
+
+@api.get("/wallet/deposit/status/{session_id}")
+async def deposit_status(session_id: str, user: dict = Depends(current_user)):
+    """Poll Stripe for session status (used as fallback if webhook not received)."""
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        tx = await db.wallet_tx.find_one({"stripe_session_id": session_id, "user_id": user["id"]}, {"_id": 0})
+        # If paid and tx still pending, credit
+        if session.payment_status == "paid" and tx and tx.get("status") == "pending":
+            await _credit_deposit(user["id"], tx["amount"], session_id, tx["id"])
+            tx["status"] = "completed"
+        return {"payment_status": session.payment_status, "status": session.status, "tx": tx}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+async def _credit_deposit(user_id: str, amount: float, session_id: str, tx_id: str):
+    # Idempotent credit via unique stripe_session_id + status
+    result = await db.wallet_tx.update_one(
+        {"id": tx_id, "status": "pending"},
+        {"$set": {"status": "completed", "completed_at": utcnow().isoformat()}},
+    )
+    if result.modified_count > 0:
+        await db.users.update_one({"id": user_id}, {"$inc": {"wallet_balance": amount}})
+        await _notify(user_id, "deposit", f"Deposit of ${amount:.2f} completed", "wallet")
+
+@api.post("/wallet/withdraw")
+async def withdraw(data: WithdrawIn, user: dict = Depends(current_user)):
+    u = await db.users.find_one({"id": user["id"]})
+    balance = u.get("wallet_balance", 0)
+    if data.amount < 10:
+        raise HTTPException(400, "Minimum withdrawal is $10")
+    if data.amount > balance:
+        raise HTTPException(400, "Insufficient balance")
+    fee = round(data.amount * WITHDRAWAL_FEE_PCT / 100, 2)
+    net = round(data.amount - fee, 2)
+    tx_id = uid()
+    # Deduct immediately
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": -data.amount}})
+    await db.wallet_tx.insert_one({
+        "id": tx_id, "user_id": user["id"], "type": "withdrawal",
+        "amount": data.amount, "fee": fee, "net": net,
+        "bank_account": data.bank_account, "status": "processing",
+        "created_at": utcnow().isoformat(),
+    })
+    # Record fee revenue
+    await db.revenue.insert_one({
+        "id": uid(), "type": "withdrawal_fee", "amount": fee,
+        "user_id": user["id"], "tx_id": tx_id, "created_at": utcnow().isoformat(),
+    })
+    # Simulate async processing (auto-complete in 2s)
+    async def _complete():
+        await asyncio.sleep(2)
+        await db.wallet_tx.update_one({"id": tx_id}, {"$set": {"status": "completed", "completed_at": utcnow().isoformat()}})
+        await _notify(user["id"], "withdrawal", f"Withdrawal of ${net:.2f} sent to your bank", "wallet")
+    asyncio.create_task(_complete())
+    await _notify(user["id"], "withdrawal", f"Withdrawal of ${data.amount:.2f} initiated (fee: ${fee:.2f})", "wallet")
+    return {"tx_id": tx_id, "fee": fee, "net": net, "status": "processing"}
+
+@api.post("/wallet/webhook")
+async def stripe_webhook(request: Request):
+    body = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        if STRIPE_WEBHOOK_SECRET and STRIPE_WEBHOOK_SECRET != "whsec_placeholder":
+            event = stripe.Webhook.construct_event(body, sig, STRIPE_WEBHOOK_SECRET)
+        else:
+            # Dev mode without webhook secret
+            import json as _json
+            event = _json.loads(body)
+    except Exception as e:
+        raise HTTPException(400, f"Invalid webhook: {e}")
+    event_id = event.get("id")
+    if event_id and await db.stripe_events.find_one({"id": event_id}):
+        return {"ok": True, "duplicate": True}
+    if event.get("type") in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        obj = event["data"]["object"]
+        if obj.get("payment_status") == "paid":
+            user_id = obj.get("metadata", {}).get("user_id")
+            amount = int(obj.get("metadata", {}).get("amount_cents", 0)) / 100
+            tx = await db.wallet_tx.find_one({"stripe_session_id": obj["id"]}, {"_id": 0})
+            if tx and user_id and amount:
+                await _credit_deposit(user_id, amount, obj["id"], tx["id"])
+    if event_id:
+        await db.stripe_events.insert_one({"id": event_id, "received_at": utcnow().isoformat()})
+    return {"ok": True}
+
+# ============================================================
+# CHALLENGES (Head-to-Head)
+# ============================================================
+@api.post("/challenges")
+async def create_challenge(data: ChallengeIn, user: dict = Depends(current_user)):
+    u = await db.users.find_one({"id": user["id"]})
+    if u.get("wallet_balance", 0) < data.stake:
+        raise HTTPException(400, "Insufficient balance for stake")
+    ch_id = uid()
+    # Lock stake
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": -data.stake, "pending_balance": data.stake}})
+    doc = {
+        "id": ch_id, "creator_id": user["id"], "creator_username": u["username"],
+        "opponent_id": None, "opponent_username": None,
+        "game": data.game, "platform": data.platform, "region": data.region,
+        "stake": data.stake, "notes": data.notes,
+        "status": "open",  # open -> matched -> reported -> disputed -> finalized -> cancelled
+        "results": {}, "winner_id": None,
+        "created_at": utcnow().isoformat(),
+    }
+    await db.challenges.insert_one(doc)
+    return serialize(doc)
+
+@api.get("/challenges")
+async def list_challenges(status: Optional[str] = None, game: Optional[str] = None, mine: bool = False, user: dict = Depends(current_user)):
+    q = {}
+    if status:
+        q["status"] = status
+    if game:
+        q["game"] = game
+    if mine:
+        q["$or"] = [{"creator_id": user["id"]}, {"opponent_id": user["id"]}]
+    cursor = db.challenges.find(q, {"_id": 0}).sort("created_at", -1).limit(100)
+    return await cursor.to_list(100)
+
+@api.get("/challenges/{ch_id}")
+async def get_challenge(ch_id: str, _: dict = Depends(current_user)):
+    ch = await db.challenges.find_one({"id": ch_id}, {"_id": 0})
+    if not ch:
+        raise HTTPException(404, "Not found")
+    return ch
+
+@api.post("/challenges/{ch_id}/accept")
+async def accept_challenge(ch_id: str, user: dict = Depends(current_user)):
+    ch = await db.challenges.find_one({"id": ch_id})
+    if not ch:
+        raise HTTPException(404, "Not found")
+    if ch["status"] != "open":
+        raise HTTPException(400, "Challenge not open")
+    if ch["creator_id"] == user["id"]:
+        raise HTTPException(400, "Cannot accept own challenge")
+    u = await db.users.find_one({"id": user["id"]})
+    if u.get("wallet_balance", 0) < ch["stake"]:
+        raise HTTPException(400, "Insufficient balance for stake")
+    # Lock opponent stake
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": -ch["stake"], "pending_balance": ch["stake"]}})
+    await db.challenges.update_one({"id": ch_id}, {"$set": {
+        "opponent_id": user["id"], "opponent_username": u["username"],
+        "status": "matched", "matched_at": utcnow().isoformat(),
+    }})
+    await _notify(ch["creator_id"], "match_starting", f"{u['username']} accepted your challenge in {ch['game']}!", "challenge", ch_id)
+    return {"ok": True}
+
+@api.post("/challenges/{ch_id}/cancel")
+async def cancel_challenge(ch_id: str, user: dict = Depends(current_user)):
+    ch = await db.challenges.find_one({"id": ch_id})
+    if not ch:
+        raise HTTPException(404, "Not found")
+    if ch["creator_id"] != user["id"]:
+        raise HTTPException(403, "Only creator can cancel")
+    if ch["status"] != "open":
+        raise HTTPException(400, "Only open challenges can be cancelled")
+    # Refund stake
+    await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": ch["stake"], "pending_balance": -ch["stake"]}})
+    await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "cancelled"}})
+    return {"ok": True}
+
+@api.post("/challenges/{ch_id}/report")
+async def report_result(ch_id: str, data: ChallengeResultIn, user: dict = Depends(current_user)):
+    ch = await db.challenges.find_one({"id": ch_id})
+    if not ch:
+        raise HTTPException(404, "Not found")
+    if user["id"] not in (ch["creator_id"], ch["opponent_id"]):
+        raise HTTPException(403, "Not a participant")
+    if ch["status"] not in ("matched", "reported"):
+        raise HTTPException(400, "Cannot report in current status")
+    results = ch.get("results") or {}
+    # Store what this participant reported
+    winner = ch["creator_id"] if data.winner_id in ("me", user["id"]) and user["id"] == ch["creator_id"] else \
+             ch["opponent_id"] if data.winner_id in ("me", user["id"]) and user["id"] == ch["opponent_id"] else \
+             (ch["creator_id"] if data.winner_id == ch["creator_id"] else ch["opponent_id"])
+    results[user["id"]] = {"winner_id": winner, "evidence": data.evidence, "at": utcnow().isoformat()}
+    await db.challenges.update_one({"id": ch_id}, {"$set": {"results": results, "status": "reported"}})
+    # If both reported and agreed → finalize
+    if len(results) == 2:
+        creator_report = results.get(ch["creator_id"], {}).get("winner_id")
+        opponent_report = results.get(ch["opponent_id"], {}).get("winner_id")
+        if creator_report == opponent_report and creator_report:
+            await _finalize_challenge(ch_id, creator_report)
+        else:
+            await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "disputed"}})
+            await _notify(ch["creator_id"], "support_update", "Challenge disputed — awaiting admin review", "challenge", ch_id)
+            await _notify(ch["opponent_id"], "support_update", "Challenge disputed — awaiting admin review", "challenge", ch_id)
+    return {"ok": True}
+
+async def _finalize_challenge(ch_id: str, winner_id: str):
+    ch = await db.challenges.find_one({"id": ch_id})
+    if not ch or ch["status"] == "finalized":
+        return
+    total_pot = ch["stake"] * 2
+    fee = round(total_pot * PLATFORM_FEE_PCT / 100, 2)
+    payout = round(total_pot - fee, 2)
+    loser_id = ch["opponent_id"] if winner_id == ch["creator_id"] else ch["creator_id"]
+    # Release both pending stakes
+    await db.users.update_one({"id": ch["creator_id"]}, {"$inc": {"pending_balance": -ch["stake"]}})
+    await db.users.update_one({"id": ch["opponent_id"]}, {"$inc": {"pending_balance": -ch["stake"]}})
+    # Payout winner
+    await db.users.update_one({"id": winner_id}, {"$inc": {"wallet_balance": payout, "stats.wins": 1, "stats.earnings": payout, "stats.rank": 25, "stats.matches": 1}})
+    await db.users.update_one({"id": loser_id}, {"$inc": {"stats.losses": 1, "stats.rank": -15, "stats.matches": 1}})
+    await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "finalized", "winner_id": winner_id, "payout": payout, "platform_fee": fee, "finalized_at": utcnow().isoformat()}})
+    # Log revenue
+    await db.revenue.insert_one({
+        "id": uid(), "type": "platform_fee", "amount": fee,
+        "source": "h2h", "ref_id": ch_id, "created_at": utcnow().isoformat(),
+    })
+    # Log wallet txs
+    await db.wallet_tx.insert_one({
+        "id": uid(), "user_id": winner_id, "type": "prize_winning",
+        "amount": payout, "status": "completed", "ref_id": ch_id,
+        "created_at": utcnow().isoformat(),
+    })
+    await _notify(winner_id, "prize_payout", f"You won ${payout:.2f} from H2H challenge!", "challenge", ch_id)
+    await _notify(loser_id, "match_results", "Challenge finalized. Better luck next time!", "challenge", ch_id)
+
+# ============================================================
+# TOURNAMENTS
+# ============================================================
+@api.post("/tournaments")
+async def create_tournament(data: TournamentIn, user: dict = Depends(current_user)):
+    t_id = uid()
+    doc = {
+        "id": t_id, **data.dict(),
+        "status": "open", "registered": [], "brackets": [],
+        "created_by": user["id"], "created_at": utcnow().isoformat(),
+    }
+    if not doc.get("start_at"):
+        doc["start_at"] = (utcnow() + timedelta(days=1)).isoformat()
+    await db.tournaments.insert_one(doc)
+    return serialize(doc)
+
+@api.get("/tournaments")
+async def list_tournaments(tournament_type: Optional[str] = None, game: Optional[str] = None):
+    q = {}
+    if tournament_type:
+        q["tournament_type"] = tournament_type
+    if game:
+        q["game"] = game
+    cursor = db.tournaments.find(q, {"_id": 0}).sort("created_at", -1).limit(100)
+    return await cursor.to_list(100)
+
+@api.get("/tournaments/{t_id}")
+async def get_tournament(t_id: str):
+    t = await db.tournaments.find_one({"id": t_id}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Not found")
+    return t
+
+@api.post("/tournaments/{t_id}/register")
+async def register_tournament(t_id: str, user: dict = Depends(current_user)):
+    t = await db.tournaments.find_one({"id": t_id})
+    if not t:
+        raise HTTPException(404, "Not found")
+    if t["status"] != "open":
+        raise HTTPException(400, "Registration closed")
+    if user["id"] in [p["user_id"] for p in t.get("registered", [])]:
+        raise HTTPException(400, "Already registered")
+    if len(t.get("registered", [])) >= t.get("max_players", 16):
+        raise HTTPException(400, "Tournament full")
+    u = await db.users.find_one({"id": user["id"]})
+    fee = t.get("entry_fee", 0)
+    if fee > 0:
+        if u.get("wallet_balance", 0) < fee:
+            raise HTTPException(400, "Insufficient balance for entry fee")
+        await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": -fee}})
+        # Log platform fee (a portion of entry) - here we say full entry goes to prize pool + fee
+        platform_cut = round(fee * PLATFORM_FEE_PCT / 100, 2)
+        prize_add = fee - platform_cut
+        await db.revenue.insert_one({
+            "id": uid(), "type": "tournament_fee", "amount": platform_cut,
+            "source": "tournament", "ref_id": t_id, "created_at": utcnow().isoformat(),
+        })
+        await db.tournaments.update_one({"id": t_id}, {"$inc": {"prize_pool": prize_add}})
+        await db.wallet_tx.insert_one({
+            "id": uid(), "user_id": user["id"], "type": "tournament_entry",
+            "amount": -fee, "status": "completed", "ref_id": t_id,
+            "created_at": utcnow().isoformat(),
+        })
+    await db.tournaments.update_one({"id": t_id}, {"$push": {"registered": {
+        "user_id": user["id"], "username": u["username"], "registered_at": utcnow().isoformat(),
+    }}})
+    await _notify(user["id"], "tournament_registration", f"Registered for {t['name']}!", "tournament", t_id)
+    return {"ok": True}
+
+@api.post("/tournaments/{t_id}/start")
+async def start_tournament(t_id: str, user: dict = Depends(current_user)):
+    t = await db.tournaments.find_one({"id": t_id})
+    if not t:
+        raise HTTPException(404, "Not found")
+    if t["created_by"] != user["id"] and not user.get("is_admin"):
+        raise HTTPException(403, "Not authorized")
+    # Generate simple single-elimination bracket
+    players = t.get("registered", [])
+    if len(players) < 2:
+        raise HTTPException(400, "Need at least 2 players")
+    random.shuffle(players)
+    rounds = []
+    current = players
+    while len(current) > 1:
+        matches = []
+        for i in range(0, len(current), 2):
+            if i + 1 < len(current):
+                matches.append({"id": uid(), "p1": current[i], "p2": current[i+1], "winner": None})
+            else:
+                matches.append({"id": uid(), "p1": current[i], "p2": None, "winner": current[i]})  # bye
+        rounds.append(matches)
+        current = [m.get("winner") for m in matches if m.get("winner")]
+        if not current:
+            break
+    await db.tournaments.update_one({"id": t_id}, {"$set": {"status": "in_progress", "brackets": rounds}})
+    return {"ok": True, "brackets": rounds}
+
+# ============================================================
+# LEADERBOARDS
+# ============================================================
+@api.get("/leaderboards/global")
+async def leaderboard_global(game: Optional[str] = None, limit: int = 50):
+    q = {} if not game else {"favorite_games": game}
+    cursor = db.users.find(q, {"_id": 0, "password_hash": 0}).sort("stats.rank", -1).limit(limit)
+    users = await cursor.to_list(limit)
+    return [{"user_id": u["id"], "username": u["username"], "avatar": u.get("avatar", ""),
+             "rank": u.get("stats", {}).get("rank", 1500),
+             "wins": u.get("stats", {}).get("wins", 0),
+             "earnings": u.get("stats", {}).get("earnings", 0)} for u in users]
+
+# ============================================================
+# NOTIFICATIONS
+# ============================================================
+async def _notify(user_id: str, kind: str, message: str, category: str = "general", ref_id: Optional[str] = None):
+    await db.notifications.insert_one({
+        "id": uid(), "user_id": user_id, "kind": kind, "message": message,
+        "category": category, "ref_id": ref_id, "read": False,
+        "created_at": utcnow().isoformat(),
+    })
+
+@api.get("/notifications")
+async def get_notifications(user: dict = Depends(current_user)):
+    cursor = db.notifications.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).limit(50)
+    return await cursor.to_list(50)
+
+@api.post("/notifications/{n_id}/read")
+async def mark_read(n_id: str, user: dict = Depends(current_user)):
+    await db.notifications.update_one({"id": n_id, "user_id": user["id"]}, {"$set": {"read": True}})
+    return {"ok": True}
+
+@api.post("/notifications/read-all")
+async def mark_all_read(user: dict = Depends(current_user)):
+    await db.notifications.update_many({"user_id": user["id"]}, {"$set": {"read": True}})
+    return {"ok": True}
+
+# ============================================================
+# SUPPORT & REPORTS
+# ============================================================
+@api.post("/support/tickets")
+async def create_ticket(data: TicketIn, user: dict = Depends(current_user)):
+    t_id = uid()
+    doc = {
+        "id": t_id, "user_id": user["id"], "username": user["username"],
+        "subject": data.subject, "message": data.message, "category": data.category,
+        "status": "open", "messages": [{"from": "user", "text": data.message, "at": utcnow().isoformat()}],
+        "created_at": utcnow().isoformat(),
+    }
+    await db.tickets.insert_one(doc)
+    return serialize(doc)
+
+@api.get("/support/tickets")
+async def list_tickets(user: dict = Depends(current_user)):
+    cursor = db.tickets.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1)
+    return await cursor.to_list(100)
+
+@api.post("/support/tickets/{t_id}/message")
+async def ticket_reply(t_id: str, data: dict, user: dict = Depends(current_user)):
+    text = data.get("text", "")
+    if not text:
+        raise HTTPException(400, "Empty message")
+    await db.tickets.update_one({"id": t_id, "user_id": user["id"]}, {
+        "$push": {"messages": {"from": "user", "text": text, "at": utcnow().isoformat()}}
+    })
+    return {"ok": True}
+
+@api.post("/reports")
+async def create_report(data: ReportIn, user: dict = Depends(current_user)):
+    r_id = uid()
+    await db.reports.insert_one({
+        "id": r_id, "reporter_id": user["id"], **data.dict(),
+        "status": "open", "created_at": utcnow().isoformat(),
+    })
+    return {"id": r_id, "ok": True}
+
+@api.get("/rules")
+async def rules():
+    return {
+        "sections": [
+            {"title": "Fair Play", "content": "No cheating, no smurfing, no collusion. Violations result in immediate suspension and forfeiture."},
+            {"title": "Reporting Results", "content": "Both players must report the winner. Disputes require evidence and admin review."},
+            {"title": "Wallet", "content": "Deposits are instant. Withdrawals process within 24 hours. A 2% fee applies to withdrawals."},
+            {"title": "Tournaments", "content": "Entry fees fund prize pools. Late registrations may forfeit their entry."},
+        ]
+    }
+
+@api.get("/faq")
+async def faq():
+    return [
+        {"q": "How do I deposit funds?", "a": "Go to Wallet → Deposit and choose an amount. Deposits are processed via Stripe."},
+        {"q": "When do I get my winnings?", "a": "Prizes are credited immediately after both players report the same winner."},
+        {"q": "What's the platform fee?", "a": "10% of the total pot for challenges and tournaments."},
+        {"q": "How do withdrawals work?", "a": "Withdrawals process automatically within 24 hours with a 2% fee."},
+        {"q": "What if there's a dispute?", "a": "Submit evidence in the challenge, and our admin team will review within 48 hours."},
+    ]
+
+# ============================================================
+# ADS
+# ============================================================
+@api.get("/ads")
+async def get_ads(placement: str = "home"):
+    cursor = db.ads.find({"placement": placement, "active": True}, {"_id": 0})
+    ads = await cursor.to_list(20)
+    if not ads:
+        # Fallback default ad
+        return [{"id": "default", "title": "Welcome to MatchPoint", "image": "", "link": "", "placement": placement}]
+    return ads
+
+@api.post("/admin/ads")
+async def create_ad(data: AdIn, _: dict = Depends(require_admin)):
+    a_id = uid()
+    await db.ads.insert_one({"id": a_id, **data.dict(), "created_at": utcnow().isoformat()})
+    return {"id": a_id, "ok": True}
+
+# ============================================================
+# ADMIN
+# ============================================================
+@api.get("/admin/users")
+async def admin_users(_: dict = Depends(require_admin)):
+    cursor = db.users.find({}, {"_id": 0, "password_hash": 0}).limit(500)
+    return await cursor.to_list(500)
+
+@api.post("/admin/users/{user_id}/suspend")
+async def admin_suspend(user_id: str, _: dict = Depends(require_admin)):
+    await db.users.update_one({"id": user_id}, {"$set": {"suspended": True}})
+    return {"ok": True}
+
+@api.post("/admin/users/{user_id}/unsuspend")
+async def admin_unsuspend(user_id: str, _: dict = Depends(require_admin)):
+    await db.users.update_one({"id": user_id}, {"$set": {"suspended": False}})
+    return {"ok": True}
+
+@api.get("/admin/disputes")
+async def admin_disputes(_: dict = Depends(require_admin)):
+    cursor = db.challenges.find({"status": "disputed"}, {"_id": 0})
+    return await cursor.to_list(100)
+
+@api.post("/admin/disputes/{ch_id}/resolve")
+async def admin_resolve_dispute(ch_id: str, data: dict, _: dict = Depends(require_admin)):
+    winner_id = data.get("winner_id")
+    if not winner_id:
+        raise HTTPException(400, "winner_id required")
+    await _finalize_challenge(ch_id, winner_id)
+    return {"ok": True}
+
+@api.get("/admin/analytics")
+async def admin_analytics(_: dict = Depends(require_admin)):
+    total_users = await db.users.count_documents({})
+    total_challenges = await db.challenges.count_documents({})
+    finalized = await db.challenges.count_documents({"status": "finalized"})
+    tournaments = await db.tournaments.count_documents({})
+    pipeline_rev = [{"$group": {"_id": "$type", "total": {"$sum": "$amount"}}}]
+    rev = await db.revenue.aggregate(pipeline_rev).to_list(50)
+    pipeline_dep = [{"$match": {"type": "deposit", "status": "completed"}}, {"$group": {"_id": None, "total": {"$sum": "$amount"}}}]
+    dep = await db.wallet_tx.aggregate(pipeline_dep).to_list(1)
+    pipeline_wd = [{"$match": {"type": "withdrawal", "status": "completed"}}, {"$group": {"_id": None, "total": {"$sum": "$amount"}}}]
+    wd = await db.wallet_tx.aggregate(pipeline_wd).to_list(1)
+    return {
+        "users": total_users, "challenges": total_challenges,
+        "finalized_challenges": finalized, "tournaments": tournaments,
+        "revenue_by_type": rev,
+        "total_deposits": (dep[0]["total"] if dep else 0),
+        "total_withdrawals": (wd[0]["total"] if wd else 0),
+    }
+
+@api.get("/admin/revenue")
+async def admin_revenue(_: dict = Depends(require_admin)):
+    cursor = db.revenue.find({}, {"_id": 0}).sort("created_at", -1).limit(200)
+    return await cursor.to_list(200)
+
+# ============================================================
+# META
+# ============================================================
+@api.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"status": "ok", "app": "MatchPoint", "version": "1.0.0"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
+@api.get("/meta/games")
+async def meta_games():
+    return {"games": GAMES, "platforms": PLATFORMS, "regions": REGIONS}
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
-
-# Include the router in the main app
-app.include_router(api_router)
+app.include_router(api)
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,13 +994,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 @app.on_event("shutdown")
-async def shutdown_db_client():
+async def shutdown():
     client.close()

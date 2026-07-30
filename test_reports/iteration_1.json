@@ -1,0 +1,49 @@
+{
+  "summary": "First-time end-to-end MatchPoint test. Backend: 28/29 pytest tests pass (96.5%). Found & fixed a CRITICAL timezone-comparison bug in OTP flows (verify-email/verify-2fa/reset-password) that returned 500 Internal Server Error — MongoDB returned tz-naive datetimes while utcnow() was tz-aware. Introduced helper _otp_expired() and replaced 3 comparisons. Remaining backend failure: Stripe /api/wallet/deposit returns 500 because STRIPE_API_KEY='sk_test_emergent' is not a valid Stripe secret (Stripe replies 'Invalid API Key'). Frontend: full login → 2FA (dev_code auto-fills correctly from response) → all 5 tabs (home, tournaments, play, wallet, profile) work with proper data. Wallet balance ($460 after test withdrawals) and 2% fee calc verified live in UI. Deposit form, create-challenge form, notifications, leaderboard all render. No deprecated Expo packages. All testIDs present on interactive elements.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/wallet/deposit", "issue": "Stripe rejects the configured STRIPE_API_KEY='sk_test_emergent' as invalid. Stripe checkout session creation fails with 500 'Invalid API Key provided'. Blocks all deposit flows. Main agent must switch to a real Stripe test key OR use the emergentintegrations library helper for Stripe.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/auth/verify-email, /api/auth/verify-2fa, /api/auth/reset-password", "issue": "Applied fix: replaced 'otp[expires_at] < utcnow()' with _otp_expired() helper (see /app/backend/server.py:48). Was returning 500 due to tz-naive vs tz-aware datetime comparison. RETEST OK."},
+      {"endpoint": "send_email (Emergent Resend)", "issue": "Recipient blocked: 'Undeliverable recipient'. Not a bug (test emails are random). dev_code fallback in response works, but production may need to allow-list or use delivered@resend.dev for tests."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Deposit → Stripe checkout", "issue": "UI opens the deposit form and calls /api/wallet/deposit; backend returns 500 because of invalid Stripe key (see backend critical). User cannot complete a deposit.", "affected_testIDs": ["wallet-deposit-btn","deposit-submit-btn"]}
+    ],
+    "design_issues": [
+      {"screen": "(tabs)/play - filter chips row", "issues": ["Game filter chips row overflows off-screen (Fortnite is cut off); confirm horizontal scroll is enabled. Otherwise fine on 390px viewport."]},
+      {"screen": "(tabs) bottom nav labels", "issues": ["Tab label text is partially covered by the tab-bar icon on some tabs (labels appear as 'WALLET' overlapping icon at bottom). Increase tab bar height or icon/label spacing."]}
+    ],
+    "react_native_issues": [
+      {"component": "TouchableOpacity/View pointerEvents", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Likely from a library or a component; migrate to style.pointerEvents in RN 0.74+. Reference: browser console during login flow."},
+      {"component": "package.json expo compatibility", "issue": "react-native-keyboard-controller@1.18.6 installed, expected 1.18.5 per Expo SDK. Non-blocking but expo doctor warns. Reference: /app/frontend/package.json"}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py","/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix Stripe integration: STRIPE_API_KEY='sk_test_emergent' is not accepted by Stripe. Replace with a real Stripe test secret key (sk_test_...) or wire the deposit endpoint through emergentintegrations.",
+    "Review & keep the _otp_expired() helper in server.py (applied by tester). Consider a project-wide utility for tz-aware/naive Mongo datetime handling to prevent future bugs.",
+    "Migrate any usages of props.pointerEvents to style.pointerEvents (RN deprecation warning).",
+    "Downgrade react-native-keyboard-controller to 1.18.5 (or upgrade Expo) to match Expo compatibility matrix.",
+    "Verify tournaments tab horizontal chip row scrolls on small viewports and that the bottom tab bar has enough height so labels don't overlap icons."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1000 lines — consider splitting into routers (auth, wallet, challenges, tournaments, admin) for maintainability.",
+    "OTP expires_at stored as aware datetime but MongoDB drops tzinfo on read — always normalize when reading. (Root cause of the 500s fixed.)",
+    "_credit_deposit relies on Stripe polling only; the webhook path is guarded by STRIPE_WEBHOOK_SECRET='whsec_placeholder', which is fine for now but should be documented.",
+    "Withdraw endpoint uses type 'withdrawal' — ensure frontend transaction list handles this exact string (it does).",
+    "current_user should also confirm session isn't revoked; currently reset-password revokes sessions but the JWT still validates until expiry.",
+    "No rate-limiting on /auth/login or OTP request — brute-force risk in production."
+  ],
+  "updated_files": ["/app/backend/server.py","/app/backend/tests/backend_test.py","/app/backend/tests/__init__.py"],
+  "success_rate": {"backend": "96.5% (28/29 pytest cases)","frontend": "100% of critical flows (login→2FA→tabs, wallet, tournaments, play, profile, notifications, leaderboard) except deposit which is blocked by backend Stripe key"},
+  "seed_data_creation": "Registered several TEST_* users via /api/auth/register for H2H/tournament tests (email prefixed TEST_ for cleanup). Also created a TEST tournament 'TEST Cup ...' and 0-stake test challenges on demo user.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "1) Backend base URL: EXPO_PUBLIC_BACKEND_URL (matchpoint-play.preview.emergentagent.com). 2) Use demo@matchpoint.gg / Demo@123 and admin@matchpoint.gg / Admin@123. dev_code is in login/register response. 3) Run tests with `pytest backend/tests/backend_test.py -n 0` — pytest-xdist parallel breaks OTP session fixtures (multiple workers race for the same OTP). 4) After Stripe key is fixed, re-run TestWallet::test_deposit_creates_stripe_session and test_deposit_status_polling. 5) Withdraw type is 'withdrawal' not 'withdraw' in wallet_tx.",
+  "rca_of_issue": "TZ datetime bug RCA: server.py used utcnow()=datetime.now(timezone.utc) [tz-aware] when writing 'expires_at' to Mongo. Motor/pymongo strips tzinfo when returning datetimes (naive UTC). Comparing 'otp[expires_at] < utcnow()' therefore raised TypeError('can't compare offset-naive and offset-aware datetimes') → HTTP 500. Reproduction: POST /api/auth/register → POST /api/auth/verify-email with returned dev_code returned 500. Mitigation applied: added _otp_expired(otp) helper that promotes naive datetimes to UTC before comparison; replaced 3 call sites. Verified via pytest — all OTP tests now green."
+}
