@@ -4,13 +4,13 @@ import { colors } from "@/src/theme";
 const LOGO = require("../../assets/images/logo.png");
 
 export function Logo({ size = 40 }: { size?: number }) {
-  return <Image source={LOGO} style={{ width: size, height: size, resizeMode: "contain" }} />;
+  return <Image source={LOGO} resizeMode="contain" style={{ width: size, height: size }} />;
 }
 
 export function LogoWithWordmark({ size = 48 }: { size?: number }) {
   return (
     <View style={{ alignItems: "center" }}>
-      <Image source={LOGO} style={{ width: size, height: size, resizeMode: "contain" }} />
+      <Image source={LOGO} resizeMode="contain" style={{ width: size, height: size }} />
       <Text style={styles.wordmark}>MATCH<Text style={{ color: colors.brand }}>POINT</Text></Text>
     </View>
   );
