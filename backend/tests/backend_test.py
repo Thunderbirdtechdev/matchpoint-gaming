@@ -290,6 +290,196 @@ class TestTournaments:
 
 
 # ============================================================
+# TOURNAMENT MATCH REPORTING E2E (Iteration 2)
+# ============================================================
+def _make_verified_user():
+    email = f"TEST_tm_{uuid.uuid4().hex[:8]}@matchpoint.gg"
+    password = "Test@1234"
+    username = f"TEST_{uuid.uuid4().hex[:6]}"
+    r = _post("/auth/register", {"email": email, "password": password, "username": username})
+    assert r.status_code == 200, r.text
+    code = r.json().get("dev_code")
+    v = _post("/auth/verify-email", {"email": email, "code": code})
+    assert v.status_code == 200, v.text
+    tok, user = _login_2fa(email, password)
+    return {"token": tok, "user": user, "email": email}
+
+
+class TestTournamentE2E:
+    """
+    Full flow: create tournament (fee=0, 4 slots), register 4 fresh users,
+    start (bracket built), report 2 semis (both agree → winner advances),
+    report final (both agree → tournament completes, prize pool payout).
+    """
+
+    def test_full_bracket_flow(self, demo_token):
+        # 3 additional users (demo will be the 4th)
+        u1 = _make_verified_user()
+        u2 = _make_verified_user()
+        u3 = _make_verified_user()
+
+        # Create tournament with prize_pool=0 (entry_fee=0 means no auto pool)
+        # Use small prize_pool to test payout branch too
+        payload = {"name": f"TEST E2E {uuid.uuid4().hex[:6]}", "game": "FIFA 25",
+                   "platform": "PC", "entry_fee": 0.0, "max_players": 4, "prize_pool": 100.0}
+        cr = _post("/tournaments", payload, token=demo_token)
+        assert cr.status_code == 200, cr.text
+        tid = cr.json()["id"]
+
+        # Register all 4
+        for tok in (demo_token, u1["token"], u2["token"], u3["token"]):
+            r = _post(f"/tournaments/{tid}/register", token=tok)
+            assert r.status_code == 200, f"register failed: {r.text}"
+
+        # Start
+        s = _post(f"/tournaments/{tid}/start", token=demo_token)
+        assert s.status_code == 200, s.text
+        brackets = s.json()["brackets"]
+        # Expect 2 rounds for 4 players: round 0 = 2 matches, round 1 = 1 match
+        assert len(brackets) == 2, f"expected 2 rounds, got {len(brackets)}"
+        assert len(brackets[0]) == 2 and len(brackets[1]) == 1
+
+        # Build map user_id → token
+        me = _get("/auth/me", token=demo_token).json()
+        token_by_uid = {
+            me["id"]: demo_token,
+            u1["user"]["id"]: u1["token"],
+            u2["user"]["id"]: u2["token"],
+            u3["user"]["id"]: u3["token"],
+        }
+
+        # Report both semis; both participants agree on p1 winning
+        winners_round1 = []
+        for m in brackets[0]:
+            assert m["status"] == "ready", f"match status={m['status']}"
+            p1_uid = m["p1"]["user_id"]
+            p2_uid = m["p2"]["user_id"]
+            # Both report p1 as winner
+            r1 = _post(f"/tournaments/{tid}/report",
+                       {"match_id": m["id"], "winner_id": p1_uid, "my_score": 3, "opponent_score": 1, "evidence": None},
+                       token=token_by_uid[p1_uid])
+            assert r1.status_code == 200, r1.text
+            r2 = _post(f"/tournaments/{tid}/report",
+                       {"match_id": m["id"], "winner_id": p1_uid, "my_score": 1, "opponent_score": 3, "evidence": None},
+                       token=token_by_uid[p2_uid])
+            assert r2.status_code == 200, r2.text
+            assert r2.json().get("finalized") is True, f"expected finalized, got {r2.json()}"
+            winners_round1.append(p1_uid)
+
+        # Fetch tournament, verify round 1 (final) has both players and is ready
+        t = _get(f"/tournaments/{tid}").json()
+        finals = t["brackets"][1][0]
+        assert finals.get("p1") and finals.get("p2"), f"final match not populated: {finals}"
+        assert finals["status"] == "ready"
+        finals_p1 = finals["p1"]["user_id"]
+        finals_p2 = finals["p2"]["user_id"]
+        assert set([finals_p1, finals_p2]) == set(winners_round1)
+
+        # Both report finals_p1 as champion
+        r1 = _post(f"/tournaments/{tid}/report",
+                   {"match_id": finals["id"], "winner_id": finals_p1, "my_score": 2, "opponent_score": 0},
+                   token=token_by_uid[finals_p1])
+        assert r1.status_code == 200, r1.text
+        r2 = _post(f"/tournaments/{tid}/report",
+                   {"match_id": finals["id"], "winner_id": finals_p1, "my_score": 0, "opponent_score": 2},
+                   token=token_by_uid[finals_p2])
+        assert r2.status_code == 200, r2.text
+        assert r2.json().get("finalized") is True
+
+        # Tournament should now be completed
+        t2 = _get(f"/tournaments/{tid}").json()
+        assert t2["status"] == "completed", f"expected completed, got {t2['status']}"
+        assert t2.get("winner_id") == finals_p1
+
+        # Winner wallet should have received 70% of 100 = 70
+        winner_tok = token_by_uid[finals_p1]
+        txs = _get("/wallet/transactions", token=winner_tok).json()
+        prize_txs = [t for t in txs if t.get("type") == "prize_winning" and t.get("ref_id") == tid]
+        assert prize_txs, "no prize_winning tx for winner"
+        assert abs(prize_txs[0]["amount"] - 70.0) < 0.01, f"expected 70, got {prize_txs[0]['amount']}"
+
+        # Runner-up should have received 20% = 20
+        runner_tok = token_by_uid[finals_p2]
+        txs_r = _get("/wallet/transactions", token=runner_tok).json()
+        prize_txs_r = [t for t in txs_r if t.get("type") == "prize_winning" and t.get("ref_id") == tid]
+        assert prize_txs_r, "no prize_winning tx for runner-up"
+        assert abs(prize_txs_r[0]["amount"] - 20.0) < 0.01
+
+    def test_tournament_report_dispute_and_admin_resolve(self, demo_token, admin_token):
+        """Report same match with disagreement → disputed → admin resolves."""
+        u1 = _make_verified_user()
+        payload = {"name": f"TEST Dispute {uuid.uuid4().hex[:6]}", "game": "FIFA 25",
+                   "platform": "PC", "entry_fee": 0.0, "max_players": 2, "prize_pool": 0}
+        cr = _post("/tournaments", payload, token=demo_token)
+        assert cr.status_code == 200
+        tid = cr.json()["id"]
+        _post(f"/tournaments/{tid}/register", token=demo_token)
+        _post(f"/tournaments/{tid}/register", token=u1["token"])
+        s = _post(f"/tournaments/{tid}/start", token=demo_token)
+        assert s.status_code == 200
+        brackets = s.json()["brackets"]
+        m = brackets[0][0]
+        p1_uid = m["p1"]["user_id"]
+        p2_uid = m["p2"]["user_id"]
+        tok_map = {p1_uid: (demo_token if p1_uid == _get("/auth/me", token=demo_token).json()["id"] else u1["token"]),
+                   p2_uid: (demo_token if p2_uid == _get("/auth/me", token=demo_token).json()["id"] else u1["token"])}
+        # Disagree
+        r1 = _post(f"/tournaments/{tid}/report",
+                   {"match_id": m["id"], "winner_id": p1_uid}, token=tok_map[p1_uid])
+        assert r1.status_code == 200
+        r2 = _post(f"/tournaments/{tid}/report",
+                   {"match_id": m["id"], "winner_id": p2_uid}, token=tok_map[p2_uid])
+        assert r2.status_code == 200
+        assert r2.json().get("disputed") is True
+
+        # Admin sees dispute
+        disp = _get("/admin/disputes", token=admin_token).json()
+        assert any(x["tournament"]["id"] == tid for x in disp["tournament_matches"]), \
+            "disputed tournament match not in admin disputes"
+
+        # Admin resolves in favor of p1
+        rv = _post(f"/admin/tournaments/{tid}/matches/{m['id']}/resolve",
+                   {"winner_id": p1_uid}, token=admin_token)
+        assert rv.status_code == 200
+        t = _get(f"/tournaments/{tid}").json()
+        assert t["status"] == "completed"
+        assert t["winner_id"] == p1_uid
+
+
+# ============================================================
+# CHALLENGE REPORT WITH SCORE / EVIDENCE (Iteration 2)
+# ============================================================
+class TestChallengeReportScores:
+    def test_report_stores_score_and_evidence(self, demo_token, second_user):
+        cr = _post("/challenges", {"game": "Call of Duty", "platform": "PC", "stake": 0.0, "region": "GLOBAL", "notes": "TEST scores"},
+                   token=demo_token)
+        assert cr.status_code == 200
+        ch_id = cr.json()["id"]
+        acc = _post(f"/challenges/{ch_id}/accept", token=second_user["token"])
+        assert acc.status_code == 200
+        demo_uid = _get("/auth/me", token=demo_token).json()["id"]
+        # small fake base64 evidence
+        ev = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=="
+        r1 = _post(f"/challenges/{ch_id}/report",
+                   {"winner_id": demo_uid, "my_score": 5, "opponent_score": 2, "evidence": ev},
+                   token=demo_token)
+        assert r1.status_code == 200
+        # Verify results persisted with score+evidence
+        det = _get(f"/challenges/{ch_id}", token=demo_token).json()
+        res = (det.get("results") or {}).get(demo_uid, {})
+        assert res.get("my_score") == 5
+        assert res.get("opponent_score") == 2
+        assert res.get("evidence") == ev
+        # 2nd user reports agreeing → finalized
+        r2 = _post(f"/challenges/{ch_id}/report",
+                   {"winner_id": demo_uid, "my_score": 2, "opponent_score": 5},
+                   token=second_user["token"])
+        assert r2.status_code == 200
+        det2 = _get(f"/challenges/{ch_id}", token=demo_token).json()
+        assert det2["status"] in ("finalized", "completed", "settled")
+
+
+# ============================================================
 # LEADERBOARDS / NOTIFICATIONS / SUPPORT
 # ============================================================
 class TestOther:
@@ -337,9 +527,13 @@ class TestAdmin:
         assert r.status_code == 200
 
     def test_admin_disputes(self, admin_token):
+        # Iteration 2: response is now {challenges: [...], tournament_matches: [...]}
         r = _get("/admin/disputes", token=admin_token)
         assert r.status_code == 200
-        assert isinstance(r.json(), list)
+        d = r.json()
+        assert isinstance(d, dict)
+        assert "challenges" in d and isinstance(d["challenges"], list)
+        assert "tournament_matches" in d and isinstance(d["tournament_matches"], list)
 
     def test_admin_forbidden_for_regular(self, demo_token):
         r = _get("/admin/users", token=demo_token)

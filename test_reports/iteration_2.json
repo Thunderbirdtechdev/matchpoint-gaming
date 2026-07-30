@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 2 focused on tournament match reporting (new flow) + logos + challenge report screen. Backend: 32/32 pytest tests pass (100%), including new end-to-end tournament flow (4 players → 2 rounds → prize payout 70/20/10), dispute → admin resolve, and challenge report with score+evidence. Fixed 1 CRITICAL backend bug: admin_disputes used {brackets.status: 'disputed'} which fails because brackets is an array-of-arrays (rounds→matches); switched to nested $elemMatch. Frontend: welcome logo renders, home tab shows logo next to 'ProGamer', /report/challenge/[id] and /report/tournament/[id] screens both render correctly with all testIDs (winner-me/opp, my-score, opp-score, pick-evidence, submit) and their submit paths update backend state as expected (challenge → status='reported', tournament match → 'Awaiting opponent report'). Tournament detail correctly shows bracket match with 'REPORT RESULT' button (testID=bracket-report-{match_id}) when user is a participant and match is 'ready'. Iteration 1 RN deprecation warnings still present but non-blocking.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/disputes", "issue": "FIXED by tester. Query {'brackets.status':'disputed'} never matched because brackets is a nested array (list of rounds, each round is list of matches). MongoDB dot-notation on double-nested arrays doesn't traverse; replaced with {'brackets':{'$elemMatch':{'$elemMatch':{'status':'disputed'}}}} at server.py:1107. Verified via TestTournamentE2E::test_tournament_report_dispute_and_admin_resolve — admin now sees the disputed tournament match and can resolve it."},
+      {"endpoint": "General", "issue": "Iteration 1 Stripe issue apparently resolved via emergentintegrations — test_deposit_creates_stripe_session and test_deposit_status_polling both pass now."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "welcome", "issues": ["Logo renders correctly at top center (assets/images/logo.png), MATCHPOINT wordmark and tagline below — clean layout."]},
+      {"screen": "(tabs)/home", "issues": ["Logo shows in header next to 'WELCOME BACK / ProGamer'. Correct placement and sizing on 390px viewport."]}
+    ],
+    "react_native_issues": [
+      {"component": "Image resizeMode", "issue": "Console warning: 'Image: style.resizeMode is deprecated. Please use props.resizeMode.' Fires on welcome screen — likely the background image. Migrate style.resizeMode → prop resizeMode. Reference: /app/frontend/app/(auth)/welcome.tsx (background <Image>)."},
+      {"component": "pointerEvents", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' (repeats from iteration 1, likely inside a shared component). Reference: any View with pointerEvents prop in /app/frontend/src/components/."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "None blocking. Recommended: migrate <Image style={{resizeMode:'cover'}}/> to <Image resizeMode='cover'/> in welcome.tsx (and any other place) to silence RN warnings.",
+    "Recommended: search /app/frontend/src/components for any '<View pointerEvents=' and move to style.pointerEvents.",
+    "Consider adding a UI-level warning banner on the report screen when the user tries to submit without a score entered (currently allowed; not required by backend but improves UX)."
+  ],
+  "critical_code_review_comments": [
+    "server.py: nested-array Mongo queries need $elemMatch — fixed here but audit similar queries against 'brackets' or 'results' arrays to prevent recurrence.",
+    "_finalize_tournament_match writes brackets twice via db.tournaments.update_one at end + inside if-branches; harmless but consolidatable.",
+    "Prize pool payout hardcodes 70/20/10 — extract to constants near PLATFORM_FEE_PCT for clarity/config.",
+    "server.py is now ~1191 lines. Consider splitting into routers (auth, wallet, challenges, tournaments, admin) — same recommendation as iteration 1.",
+    "TournamentMatchReportIn accepts winner_id as user_id, but ChallengeResultIn accepts 'me' | user_id — inconsistency across endpoints; the report/challenge screen passes raw user_id already so 'me' code path is now unused."
+  ],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100% (32/32 pytest cases)", "frontend": "100% of new flows (welcome logo, home logo, challenge report screen, tournament match report screen, submit paths)"},
+  "seed_data_creation": "Test suite auto-provisions fresh TEST_* users via /auth/register + /auth/verify-email each run. E2E test creates a fresh tournament with prize_pool=100 and 4 users, plays through all rounds, verifies wallet_tx prize_winning payouts (70 for winner, 20 for runner-up). Also created 1 matched challenge and 1 in-progress tournament for UI validation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) Backend base URL: EXPO_PUBLIC_BACKEND_URL. 2) demo@matchpoint.gg / Demo@123 and admin@matchpoint.gg / Admin@123 with dev_code auto-returned. 3) Run `pytest backend/tests/backend_test.py` — all 32 pass in ~40s. 4) Frontend flow: welcome → sign-in → login → 2FA auto-fills → home. Report screens live at /report/challenge/[id] and /report/tournament/[id]?match=<match_id>. Bracket-report button testID is `bracket-report-{match_id}` (not `match-report-*`). 5) Applied fix at server.py:1102-1115 for admin_disputes nested-array query.",
+  "rca_of_issue": "admin_disputes nested-array query bug: brackets in the tournament document is List[List[Match]] (round → matches). MongoDB dot-notation `brackets.status` only descends one level of arrays; on doubly-nested arrays it doesn't 'flatten', so `brackets.status: 'disputed'` never matches any doc. Reproduction: create tournament, register 2 players, start, both participants report DIFFERENT winners → match.status becomes 'disputed' in DB, but GET /api/admin/disputes returned tournament_matches: []. Fix: `{'brackets': {'$elemMatch': {'$elemMatch': {'status': 'disputed'}}}}` — outer $elemMatch iterates rounds, inner $elemMatch iterates matches within a round. Verified: TestTournamentE2E::test_tournament_report_dispute_and_admin_resolve now passes (disputed match is visible → admin resolves → tournament completes with correct winner)."
+}

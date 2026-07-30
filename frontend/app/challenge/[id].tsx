@@ -93,15 +93,7 @@ export default function ChallengeDetail() {
         {canCancel && <Button testID="challenge-cancel-btn" title="Cancel Challenge" variant="danger" onPress={() => call(() => api(`/challenges/${id}/cancel`, { method: "POST" }))} loading={busy} />}
         {canReport && (
           <View style={{ gap: spacing.sm }}>
-            <Text style={styles.reportLabel}>REPORT WINNER</Text>
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <View style={{ flex: 1 }}>
-                <Button testID="challenge-report-me" title="I Won" onPress={() => call(() => api(`/challenges/${id}/report`, { method: "POST", body: JSON.stringify({ winner_id: user?.id }) }))} loading={busy} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button testID="challenge-report-opp" title="Opponent Won" variant="secondary" onPress={() => call(() => api(`/challenges/${id}/report`, { method: "POST", body: JSON.stringify({ winner_id: isCreator ? ch.opponent_id : ch.creator_id }) }))} loading={busy} />
-              </View>
-            </View>
+            <Button testID="challenge-open-report" title="Report Match Result" onPress={() => router.push({ pathname: "/report/challenge/[id]", params: { id } })} />
           </View>
         )}
         {!canAccept && !canCancel && !canReport && ch.status === "reported" && (

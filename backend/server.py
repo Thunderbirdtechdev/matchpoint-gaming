@@ -180,7 +180,16 @@ class ChallengeIn(BaseModel):
 
 class ChallengeResultIn(BaseModel):
     winner_id: str  # "me" or opponent id
+    my_score: Optional[int] = None
+    opponent_score: Optional[int] = None
     evidence: Optional[str] = None  # base64 screenshot
+
+class TournamentMatchReportIn(BaseModel):
+    match_id: str
+    winner_id: str  # user_id of the player who won
+    my_score: Optional[int] = None
+    opponent_score: Optional[int] = None
+    evidence: Optional[str] = None
 
 class TournamentIn(BaseModel):
     name: str
@@ -651,7 +660,13 @@ async def report_result(ch_id: str, data: ChallengeResultIn, user: dict = Depend
     winner = ch["creator_id"] if data.winner_id in ("me", user["id"]) and user["id"] == ch["creator_id"] else \
              ch["opponent_id"] if data.winner_id in ("me", user["id"]) and user["id"] == ch["opponent_id"] else \
              (ch["creator_id"] if data.winner_id == ch["creator_id"] else ch["opponent_id"])
-    results[user["id"]] = {"winner_id": winner, "evidence": data.evidence, "at": utcnow().isoformat()}
+    results[user["id"]] = {
+        "winner_id": winner,
+        "my_score": data.my_score,
+        "opponent_score": data.opponent_score,
+        "evidence": data.evidence,
+        "at": utcnow().isoformat(),
+    }
     await db.challenges.update_one({"id": ch_id}, {"$set": {"results": results, "status": "reported"}})
     # If both reported and agreed → finalize
     if len(results) == 2:
@@ -770,26 +785,185 @@ async def start_tournament(t_id: str, user: dict = Depends(current_user)):
         raise HTTPException(404, "Not found")
     if t["created_by"] != user["id"] and not user.get("is_admin"):
         raise HTTPException(403, "Not authorized")
-    # Generate simple single-elimination bracket
-    players = t.get("registered", [])
+    # Generate single-elimination bracket with all rounds pre-built
+    players = list(t.get("registered", []))
     if len(players) < 2:
         raise HTTPException(400, "Need at least 2 players")
     random.shuffle(players)
+    # Pad to power of 2 with None (byes)
+    import math
+    size = 1
+    while size < len(players):
+        size *= 2
+    padded = players + [None] * (size - len(players))
+    # Round 0: seed with padded players
     rounds = []
-    current = players
-    while len(current) > 1:
-        matches = []
-        for i in range(0, len(current), 2):
-            if i + 1 < len(current):
-                matches.append({"id": uid(), "p1": current[i], "p2": current[i+1], "winner": None})
-            else:
-                matches.append({"id": uid(), "p1": current[i], "p2": None, "winner": current[i]})  # bye
-        rounds.append(matches)
-        current = [m.get("winner") for m in matches if m.get("winner")]
-        if not current:
+    round0 = []
+    for i in range(0, size, 2):
+        p1 = padded[i]
+        p2 = padded[i + 1]
+        m = {
+            "id": uid(), "round": 0, "index": i // 2,
+            "p1": p1, "p2": p2,
+            "winner_id": None, "reports": {}, "status": "pending",
+        }
+        # Auto-advance byes
+        if p1 and not p2:
+            m["winner_id"] = p1["user_id"]
+            m["status"] = "finalized"
+        elif p2 and not p1:
+            m["winner_id"] = p2["user_id"]
+            m["status"] = "finalized"
+        elif p1 and p2:
+            m["status"] = "ready"
+        round0.append(m)
+    rounds.append(round0)
+    # Subsequent rounds: create empty matches, winners fill in as reported
+    num_matches = len(round0) // 2
+    r = 1
+    while num_matches >= 1:
+        rnd = []
+        for i in range(num_matches):
+            rnd.append({
+                "id": uid(), "round": r, "index": i,
+                "p1": None, "p2": None,
+                "winner_id": None, "reports": {}, "status": "pending",
+            })
+        rounds.append(rnd)
+        if num_matches == 1:
             break
-    await db.tournaments.update_one({"id": t_id}, {"$set": {"status": "in_progress", "brackets": rounds}})
+        num_matches = num_matches // 2
+        r += 1
+    # Propagate byes from round 0 into round 1 immediately
+    for i, m in enumerate(rounds[0]):
+        if m["status"] == "finalized" and m["winner_id"] and len(rounds) > 1:
+            next_idx = i // 2
+            slot = "p1" if i % 2 == 0 else "p2"
+            winner_obj = m["p1"] if m["winner_id"] == (m["p1"] or {}).get("user_id") else m["p2"]
+            rounds[1][next_idx][slot] = winner_obj
+    # Mark round 1 matches ready if both players known
+    for m in rounds[1] if len(rounds) > 1 else []:
+        if m["p1"] and m["p2"]:
+            m["status"] = "ready"
+    await db.tournaments.update_one({"id": t_id}, {"$set": {"status": "in_progress", "brackets": rounds, "started_at": utcnow().isoformat()}})
+    # Notify all registered
+    for p in players:
+        await _notify(p["user_id"], "match_starting", f"{t['name']} has started! Check your bracket.", "tournament", t_id)
     return {"ok": True, "brackets": rounds}
+
+
+@api.post("/tournaments/{t_id}/report")
+async def report_tournament_match(t_id: str, data: TournamentMatchReportIn, user: dict = Depends(current_user)):
+    t = await db.tournaments.find_one({"id": t_id})
+    if not t:
+        raise HTTPException(404, "Not found")
+    if t.get("status") != "in_progress":
+        raise HTTPException(400, "Tournament not in progress")
+    brackets = t.get("brackets", [])
+    # Locate match
+    match = None
+    round_i = match_i = -1
+    for ri, rnd in enumerate(brackets):
+        for mi, m in enumerate(rnd):
+            if m["id"] == data.match_id:
+                match, round_i, match_i = m, ri, mi
+                break
+        if match:
+            break
+    if not match:
+        raise HTTPException(404, "Match not found")
+    if match.get("status") == "finalized":
+        raise HTTPException(400, "Match already finalized")
+    p1 = match.get("p1") or {}
+    p2 = match.get("p2") or {}
+    if user["id"] not in (p1.get("user_id"), p2.get("user_id")) and not user.get("is_admin"):
+        raise HTTPException(403, "Not a participant in this match")
+    if data.winner_id not in (p1.get("user_id"), p2.get("user_id")):
+        raise HTTPException(400, "Winner must be one of the two players")
+    reports = match.get("reports") or {}
+    reports[user["id"]] = {
+        "winner_id": data.winner_id,
+        "my_score": data.my_score,
+        "opponent_score": data.opponent_score,
+        "evidence": data.evidence,
+        "at": utcnow().isoformat(),
+    }
+    match["reports"] = reports
+    # Admin override: finalize immediately
+    if user.get("is_admin"):
+        await _finalize_tournament_match(t_id, brackets, round_i, match_i, data.winner_id)
+        return {"ok": True, "finalized": True}
+    # If both participants agreed OR only opponent report matches
+    p1_report = reports.get(p1.get("user_id", ""), {}).get("winner_id")
+    p2_report = reports.get(p2.get("user_id", ""), {}).get("winner_id")
+    if p1_report and p2_report and p1_report == p2_report:
+        await _finalize_tournament_match(t_id, brackets, round_i, match_i, p1_report)
+        return {"ok": True, "finalized": True}
+    if p1_report and p2_report and p1_report != p2_report:
+        # Dispute
+        match["status"] = "disputed"
+        await db.tournaments.update_one({"id": t_id}, {"$set": {"brackets": brackets}})
+        for uid_ in (p1.get("user_id"), p2.get("user_id")):
+            if uid_:
+                await _notify(uid_, "support_update", "Tournament match disputed — awaiting admin review", "tournament", t_id)
+        return {"ok": True, "disputed": True}
+    match["status"] = "reported"
+    await db.tournaments.update_one({"id": t_id}, {"$set": {"brackets": brackets}})
+    return {"ok": True, "awaiting_opponent": True}
+
+
+async def _finalize_tournament_match(t_id: str, brackets: list, round_i: int, match_i: int, winner_id: str):
+    match = brackets[round_i][match_i]
+    if match.get("status") == "finalized":
+        return
+    match["status"] = "finalized"
+    match["winner_id"] = winner_id
+    match["finalized_at"] = utcnow().isoformat()
+    p1 = match.get("p1") or {}
+    p2 = match.get("p2") or {}
+    winner_obj = p1 if p1.get("user_id") == winner_id else p2
+    loser_id = p2.get("user_id") if p1.get("user_id") == winner_id else p1.get("user_id")
+    # Update stats
+    await db.users.update_one({"id": winner_id}, {"$inc": {"stats.wins": 1, "stats.matches": 1, "stats.rank": 10}})
+    if loser_id:
+        await db.users.update_one({"id": loser_id}, {"$inc": {"stats.losses": 1, "stats.matches": 1, "stats.rank": -5}})
+    # Advance winner to next round
+    if round_i + 1 < len(brackets):
+        next_match = brackets[round_i + 1][match_i // 2]
+        slot = "p1" if match_i % 2 == 0 else "p2"
+        next_match[slot] = winner_obj
+        if next_match.get("p1") and next_match.get("p2"):
+            next_match["status"] = "ready"
+        await _notify(winner_id, "match_starting", "You advanced to the next round!", "tournament", t_id)
+    else:
+        # Final round → tournament complete, payout
+        t = await db.tournaments.find_one({"id": t_id})
+        prize_pool = t.get("prize_pool", 0)
+        payout = round(prize_pool * 0.7, 2)  # 70% to winner
+        runner_up_prize = round(prize_pool * 0.2, 2)  # 20% to runner up
+        platform_cut = round(prize_pool * 0.1, 2)
+        await db.users.update_one({"id": winner_id}, {"$inc": {"wallet_balance": payout, "stats.earnings": payout}})
+        await db.wallet_tx.insert_one({
+            "id": uid(), "user_id": winner_id, "type": "prize_winning",
+            "amount": payout, "status": "completed", "ref_id": t_id,
+            "created_at": utcnow().isoformat(),
+        })
+        if loser_id and runner_up_prize > 0:
+            await db.users.update_one({"id": loser_id}, {"$inc": {"wallet_balance": runner_up_prize, "stats.earnings": runner_up_prize}})
+            await db.wallet_tx.insert_one({
+                "id": uid(), "user_id": loser_id, "type": "prize_winning",
+                "amount": runner_up_prize, "status": "completed", "ref_id": t_id,
+                "created_at": utcnow().isoformat(),
+            })
+            await _notify(loser_id, "prize_payout", f"Runner-up! You won ${runner_up_prize:.2f}", "tournament", t_id)
+        if platform_cut > 0:
+            await db.revenue.insert_one({
+                "id": uid(), "type": "tournament_platform_cut", "amount": platform_cut,
+                "source": "tournament", "ref_id": t_id, "created_at": utcnow().isoformat(),
+            })
+        await db.tournaments.update_one({"id": t_id}, {"$set": {"status": "completed", "winner_id": winner_id, "completed_at": utcnow().isoformat()}})
+        await _notify(winner_id, "prize_payout", f"CHAMPION! You won ${payout:.2f}", "tournament", t_id)
+    await db.tournaments.update_one({"id": t_id}, {"$set": {"brackets": brackets}})
 
 # ============================================================
 # LEADERBOARDS
@@ -927,8 +1101,41 @@ async def admin_unsuspend(user_id: str, _: dict = Depends(require_admin)):
 
 @api.get("/admin/disputes")
 async def admin_disputes(_: dict = Depends(require_admin)):
-    cursor = db.challenges.find({"status": "disputed"}, {"_id": 0})
-    return await cursor.to_list(100)
+    ch_cursor = db.challenges.find({"status": "disputed"}, {"_id": 0})
+    challenges = await ch_cursor.to_list(100)
+    # Also find tournaments with disputed matches
+    # brackets is an array of rounds, each round is an array of matches (nested arrays)
+    # so we need nested $elemMatch to match on match.status
+    t_cursor = db.tournaments.find(
+        {"status": "in_progress",
+         "brackets": {"$elemMatch": {"$elemMatch": {"status": "disputed"}}}},
+        {"_id": 0},
+    )
+    tournaments = await t_cursor.to_list(100)
+    disputed_matches = []
+    for t in tournaments:
+        for rnd in t.get("brackets", []):
+            for m in rnd:
+                if m.get("status") == "disputed":
+                    disputed_matches.append({"tournament": {"id": t["id"], "name": t["name"]}, "match": m})
+    return {"challenges": challenges, "tournament_matches": disputed_matches}
+
+
+@api.post("/admin/tournaments/{t_id}/matches/{match_id}/resolve")
+async def admin_resolve_tournament_match(t_id: str, match_id: str, data: dict, _: dict = Depends(require_admin)):
+    winner_id = data.get("winner_id")
+    if not winner_id:
+        raise HTTPException(400, "winner_id required")
+    t = await db.tournaments.find_one({"id": t_id})
+    if not t:
+        raise HTTPException(404, "Not found")
+    brackets = t.get("brackets", [])
+    for ri, rnd in enumerate(brackets):
+        for mi, m in enumerate(rnd):
+            if m["id"] == match_id:
+                await _finalize_tournament_match(t_id, brackets, ri, mi, winner_id)
+                return {"ok": True}
+    raise HTTPException(404, "Match not found")
 
 @api.post("/admin/disputes/{ch_id}/resolve")
 async def admin_resolve_dispute(ch_id: str, data: dict, _: dict = Depends(require_admin)):

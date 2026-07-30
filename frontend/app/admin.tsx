@@ -15,13 +15,13 @@ export default function Admin() {
   const [tab, setTab] = useState<"analytics" | "users" | "disputes" | "revenue">("analytics");
   const [analytics, setAnalytics] = useState<any>({});
   const [users, setUsers] = useState<any[]>([]);
-  const [disputes, setDisputes] = useState<any[]>([]);
+  const [disputes, setDisputes] = useState<any>({ challenges: [], tournament_matches: [] });
   const [revenue, setRevenue] = useState<any[]>([]);
 
   useEffect(() => {
     if (tab === "analytics") api<any>("/admin/analytics").then(setAnalytics);
     if (tab === "users") api<any[]>("/admin/users").then(setUsers);
-    if (tab === "disputes") api<any[]>("/admin/disputes").then(setDisputes);
+    if (tab === "disputes") api<any>("/admin/disputes").then(setDisputes);
     if (tab === "revenue") api<any[]>("/admin/revenue").then(setRevenue);
   }, [tab]);
 
@@ -35,6 +35,10 @@ export default function Admin() {
   };
   const resolve = async (ch_id: string, winner_id: string) => {
     await api(`/admin/disputes/${ch_id}/resolve`, { method: "POST", body: JSON.stringify({ winner_id }) });
+    setDisputes(await api("/admin/disputes"));
+  };
+  const resolveTournament = async (t_id: string, match_id: string, winner_id: string) => {
+    await api(`/admin/tournaments/${t_id}/matches/${match_id}/resolve`, { method: "POST", body: JSON.stringify({ winner_id }) });
     setDisputes(await api("/admin/disputes"));
   };
 
@@ -95,16 +99,30 @@ export default function Admin() {
           ))
         )}
         {tab === "disputes" && (
-          disputes.length === 0 ? <Empty title="No disputes" /> : disputes.map(d => (
-            <Card key={d.id}>
-              <Text style={styles.h}>{d.game} · ${d.stake}</Text>
-              <Text style={styles.uMeta}>{d.creator_username} vs {d.opponent_username}</Text>
-              <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.md }}>
-                <View style={{ flex: 1 }}><Button small title={`${d.creator_username} wins`} onPress={() => resolve(d.id, d.creator_id)} /></View>
-                <View style={{ flex: 1 }}><Button small variant="secondary" title={`${d.opponent_username} wins`} onPress={() => resolve(d.id, d.opponent_id)} /></View>
-              </View>
-            </Card>
-          ))
+          <>
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1, fontWeight: "700", marginTop: 4 }}>H2H CHALLENGES</Text>
+            {disputes.challenges?.length === 0 ? <Empty title="No challenge disputes" /> : disputes.challenges?.map((d: any) => (
+              <Card key={d.id}>
+                <Text style={styles.h}>{d.game} · ${d.stake}</Text>
+                <Text style={styles.uMeta}>{d.creator_username} vs {d.opponent_username}</Text>
+                <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.md }}>
+                  <View style={{ flex: 1 }}><Button small title={`${d.creator_username} wins`} onPress={() => resolve(d.id, d.creator_id)} /></View>
+                  <View style={{ flex: 1 }}><Button small variant="secondary" title={`${d.opponent_username} wins`} onPress={() => resolve(d.id, d.opponent_id)} /></View>
+                </View>
+              </Card>
+            ))}
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1, fontWeight: "700", marginTop: spacing.lg }}>TOURNAMENT MATCHES</Text>
+            {(!disputes.tournament_matches || disputes.tournament_matches.length === 0) ? <Empty title="No tournament disputes" /> : disputes.tournament_matches.map((d: any) => (
+              <Card key={d.match.id}>
+                <Text style={styles.h}>{d.tournament.name}</Text>
+                <Text style={styles.uMeta}>Round {d.match.round + 1} · {d.match.p1?.username} vs {d.match.p2?.username}</Text>
+                <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.md }}>
+                  <View style={{ flex: 1 }}><Button small title={`${d.match.p1?.username} wins`} onPress={() => resolveTournament(d.tournament.id, d.match.id, d.match.p1.user_id)} /></View>
+                  <View style={{ flex: 1 }}><Button small variant="secondary" title={`${d.match.p2?.username} wins`} onPress={() => resolveTournament(d.tournament.id, d.match.id, d.match.p2.user_id)} /></View>
+                </View>
+              </Card>
+            ))}
+          </>
         )}
         {tab === "revenue" && (
           revenue.map(r => (

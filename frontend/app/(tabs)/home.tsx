@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Card, Empty, SectionHeader, Pill } from "@/src/components/ui";
+import { Logo } from "@/src/components/logo";
 import { colors, spacing, radius } from "@/src/theme";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -39,9 +40,12 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <SafeAreaView edges={["top"]} style={{ backgroundColor: colors.surface }}>
         <View style={styles.header}>
-          <View>
-            <Text style={styles.hi}>WELCOME BACK</Text>
-            <Text style={styles.name}>{user?.username}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <Logo size={44} />
+            <View>
+              <Text style={styles.hi}>WELCOME BACK</Text>
+              <Text style={styles.name}>{user?.username}</Text>
+            </View>
           </View>
           <TouchableOpacity testID="home-notifications-btn" onPress={() => router.push("/notifications")}>
             <View style={styles.iconBtn}>

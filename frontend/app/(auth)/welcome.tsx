@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Button } from "@/src/components/ui";
+import { LogoWithWordmark } from "@/src/components/logo";
 import { colors, spacing } from "@/src/theme";
 
 export default function Welcome() {
@@ -15,13 +16,13 @@ export default function Welcome() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={["rgba(17,18,16,0.5)", "rgba(17,18,16,0.85)", colors.surface]}
+          colors={["rgba(17,18,16,0.6)", "rgba(17,18,16,0.9)", colors.surface]}
           style={{ flex: 1 }}
         >
           <SafeAreaView style={{ flex: 1, justifyContent: "space-between", padding: spacing.xl }}>
-            <View style={{ marginTop: spacing.xxl }}>
-              <Text style={styles.brand}>MATCH<Text style={{ color: colors.brand }}>POINT</Text></Text>
-              <Text style={styles.tagline}>Compete. Win. Cash out.</Text>
+            <View style={{ marginTop: spacing.xxl, alignItems: "center" }}>
+              <LogoWithWordmark size={96} />
+              <Text style={styles.tagline}>COMPETE · WIN · CASH OUT</Text>
             </View>
             <View style={{ gap: spacing.md }}>
               <Text style={styles.h1}>Skill-based{"\n"}competitive gaming.</Text>
@@ -39,8 +40,7 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  brand: { color: colors.onSurface, fontSize: 28, fontWeight: "900", letterSpacing: 3 },
-  tagline: { color: colors.onSurfaceTertiary, fontSize: 13, letterSpacing: 2, marginTop: 4, fontWeight: "600" },
+  tagline: { color: colors.brand, fontSize: 12, letterSpacing: 3, marginTop: spacing.md, fontWeight: "700" },
   h1: { color: colors.onSurface, fontSize: 42, fontWeight: "900", lineHeight: 46, letterSpacing: -0.5 },
   sub: { color: colors.onSurfaceSecondary, fontSize: 15, lineHeight: 22, marginTop: spacing.sm },
 });

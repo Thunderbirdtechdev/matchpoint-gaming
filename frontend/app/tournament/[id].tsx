@@ -106,13 +106,47 @@ export default function TournamentDetail() {
               {t.brackets.map((round: any[], i: number) => (
                 <View key={i} style={{ marginTop: spacing.md }}>
                   <Text style={styles.roundLabel}>ROUND {i + 1}</Text>
-                  {round.map((m) => (
-                    <View key={m.id} style={styles.matchRow}>
-                      <Text style={styles.matchP}>{m.p1?.username || "TBD"}</Text>
-                      <Text style={styles.matchVs}>vs</Text>
-                      <Text style={styles.matchP}>{m.p2?.username || "BYE"}</Text>
-                    </View>
-                  ))}
+                  {round.map((m) => {
+                    const isP1 = m.p1?.user_id === user?.id;
+                    const isP2 = m.p2?.user_id === user?.id;
+                    const canReport = (isP1 || isP2) && m.status === "ready" && !(m.reports || {})[user?.id || ""];
+                    const isFinalized = m.status === "finalized";
+                    const isDisputed = m.status === "disputed";
+                    const isReported = m.status === "reported";
+                    return (
+                      <View key={m.id} style={styles.matchBox}>
+                        <View style={styles.matchRow}>
+                          <Text style={[styles.matchP, m.winner_id === m.p1?.user_id && { color: colors.brand }]}>{m.p1?.username || "TBD"}</Text>
+                          <Text style={styles.matchVs}>vs</Text>
+                          <Text style={[styles.matchP, m.winner_id === m.p2?.user_id && { color: colors.brand }, { textAlign: "right" }]}>{m.p2?.username || "BYE"}</Text>
+                        </View>
+                        {isFinalized && m.winner_id && (
+                          <View style={styles.winnerRow}>
+                            <Ionicons name="trophy" size={12} color={colors.brand} />
+                            <Text style={styles.winnerText}>{m.winner_id === m.p1?.user_id ? m.p1?.username : m.p2?.username} WON</Text>
+                          </View>
+                        )}
+                        {isDisputed && (
+                          <View style={[styles.winnerRow, { backgroundColor: "rgba(239,68,68,0.15)" }]}>
+                            <Ionicons name="warning" size={12} color={colors.error} />
+                            <Text style={[styles.winnerText, { color: colors.error }]}>DISPUTED · Admin review</Text>
+                          </View>
+                        )}
+                        {isReported && !isFinalized && (
+                          <View style={[styles.winnerRow, { backgroundColor: "rgba(245,158,11,0.15)" }]}>
+                            <Ionicons name="hourglass" size={12} color={colors.warning} />
+                            <Text style={[styles.winnerText, { color: colors.warning }]}>Awaiting opponent report</Text>
+                          </View>
+                        )}
+                        {canReport && (
+                          <TouchableOpacity testID={`bracket-report-${m.id}`} onPress={() => router.push({ pathname: "/report/tournament/[id]", params: { id: t.id, match: m.id } })} style={styles.reportBtn}>
+                            <Ionicons name="flag" size={14} color={colors.onBrandPrimary} />
+                            <Text style={styles.reportBtnLabel}>REPORT RESULT</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
               ))}
             </Card>
@@ -149,9 +183,14 @@ const styles = StyleSheet.create({
   playerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" },
   playerName: { flex: 1, color: colors.onSurface, fontSize: 14, fontWeight: "600" },
   roundLabel: { color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1, fontWeight: "700", marginBottom: 6 },
-  matchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: colors.surfaceTertiary, borderRadius: radius.sm, padding: spacing.md, marginBottom: 6 },
+  matchBox: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.sm, padding: spacing.md, marginBottom: 6, gap: 6 },
+  matchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   matchP: { color: colors.onSurface, fontWeight: "700", flex: 1 },
   matchVs: { color: colors.brand, fontWeight: "800", marginHorizontal: 8 },
+  winnerRow: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(204,255,0,0.1)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm, alignSelf: "flex-start" },
+  winnerText: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  reportBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, paddingVertical: 8, borderRadius: radius.pill, marginTop: 4 },
+  reportBtnLabel: { color: colors.onBrandPrimary, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 },
   stickyBar: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.lg },
   registeredPill: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, padding: spacing.md, borderRadius: radius.pill, backgroundColor: "rgba(16,185,129,0.15)" },
 });
