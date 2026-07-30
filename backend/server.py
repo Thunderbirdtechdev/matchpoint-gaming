@@ -11,6 +11,9 @@ from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import os, uuid, secrets, hashlib, logging, httpx, jwt, bcrypt, asyncio, random
+import stripe as stripe_sdk
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest, CheckoutStatusResponse
 from fees import (
     calculate_fee, calculate_challenge_fee, calculate_tournament_fee,
@@ -33,6 +36,9 @@ APP_URL = os.environ.get("APP_URL", "http://localhost")
 PLATFORM_FEE_PCT = float(os.environ.get("PLATFORM_FEE_PERCENT", "10"))
 WITHDRAWAL_FEE_PCT = float(os.environ.get("WITHDRAWAL_FEE_PERCENT", "2"))
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
+
+stripe_sdk.api_key = STRIPE_API_KEY
+IS_LIVE_STRIPE = STRIPE_API_KEY.startswith("sk_live_")
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -119,6 +125,56 @@ def otp_email(code: str, purpose: str) -> str:
       </td></tr>
     </table>
     """
+
+def event_email(title: str, headline: str, body: str,
+                cta_url: Optional[str] = None, cta_label: Optional[str] = None,
+                accent: str = "#CCFF00") -> str:
+    """Standard branded event email with optional call-to-action button."""
+    cta = ""
+    if cta_url and cta_label:
+        cta = (
+            f'<div style="margin:28px 0 8px;"><a href="{cta_url}" '
+            f'style="background:{accent};color:#111210;text-decoration:none;font-weight:700;'
+            f'padding:14px 28px;border-radius:10px;display:inline-block;font-size:15px;'
+            f'letter-spacing:0.4px;">{cta_label}</a></div>'
+        )
+    return f"""
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#111210;padding:32px;font-family:Arial,sans-serif;">
+      <tr><td align="center">
+        <div style="background:#191B18;border:1px solid #2C3129;border-radius:14px;padding:32px;max-width:520px;text-align:left;">
+          <div style="color:{accent};font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">MATCHPOINT</div>
+          <h1 style="color:#F4F5F0;margin:0 0 12px;font-size:24px;line-height:1.25;">{title}</h1>
+          <p style="color:#F4F5F0;font-size:16px;margin:0 0 12px;font-weight:600;">{headline}</p>
+          <p style="color:#9CA394;font-size:14px;line-height:1.55;margin:0;">{body}</p>
+          {cta}
+          <hr style="border:none;border-top:1px solid #2C3129;margin:28px 0 12px;"/>
+          <p style="color:#5B6252;font-size:11px;margin:0;">You received this because you have MatchPoint email alerts on. Manage preferences in the app under Settings → Notifications.</p>
+        </div>
+      </td></tr>
+    </table>
+    """
+
+# Notification email preferences — map notification kind → pref key.
+# If a user has the pref set to False, we skip sending the email but still
+# record the in-app notification.
+NOTIF_EMAIL_PREF_MAP: dict[str, str] = {
+    "challenge_invite": "email_invites",
+    "challenge_declined": "email_invites",
+    "challenge_invite_cancelled": "email_invites",
+    "match_starting": "email_matches",
+    "match_results": "email_matches",
+    "prize_payout": "email_prize",
+    "deposit": "email_wallet",
+    "withdrawal": "email_wallet",
+    "support_update": "email_disputes",
+}
+DEFAULT_EMAIL_PREFS = {
+    "email_invites": True,
+    "email_matches": True,
+    "email_prize": True,
+    "email_wallet": True,
+    "email_disputes": True,
+}
 
 async def current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     if not credentials or not credentials.credentials:
@@ -250,6 +306,12 @@ REGIONS = ["NA", "EU", "APAC", "LATAM", "GLOBAL"]
 
 @app.on_event("startup")
 async def startup():
+    # Start the daily company revenue sweep scheduler (00:00 UTC)
+    global scheduler
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    scheduler.add_job(_run_daily_company_sweep, CronTrigger(hour=0, minute=0), id="daily_company_sweep", replace_existing=True)
+    scheduler.start()
+    logger.info(f"Scheduler started · Stripe mode: {'LIVE' if IS_LIVE_STRIPE else 'TEST'}")
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
     await db.users.create_index("username", unique=True)
@@ -520,7 +582,19 @@ async def _credit_deposit(user_id: str, amount: float, session_id: str, tx_id: s
     )
     if result.modified_count > 0:
         await db.users.update_one({"id": user_id}, {"$inc": {"wallet_balance": amount}})
-        await _notify(user_id, "deposit", f"Deposit of ${amount:.2f} completed", "wallet")
+        await _notify(
+            user_id, "deposit",
+            f"Deposit of ${amount:.2f} completed",
+            "wallet",
+            email_subject=f"Deposit of ${amount:.2f} added to your wallet",
+            email_title="Deposit confirmed",
+            email_body=(
+                f"${amount:.2f} was added to your MatchPoint wallet and is ready to use for matches "
+                f"and tournaments. Have a great run out there."
+            ),
+            email_cta_url=f"{APP_URL}/wallet",
+            email_cta_label="View wallet",
+        )
 
 @api.post("/wallet/withdraw")
 async def withdraw(data: WithdrawIn, user: dict = Depends(require_player)):
@@ -557,7 +631,19 @@ async def withdraw(data: WithdrawIn, user: dict = Depends(require_player)):
     async def _complete():
         await asyncio.sleep(settle_delay)
         await db.wallet_tx.update_one({"id": tx_id}, {"$set": {"status": "completed", "completed_at": utcnow().isoformat()}})
-        await _notify(user["id"], "withdrawal", f"Withdrawal of ${net:.2f} sent to your bank ({wb.eta_label})", "wallet")
+        await _notify(
+            user["id"], "withdrawal",
+            f"Withdrawal of ${net:.2f} sent to your bank ({wb.eta_label})",
+            "wallet",
+            email_subject=f"Withdrawal of ${net:.2f} on the way",
+            email_title="Withdrawal sent",
+            email_body=(
+                f"${net:.2f} was released to your linked bank account ({data.bank_account}). "
+                f"Expected arrival: {wb.eta_label}."
+            ),
+            email_cta_url=f"{APP_URL}/wallet",
+            email_cta_label="View wallet",
+        )
     asyncio.create_task(_complete())
     speed_label = "Same-day" if data.speed == "same_day" else "Standard"
     await _notify(user["id"], "withdrawal", f"{speed_label} withdrawal of ${data.amount:.2f} initiated (fee: ${fee:.2f})", "wallet")
@@ -623,6 +709,14 @@ async def create_challenge(data: ChallengeIn, user: dict = Depends(require_playe
             invited_opponent["id"], "challenge_invite",
             f"{u['username']} invited you to a ${data.stake:.2f} {data.game} match",
             "challenge", ch_id,
+            email_subject=f"You're invited: ${data.stake:.2f} {data.game} match",
+            email_title="New 1v1 invite",
+            email_body=(
+                f"{u['username']} has challenged you to a ${data.stake:.2f} {data.game} match on "
+                f"MatchPoint. Accept the invite in the app to lock in your stake and get matched."
+            ),
+            email_cta_url=f"{APP_URL}/challenge/{ch_id}",
+            email_cta_label="View invite",
         )
     return serialize(doc)
 
@@ -639,7 +733,19 @@ async def decline_challenge(ch_id: str, user: dict = Depends(require_player)):
     # Refund creator stake
     await db.users.update_one({"id": ch["creator_id"]}, {"$inc": {"wallet_balance": ch["stake"], "pending_balance": -ch["stake"]}})
     await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "declined", "declined_at": utcnow().isoformat()}})
-    await _notify(ch["creator_id"], "challenge_declined", f"{user['username']} declined your ${ch['stake']:.2f} {ch['game']} invite", "challenge", ch_id)
+    await _notify(
+        ch["creator_id"], "challenge_declined",
+        f"{user['username']} declined your ${ch['stake']:.2f} {ch['game']} invite",
+        "challenge", ch_id,
+        email_subject=f"{user['username']} declined your invite",
+        email_title="Invite declined",
+        email_body=(
+            f"Your ${ch['stake']:.2f} {ch['game']} invite to {user['username']} was declined. "
+            f"Your stake has been refunded to your wallet. Try another opponent from the app."
+        ),
+        email_cta_url=f"{APP_URL}/challenge/create",
+        email_cta_label="Create a new match",
+    )
     return {"ok": True}
 
 @api.get("/challenges")
@@ -712,7 +818,19 @@ async def accept_challenge(ch_id: str, user: dict = Depends(require_player)):
         "opponent_id": user["id"], "opponent_username": u["username"],
         "status": "matched", "matched_at": utcnow().isoformat(),
     }})
-    await _notify(ch["creator_id"], "match_starting", f"{u['username']} accepted your challenge in {ch['game']}!", "challenge", ch_id)
+    await _notify(
+        ch["creator_id"], "match_starting",
+        f"{u['username']} accepted your challenge in {ch['game']}!",
+        "challenge", ch_id,
+        email_subject=f"Match on: {u['username']} accepted your challenge",
+        email_title="Your match is ready",
+        email_body=(
+            f"{u['username']} accepted your ${ch['stake']:.2f} {ch['game']} challenge. Head into the "
+            f"app to coordinate, play the match, and report your result when you're done."
+        ),
+        email_cta_url=f"{APP_URL}/challenge/{ch_id}",
+        email_cta_label="Open match",
+    )
     return {"ok": True}
 
 @api.post("/challenges/{ch_id}/cancel")
@@ -729,7 +847,17 @@ async def cancel_challenge(ch_id: str, user: dict = Depends(require_player)):
     await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "cancelled"}})
     # If it was a private invite, notify the invited opponent that it's been rescinded
     if ch.get("opponent_id") and ch.get("status") == "invited":
-        await _notify(ch["opponent_id"], "challenge_invite_cancelled", f"Your {ch['game']} invite was cancelled", "challenge", ch_id)
+        await _notify(
+            ch["opponent_id"], "challenge_invite_cancelled",
+            f"Your {ch['game']} invite was cancelled",
+            "challenge", ch_id,
+            email_subject="Invite cancelled",
+            email_title="Invite cancelled",
+            email_body=(
+                f"The ${ch['stake']:.2f} {ch['game']} invite sent to you was cancelled by the creator. "
+                f"No stake was locked on your side."
+            ),
+        )
     return {"ok": True}
 
 @api.post("/challenges/{ch_id}/report")
@@ -783,8 +911,27 @@ async def report_result(ch_id: str, data: ChallengeResultIn, user: dict = Depend
             "reason": "Players reported different match winners",
             "status": "open", "created_at": utcnow().isoformat(),
         })
-        await _notify(ch["creator_id"], "support_update", "Match disputed — funds locked, fair play team is reviewing", "challenge", ch_id)
-        await _notify(ch["opponent_id"], "support_update", "Match disputed — funds locked, fair play team is reviewing", "challenge", ch_id)
+        dispute_subject = "Match under review"
+        dispute_body = (
+            f"Both players reported different winners for the ${ch['stake']:.2f} {ch['game']} match. "
+            f"Funds are held safely in escrow while our fair-play team reviews the evidence. "
+            f"You'll be notified as soon as it's resolved."
+        )
+        cta = f"{APP_URL}/challenge/{ch_id}"
+        await _notify(
+            ch["creator_id"], "support_update",
+            "Match disputed — funds locked, fair play team is reviewing",
+            "challenge", ch_id,
+            email_subject=dispute_subject, email_title="Dispute opened",
+            email_body=dispute_body, email_cta_url=cta, email_cta_label="View match",
+        )
+        await _notify(
+            ch["opponent_id"], "support_update",
+            "Match disputed — funds locked, fair play team is reviewing",
+            "challenge", ch_id,
+            email_subject=dispute_subject, email_title="Dispute opened",
+            email_body=dispute_body, email_cta_url=cta, email_cta_label="View match",
+        )
         return {"status": "disputed"}
     return {"status": "waiting"}
 
@@ -821,7 +968,20 @@ async def _finalize_challenge(ch_id: str, winner_id: str):
         "amount": payout, "status": "completed", "ref_id": ch_id,
         "created_at": utcnow().isoformat(),
     })
-    await _notify(winner_id, "prize_payout", f"You won ${payout:.2f} from H2H challenge!", "challenge", ch_id)
+    await _notify(
+        winner_id, "prize_payout",
+        f"You won ${payout:.2f} from H2H challenge!",
+        "challenge", ch_id,
+        email_subject=f"You won ${payout:.2f} on MatchPoint",
+        email_title="Prize credited",
+        email_body=(
+            f"Congratulations — you won the {ch['game']} match. ${payout:.2f} has been added to your "
+            f"MatchPoint wallet (platform fee ${fee:.2f} at {breakdown.tier_label} tier). "
+            f"Withdraw anytime or roll it into your next match."
+        ),
+        email_cta_url=f"{APP_URL}/wallet",
+        email_cta_label="Open wallet",
+    )
     await _notify(loser_id, "match_results", "Challenge finalized. Better luck next time!", "challenge", ch_id)
 
 # ============================================================
@@ -1013,9 +1173,23 @@ async def report_tournament_match(t_id: str, data: TournamentMatchReportIn, user
         # Dispute
         match["status"] = "disputed"
         await db.tournaments.update_one({"id": t_id}, {"$set": {"brackets": brackets}})
+        t = await db.tournaments.find_one({"id": t_id}, {"_id": 0, "name": 1})
+        t_name = (t or {}).get("name", "your tournament")
         for uid_ in (p1.get("user_id"), p2.get("user_id")):
             if uid_:
-                await _notify(uid_, "support_update", "Tournament match disputed — awaiting admin review", "tournament", t_id)
+                await _notify(
+                    uid_, "support_update",
+                    "Tournament match disputed — awaiting admin review",
+                    "tournament", t_id,
+                    email_subject=f"{t_name}: match under review",
+                    email_title="Tournament dispute opened",
+                    email_body=(
+                        f"Your tournament match in {t_name} was flagged for review after conflicting "
+                        f"reports. Our fair-play team will investigate and finalize the result."
+                    ),
+                    email_cta_url=f"{APP_URL}/tournament/{t_id}",
+                    email_cta_label="View bracket",
+                )
         return {"ok": True, "disputed": True}
     match["status"] = "reported"
     await db.tournaments.update_one({"id": t_id}, {"$set": {"brackets": brackets}})
@@ -1067,7 +1241,19 @@ async def _finalize_tournament_match(t_id: str, brackets: list, round_i: int, ma
                 "amount": runner_up_prize, "status": "completed", "ref_id": t_id,
                 "created_at": utcnow().isoformat(),
             })
-            await _notify(loser_id, "prize_payout", f"Runner-up! You won ${runner_up_prize:.2f}", "tournament", t_id)
+            await _notify(
+                loser_id, "prize_payout",
+                f"Runner-up! You won ${runner_up_prize:.2f}",
+                "tournament", t_id,
+                email_subject=f"Runner-up prize: ${runner_up_prize:.2f}",
+                email_title=f"Runner-up in {t.get('name', 'the tournament')}",
+                email_body=(
+                    f"Great run — you finished second and ${runner_up_prize:.2f} has been added to "
+                    f"your MatchPoint wallet."
+                ),
+                email_cta_url=f"{APP_URL}/wallet",
+                email_cta_label="Open wallet",
+            )
         if platform_cut > 0:
             await _record_revenue({
                 "id": uid(), "type": "tournament_platform_cut", "amount": platform_cut,
@@ -1081,7 +1267,19 @@ async def _finalize_tournament_match(t_id: str, brackets: list, round_i: int, ma
             "final_platform_fee": platform_cut, "fee_tier": breakdown.tier_label,
             "completed_at": utcnow().isoformat(),
         }})
-        await _notify(winner_id, "prize_payout", f"CHAMPION! You won ${payout:.2f}", "tournament", t_id)
+        await _notify(
+            winner_id, "prize_payout",
+            f"CHAMPION! You won ${payout:.2f}",
+            "tournament", t_id,
+            email_subject=f"You won {t.get('name', 'the tournament')}! ${payout:.2f}",
+            email_title=f"Champion of {t.get('name', 'the tournament')}",
+            email_body=(
+                f"You took the title! ${payout:.2f} has been credited to your MatchPoint wallet. "
+                f"Ready to defend it? Jump into another tournament."
+            ),
+            email_cta_url=f"{APP_URL}/wallet",
+            email_cta_label="Open wallet",
+        )
     await db.tournaments.update_one({"id": t_id}, {"$set": {"brackets": brackets}})
 
 # ============================================================
@@ -1100,12 +1298,43 @@ async def leaderboard_global(game: Optional[str] = None, limit: int = 50):
 # ============================================================
 # NOTIFICATIONS
 # ============================================================
-async def _notify(user_id: str, kind: str, message: str, category: str = "general", ref_id: Optional[str] = None):
+async def _notify(user_id: str, kind: str, message: str, category: str = "general",
+                  ref_id: Optional[str] = None,
+                  email_subject: Optional[str] = None,
+                  email_title: Optional[str] = None,
+                  email_body: Optional[str] = None,
+                  email_cta_url: Optional[str] = None,
+                  email_cta_label: Optional[str] = None):
+    """Insert an in-app notification and (optionally) send a branded email.
+
+    - In-app row is always inserted.
+    - Email is only sent when ``email_subject`` is provided AND the recipient's
+      notification preferences allow this ``kind`` (default: on).
+    - Email delivery is non-blocking (fire-and-forget).
+    """
     await db.notifications.insert_one({
         "id": uid(), "user_id": user_id, "kind": kind, "message": message,
         "category": category, "ref_id": ref_id, "read": False,
         "created_at": utcnow().isoformat(),
     })
+    if not email_subject:
+        return
+    # Look up user email + prefs
+    u = await db.users.find_one({"id": user_id}, {"_id": 0, "email": 1, "notification_prefs": 1})
+    if not u or not u.get("email"):
+        return
+    prefs = {**DEFAULT_EMAIL_PREFS, **(u.get("notification_prefs") or {})}
+    pref_key = NOTIF_EMAIL_PREF_MAP.get(kind)
+    if pref_key and not prefs.get(pref_key, True):
+        return  # user opted out
+    html = event_email(
+        title=email_title or email_subject,
+        headline=message,
+        body=email_body or "",
+        cta_url=email_cta_url,
+        cta_label=email_cta_label,
+    )
+    asyncio.create_task(send_email(u["email"], email_subject, html))
 
 @api.get("/notifications")
 async def get_notifications(user: dict = Depends(current_user)):
@@ -1121,6 +1350,31 @@ async def mark_read(n_id: str, user: dict = Depends(current_user)):
 async def mark_all_read(user: dict = Depends(current_user)):
     await db.notifications.update_many({"user_id": user["id"]}, {"$set": {"read": True}})
     return {"ok": True}
+
+
+class NotifPrefsIn(BaseModel):
+    email_invites: Optional[bool] = None
+    email_matches: Optional[bool] = None
+    email_prize: Optional[bool] = None
+    email_wallet: Optional[bool] = None
+    email_disputes: Optional[bool] = None
+
+
+@api.get("/notifications/preferences")
+async def get_notif_prefs(user: dict = Depends(current_user)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "notification_prefs": 1})
+    return {**DEFAULT_EMAIL_PREFS, **((u or {}).get("notification_prefs") or {})}
+
+
+@api.patch("/notifications/preferences")
+async def update_notif_prefs(data: NotifPrefsIn, user: dict = Depends(current_user)):
+    patch = {k: v for k, v in data.dict().items() if v is not None}
+    if not patch:
+        return {**DEFAULT_EMAIL_PREFS}
+    update = {f"notification_prefs.{k}": v for k, v in patch.items()}
+    await db.users.update_one({"id": user["id"]}, {"$set": update})
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "notification_prefs": 1})
+    return {**DEFAULT_EMAIL_PREFS, **((u or {}).get("notification_prefs") or {})}
 
 # ============================================================
 # SUPPORT & REPORTS
@@ -1323,30 +1577,94 @@ async def _record_revenue(revenue_doc: dict) -> None:
 
 
 async def _company_payout(amount: float, bank_account: str, auto: bool = False) -> dict:
-    """Record a company bank payout (debits the ledger).
-
-    In development this is an accounting-only entry. When you connect a real
-    Stripe account, replace the mocked `stripe_payout_id` with an actual
-    `stripe.Payout.create(...)` call. The rest of the flow stays the same.
+    """Record a company bank payout (debits the ledger) and, when we have a
+    live Stripe key, actually move the funds from Stripe balance → linked bank
+    via Stripe Payouts API. In test mode this is an accounting-only entry.
     """
     if amount <= 0:
         raise HTTPException(400, "Amount must be positive")
-    # Stripe Payout API call would go here. For now record a mocked id.
-    stripe_payout_id = f"po_mock_{secrets.token_hex(8)}"
     payout_id = uid()
-    await db.company_ledger.insert_one({
-        "id": payout_id,
-        "type": "debit",
-        "amount": float(amount),
-        "source": "company_payout",
-        "bank_account": bank_account,
-        "stripe_payout_id": stripe_payout_id,
-        "auto": bool(auto),
-        "status": "completed",
+    stripe_payout_id: Optional[str] = None
+    status = "completed"
+    error: Optional[str] = None
+    if IS_LIVE_STRIPE:
+        try:
+            po = stripe_sdk.Payout.create(
+                amount=int(round(amount * 100)),
+                currency="usd",
+                statement_descriptor="MATCHPOINT",
+                metadata={"kind": "company_revenue_sweep", "ledger_id": payout_id, "auto": str(auto)},
+            )
+            stripe_payout_id = po.get("id") if isinstance(po, dict) else po.id
+            status = po.get("status", "pending") if isinstance(po, dict) else po.status
+        except Exception as e:
+            logger.error(f"Stripe payout failed: {e}")
+            error = str(e)
+            status = "failed"
+    else:
+        stripe_payout_id = f"po_mock_{secrets.token_hex(8)}"
+    doc = {
+        "id": payout_id, "type": "debit", "amount": float(amount),
+        "source": "company_payout", "bank_account": bank_account,
+        "stripe_payout_id": stripe_payout_id, "auto": bool(auto),
+        "status": status, "error": error, "live": IS_LIVE_STRIPE,
         "created_at": utcnow().isoformat(),
-    })
+    }
+    await db.company_ledger.insert_one(doc)
+    if error:
+        raise HTTPException(502, f"Stripe payout failed: {error}")
     return {"id": payout_id, "amount": float(amount), "stripe_payout_id": stripe_payout_id,
-            "auto": bool(auto), "bank_account": bank_account}
+            "auto": bool(auto), "bank_account": bank_account, "status": status, "live": IS_LIVE_STRIPE}
+
+
+async def _run_daily_company_sweep() -> None:
+    """Scheduled daily. Fetch current Stripe balance, subtract player liability
+    and safety buffer, and payout the remainder to the linked bank account.
+    """
+    try:
+        settings = await db.company_settings.find_one({"id": "default"}) or {}
+        if not settings.get("daily_sweep_enabled", True):
+            logger.info("Daily sweep disabled; skipping.")
+            return
+        # Player liability
+        liab = await db.users.aggregate([
+            {"$match": {"is_admin": {"$ne": True}}},
+            {"$group": {"_id": None,
+                        "wallet": {"$sum": "$wallet_balance"},
+                        "pending": {"$sum": "$pending_balance"}}},
+        ]).to_list(1)
+        liability = (liab[0]["wallet"] + liab[0]["pending"]) if liab else 0
+        buffer = max(liability * 0.10, 500.0)
+        # Stripe available balance in USD
+        stripe_available_usd = 0.0
+        if IS_LIVE_STRIPE:
+            try:
+                bal = stripe_sdk.Balance.retrieve()
+                for item in (bal.get("available") if isinstance(bal, dict) else bal.available) or []:
+                    cur = item["currency"] if isinstance(item, dict) else item.currency
+                    amt = item["amount"] if isinstance(item, dict) else item.amount
+                    if cur == "usd":
+                        stripe_available_usd = amt / 100
+                        break
+            except Exception as e:
+                logger.error(f"Stripe balance fetch failed: {e}")
+                return
+        else:
+            # In test/dev, fall back to ledger-computed balance
+            pipeline = [{"$group": {"_id": "$type", "total": {"$sum": "$amount"}}}]
+            rows = {r["_id"]: r["total"] async for r in db.company_ledger.aggregate(pipeline)}
+            stripe_available_usd = (rows.get("credit", 0) or 0) - (rows.get("debit", 0) or 0)
+        available = round(stripe_available_usd - liability - buffer, 2)
+        logger.info(f"Daily sweep: stripe=${stripe_available_usd:.2f}, liability=${liability:.2f}, buffer=${buffer:.2f}, sweep=${available:.2f}")
+        if available <= 0:
+            return
+        bank = settings.get("bank_account") or "linked_default"
+        await _company_payout(available, bank, auto=True)
+    except Exception as e:
+        logger.error(f"Daily sweep error: {e}")
+
+
+scheduler: Optional[AsyncIOScheduler] = None
 
 
 @api.get("/admin/company/balance")
@@ -1386,6 +1704,33 @@ async def admin_company_ledger(_: dict = Depends(require_admin), limit: int = 20
 class CompanyPayoutIn(BaseModel):
     amount: float
     bank_account: Optional[str] = None
+
+@api.post("/admin/company/sweep-now")
+async def admin_company_sweep_now(_: dict = Depends(require_admin)):
+    """Trigger the daily sweep on-demand (same logic as the 00:00 UTC job)."""
+    await _run_daily_company_sweep()
+    return {"ok": True}
+
+
+@api.get("/admin/company/stripe-balance")
+async def admin_company_stripe_balance(_: dict = Depends(require_admin)):
+    """Real-time Stripe balance (available + pending) in USD."""
+    if not IS_LIVE_STRIPE:
+        return {"live": False, "available_usd": 0, "pending_usd": 0, "message": "Test mode"}
+    try:
+        bal = stripe_sdk.Balance.retrieve()
+        available = pending = 0.0
+        for item in bal.available or []:
+            if item.currency == "usd":
+                available = item.amount / 100
+        for item in bal.pending or []:
+            if item.currency == "usd":
+                pending = item.amount / 100
+        return {"live": True, "available_usd": available, "pending_usd": pending}
+    except Exception as e:
+        raise HTTPException(502, f"Stripe error: {e}")
+
+
 
 
 @api.post("/admin/company/payout")

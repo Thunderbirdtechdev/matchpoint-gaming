@@ -24,6 +24,7 @@ export default function Settings() {
           <Text style={styles.sec}>ACCOUNT</Text>
           <Row icon="person-outline" label="Edit Profile" onPress={() => router.push("/edit-profile")} />
           <Row icon="phone-portrait-outline" label="Devices & Sessions" onPress={() => router.push("/devices")} />
+          <Row icon="notifications-outline" label="Email Notifications" onPress={() => router.push("/notification-preferences")} />
           <Row icon="key-outline" label="Change Password" onPress={() => router.push("/(auth)/forgot-password")} />
         </Card>
         <Card>

@@ -48,7 +48,11 @@ export default function Admin() {
       else if (tab === "reports") setData(await api("/admin/reports"));
       else if (tab === "revenue") setData(await api("/admin/revenue"));
       else if (tab === "ads") setData(await api("/admin/ads"));
-      else if (tab === "bank") setData({ balance: await api("/admin/company/balance"), ledger: await api("/admin/company/ledger?limit=100") });
+      else if (tab === "bank") setData({
+        balance: await api("/admin/company/balance"),
+        ledger: await api("/admin/company/ledger?limit=100"),
+        stripe: await api("/admin/company/stripe-balance"),
+      });
     } catch (e) { console.log(e); }
   }, [tab]);
 
@@ -465,6 +469,7 @@ function CompanyBankTab({ data, onChange }: any) {
   const b = data.balance || {};
   const s = b.settings || {};
   const ledger = data.ledger || [];
+  const stripe = data.stripe || {};
   const [amount, setAmount] = useState("");
   const [bank, setBank] = useState(s.bank_account || "****0000");
   const [busy, setBusy] = useState(false);
@@ -472,6 +477,12 @@ function CompanyBankTab({ data, onChange }: any) {
 
   const [autoEnabled, setAutoEnabled] = useState(!!s.auto_payout_enabled);
   const [threshold, setThreshold] = useState(String(s.auto_payout_threshold ?? 1000));
+
+  const sweepNow = async () => {
+    setBusy(true); setErr("");
+    try { await api("/admin/company/sweep-now", { method: "POST" }); onChange(); }
+    catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  };
 
   const cashOut = async () => {
     setErr(""); setBusy(true);
@@ -498,8 +509,34 @@ function CompanyBankTab({ data, onChange }: any) {
 
   return (
     <>
+      <Card style={{ borderColor: stripe.live ? colors.success : colors.warning, borderWidth: 2 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, letterSpacing: 1.5, fontWeight: "800" }}>STRIPE MODE</Text>
+          <Text testID="stripe-mode" style={{ color: stripe.live ? colors.success : colors.warning, fontSize: 12, fontWeight: "900", letterSpacing: 1 }}>
+            {stripe.live ? "● LIVE" : "○ TEST"}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", marginTop: 8, gap: spacing.xl }}>
+          <View>
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, fontWeight: "700" }}>STRIPE AVAILABLE</Text>
+            <Text style={{ color: colors.onSurface, fontSize: 20, fontWeight: "900" }}>${(stripe.available_usd || 0).toFixed(2)}</Text>
+          </View>
+          <View>
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, fontWeight: "700" }}>STRIPE PENDING</Text>
+            <Text style={{ color: colors.onSurface, fontSize: 20, fontWeight: "900" }}>${(stripe.pending_usd || 0).toFixed(2)}</Text>
+          </View>
+        </View>
+        <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, marginTop: 8 }}>
+          Daily sweep runs at 00:00 UTC. Safety buffer = max(10% liability, $500).
+        </Text>
+        <View style={{ marginTop: 12 }}>
+          <Button testID="sweep-now-btn" title="Run Sweep Now" variant="secondary" onPress={sweepNow} loading={busy} />
+        </View>
+      </Card>
+
+
       <Card>
-        <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, letterSpacing: 1.5, fontWeight: "800" }}>AVAILABLE TO WITHDRAW</Text>
+        <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, letterSpacing: 1.5, fontWeight: "800" }}>AVAILABLE TO WITHDRAW (LEDGER)</Text>
         <Text testID="company-available-balance" style={{ color: colors.brand, fontSize: 44, fontWeight: "900", letterSpacing: -1, marginTop: 4 }}>
           ${(b.available_balance || 0).toFixed(2)}
         </Text>
