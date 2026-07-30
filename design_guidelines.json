@@ -1,0 +1,173 @@
+{
+  "app_name": "MatchPoint Mobile App",
+  "personality": "7 Dark-First Utility",
+  "personality_one_liner": "A high-energy, tactical dark interface optimized for competitive gamers, blending utility-driven layouts with vibrant electric accents.",
+  "color": {
+    "surface": "#111210",
+    "onSurface": "#F4F5F0",
+    "surfaceSecondary": "#191B18",
+    "onSurfaceSecondary": "#D1D5CB",
+    "surfaceTertiary": "#21251F",
+    "onSurfaceTertiary": "#9CA394",
+    "surfaceInverse": "#F4F5F0",
+    "onSurfaceInverse": "#111210",
+    "brand": "#CCFF00",
+    "brandPrimary": "#CCFF00",
+    "onBrandPrimary": "#000000",
+    "brandSecondary": "#99CC00",
+    "onBrandSecondary": "#000000",
+    "brandTertiary": "#293300",
+    "onBrandTertiary": "#CCFF00",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#000000",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#3B82F6",
+    "onInfo": "#FFFFFF",
+    "border": "#2C3129",
+    "borderStrong": "#3F463B",
+    "divider": "#1E221C"
+  },
+  "typography": {
+    "displayFontFamily": "Rajdhani",
+    "textFontFamily": "Satoshi",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Utility-first: stack modules tightly, use clear structural dividers, ensure safe area padding, and keep metrics glanceable.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Bottom tab bar background",
+      "Floating action buttons and live match status pills",
+      "Sticky headers above tournament feeds/brackets",
+      "Bottom-sheet drag handles and headers"
+    ],
+    "dont's": [
+      "Generic list rows",
+      "Form input fields",
+      "Dense statistical grids in the profile"
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home / Discover",
+      "purpose": "A dashboard for quick actions, live H2H matches, and sponsored tournament discovery.",
+      "states": {
+        "loading": "Centered loading spinner with 'Syncing arena...' text.",
+        "empty": "Brand-tinted icon with 'No live events right now. Create a challenge!' and a primary CTA.",
+        "error": "Error message with 'Retry connection' button."
+      },
+      "layout": "Hero carousel at the top showing sponsored events using dark glass cards. Two-column grid below for quick actions (Wallet Deposit, Create H2H). A vertically scrolling list for upcoming matches."
+    },
+    {
+      "name": "Tournaments",
+      "purpose": "List and filter all public, private, and sponsored tournaments.",
+      "states": {
+        "loading": "Skeleton cards representing tournament entries.",
+        "empty": "Abstract tournament illustration, 'No tournaments match your filters', and clear filters CTA.",
+        "error": "Failed to load brackets error with retry CTA."
+      },
+      "layout": "Sticky glass segmented control (Public, Invite, Sponsored) at the top. Full-width cards containing prize pools, player count, and registration status. The primary 'Register' CTA must be prominent inside the detail view."
+    },
+    {
+      "name": "Play / H2H",
+      "purpose": "Matchmaking interface to create or accept head-to-head challenges.",
+      "states": {
+        "loading": "Pulsing radar animation for matchmaking.",
+        "empty": "No active challenges. Large central 'Create Challenge' pill.",
+        "error": "Matchmaking failed to connect. Retry CTA."
+      },
+      "layout": "Filter bar (Game, Region, Console) followed by a live rail of pending challenges. When a match is active, the screen transforms into a live tracking mode with a sticky 'Report Result' CTA at the bottom."
+    },
+    {
+      "name": "Wallet",
+      "purpose": "Secure hub for balance, deposits, withdrawals, and platform fee history.",
+      "states": {
+        "loading": "Spinner fetching latest balance.",
+        "empty": "No transaction history. 'Make your first deposit' CTA.",
+        "error": "Unable to reach payment provider. Retry CTA."
+      },
+      "layout": "Large hero card at the top displaying available and pending balances (surfaceSecondary with brandTertiary tint). Two side-by-side buttons for Deposit/Withdraw. A grouped list below for transaction history with green/white metrics for +/- values."
+    },
+    {
+      "name": "Profile",
+      "purpose": "Showcase user statistics, match history, badges, and account settings.",
+      "states": {
+        "loading": "Skeleton grid for stats.",
+        "empty": "New account state. 'Play a match to build your stats'.",
+        "error": "Could not load profile data."
+      },
+      "layout": "Profile cover image with an avatar layered over it. A horizontal scroll of badges, followed by a dense 2x2 grid for metrics (K/D, Win Rate, Earnings). Stacked rows for Match History and settings navigation."
+    }
+  ],
+  "images": {
+    "home_hero_bg": {
+      "url": "https://images.pexels.com/photos/7915213/pexels-photo-7915213.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "dark": "https://images.pexels.com/photos/7915213/pexels-photo-7915213.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Dark dimly lit esports gaming arena"
+    },
+    "tournaments_header": {
+      "url": "https://images.pexels.com/photos/12187128/pexels-photo-12187128.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "dark": "https://images.pexels.com/photos/12187128/pexels-photo-12187128.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Vibrant geometric neon structure"
+    },
+    "h2h_match_cover": {
+      "url": "https://images.unsplash.com/photo-1567027757540-7b572280fa22?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwxfHxuZW9uJTIwZ2FtaW5nJTIwY29udHJvbGxlcnxlbnwwfHx8fDE3ODUzNzg5NzB8MA&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1567027757540-7b572280fa22?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwxfHxuZW9uJTIwZ2FtaW5nJTIwY29udHJvbGxlcnxlbnwwfHx8fDE3ODUzNzg5NzB8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Neon gaming controller"
+    },
+    "wallet_abstract_bg": {
+      "url": "https://images.unsplash.com/photo-1689443111130-6e9c7dfd8f9e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwzfHxjeWJlcnB1bmslMjBhYnN0cmFjdCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4NTM3ODk3MHww&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1689443111130-6e9c7dfd8f9e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwzfHxjeWJlcnB1bmslMjBhYnN0cmFjdCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc4NTM3ODk3MHww&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark abstract geometric background"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark-First Utility personality. The app should feel like a high-performance tactical dashboard for gamers.",
+    "Use Neon Lime/Electric Green (#CCFF00) as the primary brand color paired with deep obsidian/carbon surfaces. Do not use any shades of blue/indigo to strictly comply with the no-blue mandate.",
+    "Implement a persistent bottom tab navigation (Home, Tournaments, Play/H2H, Wallet, Profile) with glassmorphic backgrounds.",
+    "For the H2H and Tournament creation/action flows, the primary CTA (e.g., 'Submit Result', 'Register') MUST be sticky at the bottom of the screen above the Safe Area, backed by a gradient/glass backdrop.",
+    "When displaying background images on cards (e.g., Sponsored Tournaments, Featured H2H Matches), you MUST apply a top-to-bottom linear gradient scrim (transparent to 70%+ surfaceInverse) to guarantee text legibility.",
+    "Use Rajdhani (condensed/angular) for all headers, metrics, scores, and prize pools to create an authentic esports feel. Use Satoshi for standard body text.",
+    "The UI should use tight structural padding (spacing scale sm/md) with visible dividers (border 1pt) and avoid drop shadows entirely. Depth is created via tonal blocks and glass.",
+    "Never center align dense statistical data or tournament details; use strong left-alignment and tabular numerical styling for scores/earnings."
+  ]
+}
