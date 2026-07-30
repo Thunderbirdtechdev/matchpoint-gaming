@@ -50,6 +50,9 @@ export default function Admin() {
     } catch (e) { console.log(e); }
   }, [tab]);
 
+  // Reset data on tab change so a previous tab's shape can't crash the new renderer
+  useEffect(() => { setData(null); }, [tab]);
+
   useEffect(() => { load(); }, [load]);
   const onRefresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 

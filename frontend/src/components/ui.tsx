@@ -96,9 +96,10 @@ export function Pill({ label, tone = "default" }: { label: string; tone?: "defau
     danger: { bg: "rgba(239,68,68,0.15)", fg: colors.error },
     brand: { bg: colors.brandTertiary, fg: colors.brand },
   }[tone];
+  const text = (label ?? "").toString();
   return (
     <View style={{ backgroundColor: toneMap.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.sm, alignSelf: "flex-start" }}>
-      <Text style={{ color: toneMap.fg, fontSize: 11, fontWeight: "700", letterSpacing: 0.4 }}>{label.toUpperCase()}</Text>
+      <Text style={{ color: toneMap.fg, fontSize: 11, fontWeight: "700", letterSpacing: 0.4 }}>{text.toUpperCase()}</Text>
     </View>
   );
 }
