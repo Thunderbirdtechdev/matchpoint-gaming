@@ -11,10 +11,11 @@ import { useAuth } from "@/src/auth";
 
 type Tab =
   | "overview" | "users" | "transactions" | "tournaments"
-  | "challenges" | "disputes" | "tickets" | "reports" | "revenue" | "ads";
+  | "challenges" | "disputes" | "tickets" | "reports" | "revenue" | "ads" | "bank";
 
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "overview", label: "Overview", icon: "grid" },
+  { key: "bank", label: "Company Bank", icon: "business" },
   { key: "users", label: "Users", icon: "people" },
   { key: "transactions", label: "Transactions", icon: "swap-horizontal" },
   { key: "tournaments", label: "Tournaments", icon: "trophy" },
@@ -47,6 +48,7 @@ export default function Admin() {
       else if (tab === "reports") setData(await api("/admin/reports"));
       else if (tab === "revenue") setData(await api("/admin/revenue"));
       else if (tab === "ads") setData(await api("/admin/ads"));
+      else if (tab === "bank") setData({ balance: await api("/admin/company/balance"), ledger: await api("/admin/company/ledger?limit=100") });
     } catch (e) { console.log(e); }
   }, [tab]);
 
@@ -95,6 +97,7 @@ export default function Admin() {
         {tab === "reports" && Array.isArray(data) && <ReportsTab reports={data} onChange={load} />}
         {tab === "revenue" && Array.isArray(data) && <RevenueTab items={data} />}
         {tab === "ads" && Array.isArray(data) && <AdsTab items={data} onChange={load} />}
+        {tab === "bank" && data && data.balance && <CompanyBankTab data={data} onChange={load} />}
       </ScrollView>
 
       {activeTicket && <TicketModal ticket={activeTicket} onClose={() => { setActiveTicket(null); load(); }} />}
@@ -450,6 +453,121 @@ function AdsTab({ items, onChange }: any) {
           <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.md }}>
             <View style={{ flex: 1 }}><Button small title={a.active ? "Deactivate" : "Activate"} variant="secondary" onPress={() => toggle(a.id)} /></View>
             <View style={{ flex: 1 }}><Button small title="Delete" variant="danger" onPress={() => remove(a.id)} /></View>
+          </View>
+        </Card>
+      ))}
+    </>
+  );
+}
+
+// ------------------- Company Bank -------------------
+function CompanyBankTab({ data, onChange }: any) {
+  const b = data.balance || {};
+  const s = b.settings || {};
+  const ledger = data.ledger || [];
+  const [amount, setAmount] = useState("");
+  const [bank, setBank] = useState(s.bank_account || "****0000");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const [autoEnabled, setAutoEnabled] = useState(!!s.auto_payout_enabled);
+  const [threshold, setThreshold] = useState(String(s.auto_payout_threshold ?? 1000));
+
+  const cashOut = async () => {
+    setErr(""); setBusy(true);
+    try {
+      const val = parseFloat(amount);
+      if (!val || val <= 0) throw new Error("Enter an amount");
+      await api("/admin/company/payout", { method: "POST", body: JSON.stringify({ amount: val, bank_account: bank }) });
+      setAmount("");
+      onChange();
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  };
+
+  const saveSettings = async () => {
+    setBusy(true);
+    try {
+      await api("/admin/company/settings", { method: "POST", body: JSON.stringify({
+        auto_payout_enabled: autoEnabled,
+        auto_payout_threshold: parseFloat(threshold) || 1000,
+        bank_account: bank,
+      })});
+      onChange();
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      <Card>
+        <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, letterSpacing: 1.5, fontWeight: "800" }}>AVAILABLE TO WITHDRAW</Text>
+        <Text testID="company-available-balance" style={{ color: colors.brand, fontSize: 44, fontWeight: "900", letterSpacing: -1, marginTop: 4 }}>
+          ${(b.available_balance || 0).toFixed(2)}
+        </Text>
+        <View style={{ flexDirection: "row", marginTop: 12, gap: spacing.xl }}>
+          <View>
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, fontWeight: "700" }}>ACCRUED</Text>
+            <Text style={{ color: colors.onSurface, fontSize: 16, fontWeight: "800" }}>${(b.total_revenue_accrued || 0).toFixed(2)}</Text>
+          </View>
+          <View>
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, fontWeight: "700" }}>PAID OUT</Text>
+            <Text style={{ color: colors.onSurface, fontSize: 16, fontWeight: "800" }}>${(b.total_paid_out || 0).toFixed(2)}</Text>
+          </View>
+          <View>
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 10, fontWeight: "700" }}>LIABILITY</Text>
+            <Text style={{ color: colors.warning, fontSize: 16, fontWeight: "800" }}>${(b.player_liability || 0).toFixed(2)}</Text>
+          </View>
+        </View>
+        <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, marginTop: 8 }}>
+          Player liability = funds owed to players. Never withdraw more than (Stripe balance − liability).
+        </Text>
+      </Card>
+
+      <Card>
+        <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1, fontWeight: "800", marginBottom: 8 }}>CASH OUT TO BANK</Text>
+        <TextInput testID="cashout-amount" style={styles_shared.input} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Amount" placeholderTextColor={colors.onSurfaceTertiary} />
+        <View style={{ height: 8 }} />
+        <TextInput testID="cashout-bank" style={styles_shared.input} value={bank} onChangeText={setBank} placeholder="Bank account" placeholderTextColor={colors.onSurfaceTertiary} />
+        {err ? <Text style={{ color: colors.error, marginTop: 8 }}>{err}</Text> : null}
+        <View style={{ marginTop: 12 }}>
+          <Button testID="cashout-btn" title={`Cash Out $${amount || "0"}`} onPress={cashOut} loading={busy} disabled={!amount} />
+        </View>
+      </Card>
+
+      <Card>
+        <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1, fontWeight: "800", marginBottom: 8 }}>AUTO-PAYOUT SETTINGS</Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.onSurface, fontSize: 14, fontWeight: "700" }}>Enable auto-payout</Text>
+            <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, marginTop: 2 }}>Sweeps to your bank when threshold is reached.</Text>
+          </View>
+          <TouchableOpacity testID="auto-toggle" onPress={() => setAutoEnabled(!autoEnabled)} style={{ width: 48, height: 28, borderRadius: 14, backgroundColor: autoEnabled ? colors.brand : colors.surfaceTertiary, justifyContent: "center", padding: 3 }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.onSurface, alignSelf: autoEnabled ? "flex-end" : "flex-start" }} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles_shared.label}>THRESHOLD ($)</Text>
+        <TextInput testID="auto-threshold" style={styles_shared.input} value={threshold} onChangeText={setThreshold} keyboardType="decimal-pad" placeholderTextColor={colors.onSurfaceTertiary} />
+        <View style={{ marginTop: 12 }}>
+          <Button small title="Save Settings" onPress={saveSettings} loading={busy} />
+        </View>
+      </Card>
+
+      <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1, fontWeight: "800", marginTop: 8 }}>LEDGER HISTORY</Text>
+      {ledger.length === 0 ? <Empty title="No ledger events yet" /> : ledger.map((e: any) => (
+        <Card key={e.id}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.onSurface, fontSize: 14, fontWeight: "700" }}>
+                {e.type === "credit" ? "FEE COLLECTED" : "PAID TO BANK"} · {(e.source || "").replace(/_/g, " ")}
+              </Text>
+              <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, marginTop: 2 }}>
+                {new Date(e.created_at).toLocaleString()}
+                {e.stripe_payout_id ? ` · ${e.stripe_payout_id}` : ""}
+                {e.auto ? " · AUTO" : ""}
+              </Text>
+            </View>
+            <Text style={{ color: e.type === "credit" ? colors.success : colors.error, fontSize: 16, fontWeight: "900" }}>
+              {e.type === "credit" ? "+" : "-"}${(e.amount || 0).toFixed(2)}
+            </Text>
           </View>
         </Card>
       ))}

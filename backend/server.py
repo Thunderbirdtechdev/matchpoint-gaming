@@ -260,6 +260,21 @@ async def startup():
     await db.tournaments.create_index("id", unique=True)
     await db.wallet_tx.create_index("id", unique=True)
     await db.stripe_events.create_index("id", unique=True)
+    # Backfill company_ledger from existing revenue rows (one-time; idempotent via revenue_id).
+    async for r in db.revenue.find({}):
+        exists = await db.company_ledger.find_one({"revenue_id": r.get("id")})
+        if exists:
+            continue
+        await db.company_ledger.insert_one({
+            "id": uid(), "type": "credit",
+            "amount": r.get("amount", 0),
+            "source": r.get("type", "unknown"),
+            "ref_id": r.get("ref_id") or r.get("tx_id"),
+            "revenue_id": r.get("id"),
+            "meta": {"tier": r.get("tier"), "rate": r.get("rate"),
+                     "pool": r.get("pool"), "speed": r.get("speed")},
+            "created_at": r.get("created_at", utcnow().isoformat()),
+        })
     # Seed a single admin account for admin dashboard access (no other seed data).
     admin = await db.users.find_one({"email": "admin@matchpoint.gg"})
     if not admin:
@@ -531,7 +546,7 @@ async def withdraw(data: WithdrawIn, user: dict = Depends(require_player)):
     })
     # Record fee revenue (only same-day withdrawals generate revenue)
     if fee > 0:
-        await db.revenue.insert_one({
+        await _record_revenue({
             "id": uid(), "type": "withdrawal_fee", "amount": fee,
             "user_id": user["id"], "tx_id": tx_id, "speed": data.speed,
             "tier": wb.tier_label, "created_at": utcnow().isoformat(),
@@ -794,7 +809,7 @@ async def _finalize_challenge(ch_id: str, winner_id: str):
         "finalized_at": utcnow().isoformat(),
     }})
     # Log revenue
-    await db.revenue.insert_one({
+    await _record_revenue({
         "id": uid(), "type": "platform_fee", "amount": fee,
         "source": "h2h", "ref_id": ch_id, "pool": total_pot,
         "rate": breakdown.rate, "tier": breakdown.tier_label,
@@ -1054,7 +1069,7 @@ async def _finalize_tournament_match(t_id: str, brackets: list, round_i: int, ma
             })
             await _notify(loser_id, "prize_payout", f"Runner-up! You won ${runner_up_prize:.2f}", "tournament", t_id)
         if platform_cut > 0:
-            await db.revenue.insert_one({
+            await _record_revenue({
                 "id": uid(), "type": "tournament_platform_cut", "amount": platform_cut,
                 "source": "tournament", "ref_id": t_id, "pool": prize_pool,
                 "rate": breakdown.rate, "tier": breakdown.tier_label,
@@ -1275,6 +1290,133 @@ async def admin_analytics(_: dict = Depends(require_admin)):
         "total_deposits": (dep[0]["total"] if dep else 0),
         "total_withdrawals": (wd[0]["total"] if wd else 0),
     }
+
+async def _record_revenue(revenue_doc: dict) -> None:
+    """Insert a revenue event AND auto-sweep it into the company ledger.
+
+    This is the single source of truth for fee accrual. Every place that used
+    to write directly to db.revenue should call this instead so the ledger
+    stays perfectly aligned with recorded revenue events.
+    """
+    await db.revenue.insert_one(revenue_doc)
+    await db.company_ledger.insert_one({
+        "id": uid(),
+        "type": "credit",
+        "amount": revenue_doc.get("amount", 0),
+        "source": revenue_doc.get("type", "unknown"),  # e.g. platform_fee / withdrawal_fee / tournament_platform_cut
+        "ref_id": revenue_doc.get("ref_id") or revenue_doc.get("tx_id"),
+        "revenue_id": revenue_doc.get("id"),
+        "meta": {"tier": revenue_doc.get("tier"), "rate": revenue_doc.get("rate"),
+                 "pool": revenue_doc.get("pool"), "speed": revenue_doc.get("speed")},
+        "created_at": utcnow().isoformat(),
+    })
+    # If auto-sweep is enabled and threshold reached, trigger a payout automatically.
+    settings = await db.company_settings.find_one({"id": "default"}) or {}
+    if settings.get("auto_payout_enabled"):
+        # Compute current available balance
+        pipeline = [{"$group": {"_id": "$type", "total": {"$sum": "$amount"}}}]
+        rows = {r["_id"]: r["total"] async for r in db.company_ledger.aggregate(pipeline)}
+        available = (rows.get("credit", 0) or 0) - (rows.get("debit", 0) or 0)
+        threshold = settings.get("auto_payout_threshold", 1000)
+        if available >= threshold:
+            await _company_payout(available, settings.get("bank_account", "****0000"), auto=True)
+
+
+async def _company_payout(amount: float, bank_account: str, auto: bool = False) -> dict:
+    """Record a company bank payout (debits the ledger).
+
+    In development this is an accounting-only entry. When you connect a real
+    Stripe account, replace the mocked `stripe_payout_id` with an actual
+    `stripe.Payout.create(...)` call. The rest of the flow stays the same.
+    """
+    if amount <= 0:
+        raise HTTPException(400, "Amount must be positive")
+    # Stripe Payout API call would go here. For now record a mocked id.
+    stripe_payout_id = f"po_mock_{secrets.token_hex(8)}"
+    payout_id = uid()
+    await db.company_ledger.insert_one({
+        "id": payout_id,
+        "type": "debit",
+        "amount": float(amount),
+        "source": "company_payout",
+        "bank_account": bank_account,
+        "stripe_payout_id": stripe_payout_id,
+        "auto": bool(auto),
+        "status": "completed",
+        "created_at": utcnow().isoformat(),
+    })
+    return {"id": payout_id, "amount": float(amount), "stripe_payout_id": stripe_payout_id,
+            "auto": bool(auto), "bank_account": bank_account}
+
+
+@api.get("/admin/company/balance")
+async def admin_company_balance(_: dict = Depends(require_admin)):
+    pipeline = [{"$group": {"_id": "$type", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}}]
+    rows = {r["_id"]: r async for r in db.company_ledger.aggregate(pipeline)}
+    credits = rows.get("credit", {}).get("total", 0) or 0
+    debits = rows.get("debit", {}).get("total", 0) or 0
+    settings = await db.company_settings.find_one({"id": "default"}, {"_id": 0}) or {
+        "auto_payout_enabled": False, "auto_payout_threshold": 1000, "bank_account": "****0000",
+    }
+    # Pending player liability = sum of all wallet_balances + pending_balances
+    liab = await db.users.aggregate([
+        {"$match": {"is_admin": {"$ne": True}}},
+        {"$group": {"_id": None,
+                    "wallet": {"$sum": "$wallet_balance"},
+                    "pending": {"$sum": "$pending_balance"}}},
+    ]).to_list(1)
+    liability = (liab[0]["wallet"] + liab[0]["pending"]) if liab else 0
+    return {
+        "total_revenue_accrued": round(credits, 2),
+        "total_paid_out": round(debits, 2),
+        "available_balance": round(credits - debits, 2),
+        "player_liability": round(liability, 2),
+        "credit_events": rows.get("credit", {}).get("count", 0),
+        "debit_events": rows.get("debit", {}).get("count", 0),
+        "settings": settings,
+    }
+
+
+@api.get("/admin/company/ledger")
+async def admin_company_ledger(_: dict = Depends(require_admin), limit: int = 200):
+    cursor = db.company_ledger.find({}, {"_id": 0}).sort("created_at", -1).limit(min(limit, 1000))
+    return await cursor.to_list(1000)
+
+
+class CompanyPayoutIn(BaseModel):
+    amount: float
+    bank_account: Optional[str] = None
+
+
+@api.post("/admin/company/payout")
+async def admin_company_payout(data: CompanyPayoutIn, _: dict = Depends(require_admin)):
+    # Verify we have enough available balance
+    pipeline = [{"$group": {"_id": "$type", "total": {"$sum": "$amount"}}}]
+    rows = {r["_id"]: r["total"] async for r in db.company_ledger.aggregate(pipeline)}
+    available = (rows.get("credit", 0) or 0) - (rows.get("debit", 0) or 0)
+    if data.amount > available:
+        raise HTTPException(400, f"Requested ${data.amount:.2f} exceeds available ${available:.2f}")
+    settings = await db.company_settings.find_one({"id": "default"}) or {}
+    bank = data.bank_account or settings.get("bank_account") or "****0000"
+    result = await _company_payout(data.amount, bank, auto=False)
+    return result
+
+
+class CompanySettingsIn(BaseModel):
+    auto_payout_enabled: bool
+    auto_payout_threshold: float = 1000.0
+    bank_account: str = "****0000"
+
+
+@api.post("/admin/company/settings")
+async def admin_company_settings(data: CompanySettingsIn, _: dict = Depends(require_admin)):
+    await db.company_settings.update_one(
+        {"id": "default"},
+        {"$set": {**data.dict(), "id": "default", "updated_at": utcnow().isoformat()}},
+        upsert=True,
+    )
+    return {"ok": True, **data.dict()}
+
 
 @api.get("/admin/revenue")
 async def admin_revenue(_: dict = Depends(require_admin)):
