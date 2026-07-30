@@ -80,6 +80,11 @@ export default function ChallengeDetail() {
                 <Text style={styles.winner}>{ch.winner_id === ch.creator_id ? ch.creator_username : ch.opponent_username}</Text>
                 {ch.payout ? <Text style={styles.payout}>Payout: ${ch.payout.toFixed(2)} (fee: ${ch.platform_fee?.toFixed(2)})</Text> : null}
               </>
+            ) : ch.status === "disputed" ? (
+              <>
+                <Text style={{ color: colors.error, fontWeight: "800", fontSize: 16 }}>DISPUTED · FUNDS LOCKED</Text>
+                <Text style={{ color: colors.onSurfaceSecondary, marginTop: 6 }}>Both players reported different winners. The fair play team is reviewing — no payout will be made until this is resolved.</Text>
+              </>
             ) : (
               <Text style={{ color: colors.warning }}>Awaiting both participants to report the same winner.</Text>
             )}

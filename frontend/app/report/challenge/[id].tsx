@@ -48,7 +48,7 @@ export default function ReportChallenge() {
       const meId = user?.id;
       const oppId = isCreator ? ch.opponent_id : ch.creator_id;
       const winnerId = winnerChoice === "me" ? meId : oppId;
-      await api(`/challenges/${id}/report`, {
+      const res = await api<any>(`/challenges/${id}/report`, {
         method: "POST",
         body: JSON.stringify({
           winner_id: winnerId,
@@ -58,6 +58,9 @@ export default function ReportChallenge() {
         }),
       });
       await refresh();
+      if (res?.status === "disputed") {
+        setErr("You and your opponent reported different winners. Funds are LOCKED — the fair play team will review.");
+      }
       router.replace({ pathname: "/challenge/[id]", params: { id } });
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };

@@ -12,6 +12,7 @@ export default function TabsLayout() {
 
   if (loading) return null;
   if (!user) return <Redirect href="/(auth)/welcome" />;
+  if (user.is_admin) return <Redirect href="/admin" />;
 
   return (
     <Tabs

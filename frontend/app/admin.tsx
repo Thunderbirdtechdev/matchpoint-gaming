@@ -28,7 +28,7 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
 
 export default function Admin() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("overview");
   const [data, setData] = useState<any>(null);
@@ -64,7 +64,7 @@ export default function Admin() {
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <SafeAreaView edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity testID="admin-back-btn" onPress={() => router.back()}><Ionicons name="chevron-back" size={26} color={colors.onSurface} /></TouchableOpacity>
+          <TouchableOpacity testID="admin-signout-btn" onPress={signOut}><Ionicons name="log-out-outline" size={22} color={colors.error} /></TouchableOpacity>
           <View style={{ alignItems: "center" }}>
             <Text style={styles.title}>ADMIN CONSOLE</Text>
             <Text style={styles.subtitle}>Company-only</Text>

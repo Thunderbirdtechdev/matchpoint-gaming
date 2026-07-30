@@ -21,7 +21,7 @@ export default function Verify2FA() {
     try {
       const res = await api<any>("/auth/verify-2fa", { method: "POST", auth: false, body: JSON.stringify({ email: params.email, code }) });
       await signIn(res.access_token, res.user);
-      router.replace("/(tabs)/home");
+      router.replace(res.user?.is_admin ? "/admin" : "/(tabs)/home");
     } catch (e: any) { setErr(e.message); } finally { setLoading(false); }
   };
 

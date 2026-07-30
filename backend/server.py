@@ -150,6 +150,13 @@ async def require_admin(user: dict = Depends(current_user)) -> dict:
         raise HTTPException(403, "Admin only")
     return user
 
+
+async def require_player(user: dict = Depends(current_user)) -> dict:
+    """Reject admin accounts from player-facing actions (wagers, wallet, matches)."""
+    if user.get("is_admin"):
+        raise HTTPException(403, "Admin accounts cannot participate as players")
+    return user
+
 # ------------------------- Models -------------------------
 class RegisterIn(BaseModel):
     email: EmailStr
@@ -446,7 +453,7 @@ async def wallet_txs(user: dict = Depends(current_user)):
     return await cursor.to_list(100)
 
 @api.post("/wallet/deposit")
-async def create_deposit(data: DepositIn, request: Request, user: dict = Depends(current_user)):
+async def create_deposit(data: DepositIn, request: Request, user: dict = Depends(require_player)):
     if data.amount < 5 or data.amount > 10000:
         raise HTTPException(400, "Amount must be between $5 and $10,000")
     try:
@@ -475,7 +482,7 @@ async def create_deposit(data: DepositIn, request: Request, user: dict = Depends
         raise HTTPException(500, f"Payment provider error: {str(e)}")
 
 @api.get("/wallet/deposit/status/{session_id}")
-async def deposit_status(session_id: str, user: dict = Depends(current_user)):
+async def deposit_status(session_id: str, user: dict = Depends(require_player)):
     """Poll Stripe for session status (used as fallback if webhook not received)."""
     try:
         webhook_url = f"{APP_URL}/api/wallet/webhook"
@@ -501,7 +508,7 @@ async def _credit_deposit(user_id: str, amount: float, session_id: str, tx_id: s
         await _notify(user_id, "deposit", f"Deposit of ${amount:.2f} completed", "wallet")
 
 @api.post("/wallet/withdraw")
-async def withdraw(data: WithdrawIn, user: dict = Depends(current_user)):
+async def withdraw(data: WithdrawIn, user: dict = Depends(require_player)):
     u = await db.users.find_one({"id": user["id"]})
     balance = u.get("wallet_balance", 0)
     if data.amount < 10:
@@ -565,7 +572,7 @@ async def stripe_webhook(request: Request):
 # CHALLENGES (Head-to-Head)
 # ============================================================
 @api.post("/challenges")
-async def create_challenge(data: ChallengeIn, user: dict = Depends(current_user)):
+async def create_challenge(data: ChallengeIn, user: dict = Depends(require_player)):
     u = await db.users.find_one({"id": user["id"]})
     if u.get("wallet_balance", 0) < data.stake:
         raise HTTPException(400, "Insufficient balance for stake")
@@ -606,7 +613,7 @@ async def create_challenge(data: ChallengeIn, user: dict = Depends(current_user)
 
 
 @api.post("/challenges/{ch_id}/decline")
-async def decline_challenge(ch_id: str, user: dict = Depends(current_user)):
+async def decline_challenge(ch_id: str, user: dict = Depends(require_player)):
     ch = await db.challenges.find_one({"id": ch_id})
     if not ch:
         raise HTTPException(404, "Not found")
@@ -671,7 +678,7 @@ async def get_challenge(ch_id: str, _: dict = Depends(current_user)):
     return ch
 
 @api.post("/challenges/{ch_id}/accept")
-async def accept_challenge(ch_id: str, user: dict = Depends(current_user)):
+async def accept_challenge(ch_id: str, user: dict = Depends(require_player)):
     ch = await db.challenges.find_one({"id": ch_id})
     if not ch:
         raise HTTPException(404, "Not found")
@@ -694,7 +701,7 @@ async def accept_challenge(ch_id: str, user: dict = Depends(current_user)):
     return {"ok": True}
 
 @api.post("/challenges/{ch_id}/cancel")
-async def cancel_challenge(ch_id: str, user: dict = Depends(current_user)):
+async def cancel_challenge(ch_id: str, user: dict = Depends(require_player)):
     ch = await db.challenges.find_one({"id": ch_id})
     if not ch:
         raise HTTPException(404, "Not found")
@@ -711,7 +718,7 @@ async def cancel_challenge(ch_id: str, user: dict = Depends(current_user)):
     return {"ok": True}
 
 @api.post("/challenges/{ch_id}/report")
-async def report_result(ch_id: str, data: ChallengeResultIn, user: dict = Depends(current_user)):
+async def report_result(ch_id: str, data: ChallengeResultIn, user: dict = Depends(require_player)):
     ch = await db.challenges.find_one({"id": ch_id})
     if not ch:
         raise HTTPException(404, "Not found")
@@ -719,11 +726,18 @@ async def report_result(ch_id: str, data: ChallengeResultIn, user: dict = Depend
         raise HTTPException(403, "Not a participant")
     if ch["status"] not in ("matched", "reported"):
         raise HTTPException(400, "Cannot report in current status")
+    # Normalize reported-winner into a concrete participant id
+    if data.winner_id in ("me", user["id"]):
+        winner = user["id"]
+    elif data.winner_id in (ch["creator_id"], ch["opponent_id"]):
+        winner = data.winner_id
+    else:
+        raise HTTPException(400, "Reported winner must be one of the two participants")
+
+    is_creator = user["id"] == ch["creator_id"]
+    column = "creator_reported_winner_id" if is_creator else "opponent_reported_winner_id"
+
     results = ch.get("results") or {}
-    # Store what this participant reported
-    winner = ch["creator_id"] if data.winner_id in ("me", user["id"]) and user["id"] == ch["creator_id"] else \
-             ch["opponent_id"] if data.winner_id in ("me", user["id"]) and user["id"] == ch["opponent_id"] else \
-             (ch["creator_id"] if data.winner_id == ch["creator_id"] else ch["opponent_id"])
     results[user["id"]] = {
         "winner_id": winner,
         "my_score": data.my_score,
@@ -731,18 +745,33 @@ async def report_result(ch_id: str, data: ChallengeResultIn, user: dict = Depend
         "evidence": data.evidence,
         "at": utcnow().isoformat(),
     }
-    await db.challenges.update_one({"id": ch_id}, {"$set": {"results": results, "status": "reported"}})
-    # If both reported and agreed → finalize
-    if len(results) == 2:
-        creator_report = results.get(ch["creator_id"], {}).get("winner_id")
-        opponent_report = results.get(ch["opponent_id"], {}).get("winner_id")
-        if creator_report == opponent_report and creator_report:
+    await db.challenges.update_one({"id": ch_id}, {"$set": {
+        "results": results,
+        column: winner,
+        "status": "reported",
+    }})
+
+    # Re-fetch to get both columns after the update
+    ch2 = await db.challenges.find_one({"id": ch_id})
+    creator_report = ch2.get("creator_reported_winner_id")
+    opponent_report = ch2.get("opponent_reported_winner_id")
+
+    if creator_report and opponent_report:
+        if creator_report == opponent_report:
+            # Both agree → auto-settle
             await _finalize_challenge(ch_id, creator_report)
-        else:
-            await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "disputed"}})
-            await _notify(ch["creator_id"], "support_update", "Challenge disputed — awaiting admin review", "challenge", ch_id)
-            await _notify(ch["opponent_id"], "support_update", "Challenge disputed — awaiting admin review", "challenge", ch_id)
-    return {"ok": True}
+            return {"status": "settled", "winner_id": creator_report}
+        # Disagreement → hold funds, mark disputed, log a dispute row for admin
+        await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "disputed", "disputed_at": utcnow().isoformat()}})
+        await db.disputes.insert_one({
+            "id": uid(), "challenge_id": ch_id, "opened_by": user["id"],
+            "reason": "Players reported different match winners",
+            "status": "open", "created_at": utcnow().isoformat(),
+        })
+        await _notify(ch["creator_id"], "support_update", "Match disputed — funds locked, fair play team is reviewing", "challenge", ch_id)
+        await _notify(ch["opponent_id"], "support_update", "Match disputed — funds locked, fair play team is reviewing", "challenge", ch_id)
+        return {"status": "disputed"}
+    return {"status": "waiting"}
 
 async def _finalize_challenge(ch_id: str, winner_id: str):
     ch = await db.challenges.find_one({"id": ch_id})
@@ -784,7 +813,7 @@ async def _finalize_challenge(ch_id: str, winner_id: str):
 # TOURNAMENTS
 # ============================================================
 @api.post("/tournaments")
-async def create_tournament(data: TournamentIn, user: dict = Depends(current_user)):
+async def create_tournament(data: TournamentIn, user: dict = Depends(require_player)):
     t_id = uid()
     doc = {
         "id": t_id, **data.dict(),
@@ -814,7 +843,7 @@ async def get_tournament(t_id: str):
     return t
 
 @api.post("/tournaments/{t_id}/register")
-async def register_tournament(t_id: str, user: dict = Depends(current_user)):
+async def register_tournament(t_id: str, user: dict = Depends(require_player)):
     t = await db.tournaments.find_one({"id": t_id})
     if not t:
         raise HTTPException(404, "Not found")
@@ -845,7 +874,7 @@ async def register_tournament(t_id: str, user: dict = Depends(current_user)):
     return {"ok": True}
 
 @api.post("/tournaments/{t_id}/start")
-async def start_tournament(t_id: str, user: dict = Depends(current_user)):
+async def start_tournament(t_id: str, user: dict = Depends(require_player)):
     t = await db.tournaments.find_one({"id": t_id})
     if not t:
         raise HTTPException(404, "Not found")
@@ -919,7 +948,7 @@ async def start_tournament(t_id: str, user: dict = Depends(current_user)):
 
 
 @api.post("/tournaments/{t_id}/report")
-async def report_tournament_match(t_id: str, data: TournamentMatchReportIn, user: dict = Depends(current_user)):
+async def report_tournament_match(t_id: str, data: TournamentMatchReportIn, user: dict = Depends(require_player)):
     t = await db.tournaments.find_one({"id": t_id})
     if not t:
         raise HTTPException(404, "Not found")
@@ -1214,11 +1243,17 @@ async def admin_resolve_tournament_match(t_id: str, match_id: str, data: dict, _
     raise HTTPException(404, "Match not found")
 
 @api.post("/admin/disputes/{ch_id}/resolve")
-async def admin_resolve_dispute(ch_id: str, data: dict, _: dict = Depends(require_admin)):
+async def admin_resolve_dispute(ch_id: str, data: dict, admin: dict = Depends(require_admin)):
     winner_id = data.get("winner_id")
+    note = (data or {}).get("resolution_note") or (data or {}).get("note") or ""
     if not winner_id:
         raise HTTPException(400, "winner_id required")
     await _finalize_challenge(ch_id, winner_id)
+    await db.disputes.update_many(
+        {"challenge_id": ch_id, "status": "open"},
+        {"$set": {"status": "resolved", "resolution": note or f"Resolved — winner: {winner_id}",
+                  "resolved_by": admin["username"], "resolved_at": utcnow().isoformat()}},
+    )
     return {"ok": True}
 
 @api.get("/admin/analytics")
