@@ -10,7 +10,8 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import os, uuid, secrets, hashlib, logging, httpx, jwt, bcrypt, stripe, asyncio, random
+import os, uuid, secrets, hashlib, logging, httpx, jwt, bcrypt, asyncio, random
+from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest, CheckoutStatusResponse
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -28,8 +29,6 @@ APP_URL = os.environ.get("APP_URL", "http://localhost")
 PLATFORM_FEE_PCT = float(os.environ.get("PLATFORM_FEE_PERCENT", "10"))
 WITHDRAWAL_FEE_PCT = float(os.environ.get("WITHDRAWAL_FEE_PERCENT", "2"))
 EMAIL_BASE_URL = "https://integrations.emergentagent.com"
-
-stripe.api_key = STRIPE_API_KEY
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -454,33 +453,30 @@ async def wallet_txs(user: dict = Depends(current_user)):
     return await cursor.to_list(100)
 
 @api.post("/wallet/deposit")
-async def create_deposit(data: DepositIn, user: dict = Depends(current_user)):
+async def create_deposit(data: DepositIn, request: Request, user: dict = Depends(current_user)):
     if data.amount < 5 or data.amount > 10000:
         raise HTTPException(400, "Amount must be between $5 and $10,000")
     try:
-        session = stripe.checkout.Session.create(
-            mode="payment",
-            line_items=[{
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {"name": "MatchPoint Wallet Deposit"},
-                    "unit_amount": int(data.amount * 100),
-                },
-                "quantity": 1,
-            }],
+        host = request.headers.get("origin") or request.headers.get("referer") or APP_URL
+        webhook_url = f"{APP_URL}/api/wallet/webhook"
+        checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+        req = CheckoutSessionRequest(
+            amount=float(data.amount),
+            currency="usd",
             success_url=f"{APP_URL}/wallet/success?session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{APP_URL}/wallet",
             metadata={"user_id": user["id"], "amount_cents": str(int(data.amount * 100))},
         )
+        session = await checkout.create_checkout_session(req)
         # Record pending tx
         tx_id = uid()
         await db.wallet_tx.insert_one({
             "id": tx_id, "user_id": user["id"], "type": "deposit",
             "amount": data.amount, "status": "pending",
-            "stripe_session_id": session.id,
+            "stripe_session_id": session.session_id,
             "created_at": utcnow().isoformat(),
         })
-        return {"url": session.url, "session_id": session.id, "tx_id": tx_id}
+        return {"url": session.url, "session_id": session.session_id, "tx_id": tx_id}
     except Exception as e:
         logger.error(f"Stripe error: {e}")
         raise HTTPException(500, f"Payment provider error: {str(e)}")
@@ -489,13 +485,15 @@ async def create_deposit(data: DepositIn, user: dict = Depends(current_user)):
 async def deposit_status(session_id: str, user: dict = Depends(current_user)):
     """Poll Stripe for session status (used as fallback if webhook not received)."""
     try:
-        session = stripe.checkout.Session.retrieve(session_id)
+        webhook_url = f"{APP_URL}/api/wallet/webhook"
+        checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+        status: CheckoutStatusResponse = await checkout.get_checkout_status(session_id)
         tx = await db.wallet_tx.find_one({"stripe_session_id": session_id, "user_id": user["id"]}, {"_id": 0})
         # If paid and tx still pending, credit
-        if session.payment_status == "paid" and tx and tx.get("status") == "pending":
+        if status.payment_status == "paid" and tx and tx.get("status") == "pending":
             await _credit_deposit(user["id"], tx["amount"], session_id, tx["id"])
             tx["status"] = "completed"
-        return {"payment_status": session.payment_status, "status": session.status, "tx": tx}
+        return {"payment_status": status.payment_status, "status": status.status, "tx": tx}
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -547,28 +545,20 @@ async def stripe_webhook(request: Request):
     body = await request.body()
     sig = request.headers.get("stripe-signature", "")
     try:
-        if STRIPE_WEBHOOK_SECRET and STRIPE_WEBHOOK_SECRET != "whsec_placeholder":
-            event = stripe.Webhook.construct_event(body, sig, STRIPE_WEBHOOK_SECRET)
-        else:
-            # Dev mode without webhook secret
-            import json as _json
-            event = _json.loads(body)
+        webhook_url = f"{APP_URL}/api/wallet/webhook"
+        checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+        event_data = await checkout.handle_webhook(body, sig)
+        # emergentintegrations returns a normalized object with event_type, session_id, payment_status, metadata
+        if event_data and event_data.payment_status == "paid":
+            session_id = event_data.session_id
+            user_id = (event_data.metadata or {}).get("user_id")
+            tx = await db.wallet_tx.find_one({"stripe_session_id": session_id}, {"_id": 0})
+            if tx and user_id:
+                await _credit_deposit(user_id, tx["amount"], session_id, tx["id"])
+        return {"ok": True}
     except Exception as e:
-        raise HTTPException(400, f"Invalid webhook: {e}")
-    event_id = event.get("id")
-    if event_id and await db.stripe_events.find_one({"id": event_id}):
-        return {"ok": True, "duplicate": True}
-    if event.get("type") in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
-        obj = event["data"]["object"]
-        if obj.get("payment_status") == "paid":
-            user_id = obj.get("metadata", {}).get("user_id")
-            amount = int(obj.get("metadata", {}).get("amount_cents", 0)) / 100
-            tx = await db.wallet_tx.find_one({"stripe_session_id": obj["id"]}, {"_id": 0})
-            if tx and user_id and amount:
-                await _credit_deposit(user_id, amount, obj["id"], tx["id"])
-    if event_id:
-        await db.stripe_events.insert_one({"id": event_id, "received_at": utcnow().isoformat()})
-    return {"ok": True}
+        logger.error(f"Webhook error: {e}")
+        return {"ok": False, "error": str(e)}
 
 # ============================================================
 # CHALLENGES (Head-to-Head)
