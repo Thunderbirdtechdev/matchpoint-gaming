@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 5 — Admin console (backend + frontend). Backend: created /app/backend/tests/test_admin_console.py with 18 pytest cases covering /admin/overview auth+shape (KPIs + 8-bucket timeseries + revenue_by_type), /admin/transactions (username/email enrichment, filter by tx_type=deposit, filter by status=completed), /admin/tournaments (sorted list), /admin/challenges (includes 'invited' status not exposed on public /challenges), /admin/tickets (list, ?status=open filter, GET by id, reply appends {from:'admin', author:<admin_username>} + status->answered + support_update notification to ticket owner, close -> status=closed), /admin/reports (reporter_username enrichment; resolve with action='suspended' + target_type='player' actually suspends the target user), /admin/ads (list, toggle flips active, delete removes), session last_seen tracking. Result: 18/18 passed in 6.5s (run with -n 0 to avoid xdist parallel admin OTP race). Frontend on 390x844: Login as admin@matchpoint.gg -> 2FA (dev code scraped) -> /admin loads with all 10 tab chips [overview/users/transactions/tournaments/challenges/disputes/tickets/reports/revenue/ads]. Overview shows KPI grid (TOTAL REVENUE $10.00, OPEN TICKETS 2, OPEN REPORTS 2, TOTAL USERS 21, DAU/MAU 22, ACTIVE H2H 7, DEPOSITS $200/2 txns, PENDING WD 2), 7-DAY REVENUE bar chart with 8 daily buckets, REVENUE BY SOURCE list (challenge_fee $10.00/2 txns). Transactions tab renders username inline (TESTadma7c49b, TESTadma390b6), amounts red-tinted for withdrawals (-$20.00 PROCESSING) and green for deposits (+$100.00 COMPLETED). Users tab exposes admin-user-search input. Tickets tab (when opened from Overview): shows 3 tickets, tapping the 'UI-SEED subject' row opens the modal (ticket-modal-close/ticket-reply-input/ticket-send-btn), sending 'UI-SEED admin reply v2' appends admin bubble to thread and header status flips to ANSWERED — round-trip fully working. CRITICAL BUG FOUND: navigating Users -> Tickets crashes the Admin screen with 'Cannot read properties of undefined (reading toUpperCase)' inside <Pill> at src/components/ui.tsx:101 — reproducible 100%. RCA below.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/admin.tsx TicketsTab + src/components/ui.tsx Pill", "issue": "Switching to the Tickets (or Reports/Ads) tab from a previous *array* tab (e.g. Users, Transactions, Challenges, Ads) renders the new tab with the previous tab's stale `data` because load() awaits the next fetch without clearing state. TicketsTab iterates `tickets.map` — for user rows there is no `status`, so `<Pill label={undefined}>` triggers `label.toUpperCase()` and throws. LogBox shows an Uncaught Error page covering the entire screen. Reference: /app/frontend/app/admin.tsx:302 (`<Pill label={t.status} ...>`) and /app/frontend/src/components/ui.tsx:101 (`{label.toUpperCase()}`). Repro: open /admin -> tap admin-tab-users -> tap admin-tab-tickets -> crash.", "testID": "admin-tab-tickets", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "admin overview", "issues": ["KPI grid, 7-day revenue bar chart and Revenue By Source list render cleanly at 390px. Chip row is horizontally scrollable — all 10 tabs reachable."]},
+      {"screen": "admin transactions", "issues": ["Deposits render +$AMOUNT in green, withdrawals -$AMOUNT in red with COMPLETED/PROCESSING pills. Usernames shown inline."]},
+      {"screen": "admin ticket modal", "issues": ["Message thread bubbles align user-left/admin-right, ticket status pill in header, reply input + Send button pinned above keyboard. Round-trip append is instant."]}
+    ],
+    "react_native_issues": [
+      {"component": "props.pointerEvents", "issue": "React Native web deprecation warning still printed on many screens: 'props.pointerEvents is deprecated. Use style.pointerEvents.' Non-blocking. Reference: emitted by third-party components; likely react-native-safe-area-context or react-native-keyboard-controller."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_console.py",
+    "/app/test_reports/pytest/admin_console.xml"
+  ],
+  "action_items": [
+    "HIGH: Fix Admin tab-switch crash. Either (a) defensively guard Pill in src/components/ui.tsx: `const safe = (label ?? '').toString(); ...{safe.toUpperCase()}...`, OR (b) in /app/frontend/app/admin.tsx load(), reset data on tab change: add `useEffect(()=>{ setData(null); }, [tab])` before the fetch effect so each *Tab component sees null and shows a loading state instead of stale prior data. Recommend BOTH — defensive Pill prevents future regressions of the same class.",
+    "LOW: Address 'props.pointerEvents is deprecated' warning at a library-upgrade pass (non-blocking)."
+  ],
+  "critical_code_review_comments": [
+    "server.py:1414 admin_ticket_reply correctly stamps reply with {from:'admin', author: admin['username']}, sets status='answered', pushes support_update notification with ref_id=ticket_id — matches spec.",
+    "server.py:1460 admin_resolve_report suspends the target user only when action=='suspended' AND target_type=='player' AND target_id present — verified end-to-end (u2 became suspended:true after resolve).",
+    "server.py:1350 admin_transactions enriches wallet_tx with username/email via a single batched find({id:{$in:user_ids}}) — good; no N+1.",
+    "server.py:1387 admin_challenges returns all statuses including 'invited', unlike public /challenges — verified via test_challenges_includes_invited.",
+    "admin.tsx: All 10 tab renders are guarded by Array.isArray(data) except overview/disputes (object shapes). However the guard does not prevent cross-array-tab stale renders — see BUG above."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_console.py (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18 admin_console tests passed)", "frontend": "90% — all 10 tabs render + tickets modal reply round-trip verified end-to-end; 1 HIGH bug: array-tab -> Tickets crashes Pill on undefined label."},
+  "seed_data_creation": "test_admin_console.py auto-seeds TESTadm* users + wallet_tx (100 deposit completed + 20 withdrawal processing) + revenue row ($5 challenge_fee) + 1 open challenge + 1 invited challenge + 1 support ticket + 1 fair-play report + 1 admin ad. Additionally, seeded via ad-hoc script (before UI test): TESTuis993609 user + 'UI-SEED subject' open ticket + 1 open report + 1 'UI-SEED ad' so the frontend tabs have visible content. Two additional users TESTadma7c49b and TESTadma390b6 remain as test artifacts (used for tx enrichment display).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) Backend base URL from EXPO_PUBLIC_BACKEND_URL. 2) Admin creds: admin@matchpoint.gg / Admin@123 (only seeded). 3) Run: `cd /app/backend && python -m pytest tests/test_admin_console.py -v -n 0 --junitxml=/app/test_reports/pytest/admin_console.xml` — MUST include `-n 0` because pytest.ini pins xdist to 2 workers and parallel admin logins race the OTP. 4) Frontend testids added this iteration: admin-tab-<key> (10), admin-back-btn, admin-user-search, kpi-total-revenue, ticket-modal-close, ticket-reply-input, ticket-send-btn. 5) Tickets tab reproducer for the HIGH bug: /admin -> tap admin-tab-users -> tap admin-tab-tickets (Uncaught Error page). Going Overview -> Tickets does NOT crash because overview data is an object and TicketsTab guard skips render. 6) Because /admin/reports POST /resolve with action='suspended' also flips users.suspended=true, the seeded target u2 is now suspended — subsequent /auth/login for that user will 403; tests are self-contained. 7) Ad form on frontend was NOT tested (image picker N/A per request); /admin/ads endpoints are covered via pytest.",
+  "rca_of_issue": "Bug: Admin tab switch (Users->Tickets, Transactions->Tickets, etc.) crashes with `Cannot read properties of undefined (reading 'toUpperCase')` in <Pill>. Root cause: In /app/frontend/app/admin.tsx `load()` (line 38) is triggered by `useEffect([load])` and awaits `api('/admin/tickets')`, but does NOT reset `data` before the fetch. React re-renders synchronously when `tab` changes with the OLD `data` still populated. Since both the previous (users) and next (tickets) tab-render conditions use `Array.isArray(data)`, TicketsTab is mounted with users as its `tickets` prop. Each user row has no `.status`, so `<Pill label={undefined}>` reaches `label.toUpperCase()` at ui.tsx:101 and throws, which the LogBox surfaces as an Uncaught Error overlay. Mitigation: (a) `useEffect(()=>{ setData(null); }, [tab])` OR set `data` inside load() to null at the top before the await; and (b) defensive Pill: `const safe = (label ?? '').toString().toUpperCase()`. Backend is not implicated. Repro steps in Playwright: login as admin -> goto /admin -> click admin-tab-users (renders UsersTab) -> click admin-tab-tickets -> LogBox shows the error immediately."
+}

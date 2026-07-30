@@ -135,6 +135,14 @@ async def current_user(credentials: HTTPAuthorizationCredentials = Depends(secur
         raise HTTPException(401, "User not found")
     if user.get("suspended"):
         raise HTTPException(403, "Account suspended")
+    # Touch most-recent session for DAU/MAU (fire and forget)
+    now_iso = utcnow().isoformat()
+    async def _touch():
+        await db.sessions.update_many(
+            {"user_id": user_id, "revoked": False},
+            {"$set": {"last_seen": now_iso}},
+        )
+    asyncio.create_task(_touch())
     return serialize(user)
 
 async def require_admin(user: dict = Depends(current_user)) -> dict:
@@ -1237,6 +1245,256 @@ async def admin_analytics(_: dict = Depends(require_admin)):
 async def admin_revenue(_: dict = Depends(require_admin)):
     cursor = db.revenue.find({}, {"_id": 0}).sort("created_at", -1).limit(200)
     return await cursor.to_list(200)
+
+
+# --------- Company Ops Dashboard ---------
+
+@api.get("/admin/overview")
+async def admin_overview(_: dict = Depends(require_admin)):
+    """High-level KPIs + 7-day timeseries for the ops dashboard."""
+    now = utcnow()
+    day_ago = now - timedelta(days=1)
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    # Users
+    total_users = await db.users.count_documents({"is_admin": {"$ne": True}})
+    new_users_24h = await db.users.count_documents({"created_at": {"$gte": day_ago.isoformat()}, "is_admin": {"$ne": True}})
+    new_users_7d = await db.users.count_documents({"created_at": {"$gte": week_ago.isoformat()}, "is_admin": {"$ne": True}})
+    suspended = await db.users.count_documents({"suspended": True})
+
+    # Approx DAU/MAU via recent session activity
+    dau = len(await db.sessions.distinct("user_id", {"last_seen": {"$gte": day_ago.isoformat()}}))
+    mau = len(await db.sessions.distinct("user_id", {"last_seen": {"$gte": month_ago.isoformat()}}))
+
+    # Matches & tournaments
+    active_challenges = await db.challenges.count_documents({"status": {"$in": ["open", "invited", "matched", "reported"]}})
+    disputed_challenges = await db.challenges.count_documents({"status": "disputed"})
+    finalized_challenges = await db.challenges.count_documents({"status": "finalized"})
+    active_tournaments = await db.tournaments.count_documents({"status": {"$in": ["open", "in_progress"]}})
+
+    # Money
+    dep_all = await db.wallet_tx.aggregate([
+        {"$match": {"type": "deposit", "status": "completed"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
+    ]).to_list(1)
+    wd_all = await db.wallet_tx.aggregate([
+        {"$match": {"type": "withdrawal", "status": "completed"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
+    ]).to_list(1)
+    wd_pending = await db.wallet_tx.count_documents({"type": "withdrawal", "status": "processing"})
+
+    revenue_by_type = await db.revenue.aggregate([
+        {"$group": {"_id": "$type", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
+        {"$sort": {"total": -1}},
+    ]).to_list(20)
+    total_revenue = sum(r["total"] for r in revenue_by_type)
+    revenue_24h_docs = await db.revenue.find({"created_at": {"$gte": day_ago.isoformat()}}).to_list(1000)
+    revenue_24h = sum(r.get("amount", 0) for r in revenue_24h_docs)
+    revenue_7d_docs = await db.revenue.find({"created_at": {"$gte": week_ago.isoformat()}}).to_list(5000)
+    revenue_7d = sum(r.get("amount", 0) for r in revenue_7d_docs)
+
+    # Support & fair play
+    open_tickets = await db.tickets.count_documents({"status": "open"})
+    open_reports = await db.reports.count_documents({"status": "open"})
+
+    # 7-day timeseries buckets (revenue, signups, deposits)
+    def _bucket_key(iso: str) -> str:
+        return (iso or "")[:10]  # YYYY-MM-DD
+    buckets = {(week_ago + timedelta(days=i)).strftime("%Y-%m-%d"): {"revenue": 0.0, "signups": 0, "deposits": 0.0, "withdrawals": 0.0} for i in range(8)}
+    for r in revenue_7d_docs:
+        k = _bucket_key(r.get("created_at", ""))
+        if k in buckets:
+            buckets[k]["revenue"] += r.get("amount", 0)
+    async for u in db.users.find({"created_at": {"$gte": week_ago.isoformat()}, "is_admin": {"$ne": True}}):
+        k = _bucket_key(u.get("created_at", ""))
+        if k in buckets:
+            buckets[k]["signups"] += 1
+    async for tx in db.wallet_tx.find({"created_at": {"$gte": week_ago.isoformat()}, "type": {"$in": ["deposit", "withdrawal"]}, "status": "completed"}):
+        k = _bucket_key(tx.get("created_at", ""))
+        if k in buckets:
+            key = "deposits" if tx["type"] == "deposit" else "withdrawals"
+            buckets[k][key] += tx.get("amount", 0)
+    timeseries = [{"date": k, **v} for k, v in sorted(buckets.items())]
+
+    for r in revenue_by_type:
+        r["type"] = r.pop("_id")
+
+    return {
+        "kpis": {
+            "total_users": total_users,
+            "new_users_24h": new_users_24h,
+            "new_users_7d": new_users_7d,
+            "suspended_users": suspended,
+            "dau": dau, "mau": mau,
+            "active_challenges": active_challenges,
+            "disputed_challenges": disputed_challenges,
+            "finalized_challenges": finalized_challenges,
+            "active_tournaments": active_tournaments,
+            "total_deposits": (dep_all[0]["total"] if dep_all else 0),
+            "deposit_count": (dep_all[0]["count"] if dep_all else 0),
+            "total_withdrawals": (wd_all[0]["total"] if wd_all else 0),
+            "withdrawal_count": (wd_all[0]["count"] if wd_all else 0),
+            "pending_withdrawals": wd_pending,
+            "total_revenue": round(total_revenue, 2),
+            "revenue_24h": round(revenue_24h, 2),
+            "revenue_7d": round(revenue_7d, 2),
+            "open_tickets": open_tickets,
+            "open_reports": open_reports,
+        },
+        "revenue_by_type": revenue_by_type,
+        "timeseries": timeseries,
+    }
+
+
+@api.get("/admin/transactions")
+async def admin_transactions(
+    _: dict = Depends(require_admin),
+    tx_type: Optional[str] = None,  # deposit / withdrawal / prize_winning / tournament_entry
+    status: Optional[str] = None,
+    limit: int = 100,
+):
+    q: dict = {}
+    if tx_type:
+        q["type"] = tx_type
+    if status:
+        q["status"] = status
+    cursor = db.wallet_tx.find(q, {"_id": 0}).sort("created_at", -1).limit(min(limit, 500))
+    txs = await cursor.to_list(500)
+    # Enrich with username lookup
+    user_ids = list({t["user_id"] for t in txs if t.get("user_id")})
+    if user_ids:
+        users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "username": 1, "email": 1}).to_list(len(user_ids))
+        um = {u["id"]: u for u in users}
+        for t in txs:
+            u = um.get(t.get("user_id"))
+            if u:
+                t["username"] = u["username"]
+                t["email"] = u["email"]
+    return txs
+
+
+@api.get("/admin/tournaments")
+async def admin_tournaments(_: dict = Depends(require_admin), status: Optional[str] = None):
+    q: dict = {}
+    if status:
+        q["status"] = status
+    cursor = db.tournaments.find(q, {"_id": 0}).sort("created_at", -1).limit(200)
+    return await cursor.to_list(200)
+
+
+@api.get("/admin/challenges")
+async def admin_challenges(_: dict = Depends(require_admin), status: Optional[str] = None):
+    q: dict = {}
+    if status:
+        q["status"] = status
+    cursor = db.challenges.find(q, {"_id": 0}).sort("created_at", -1).limit(200)
+    return await cursor.to_list(200)
+
+
+# --------- Tickets ---------
+
+@api.get("/admin/tickets")
+async def admin_tickets(_: dict = Depends(require_admin), status: Optional[str] = None):
+    q: dict = {}
+    if status:
+        q["status"] = status
+    cursor = db.tickets.find(q, {"_id": 0}).sort("created_at", -1).limit(200)
+    return await cursor.to_list(200)
+
+
+@api.get("/admin/tickets/{ticket_id}")
+async def admin_ticket(ticket_id: str, _: dict = Depends(require_admin)):
+    t = await db.tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Ticket not found")
+    return t
+
+
+@api.post("/admin/tickets/{ticket_id}/reply")
+async def admin_ticket_reply(ticket_id: str, data: dict, admin: dict = Depends(require_admin)):
+    text = (data or {}).get("text", "").strip()
+    if not text:
+        raise HTTPException(400, "Empty message")
+    t = await db.tickets.find_one({"id": ticket_id})
+    if not t:
+        raise HTTPException(404, "Ticket not found")
+    reply = {"from": "admin", "author": admin["username"], "text": text, "at": utcnow().isoformat()}
+    await db.tickets.update_one({"id": ticket_id}, {
+        "$push": {"messages": reply},
+        "$set": {"status": "answered", "last_admin_reply_at": utcnow().isoformat()},
+    })
+    await _notify(t["user_id"], "support_update", f"Support replied to your ticket: {t.get('subject', '')}", "support", ticket_id)
+    return {"ok": True}
+
+
+@api.post("/admin/tickets/{ticket_id}/close")
+async def admin_ticket_close(ticket_id: str, _: dict = Depends(require_admin)):
+    t = await db.tickets.find_one({"id": ticket_id})
+    if not t:
+        raise HTTPException(404, "Ticket not found")
+    await db.tickets.update_one({"id": ticket_id}, {"$set": {"status": "closed", "closed_at": utcnow().isoformat()}})
+    await _notify(t["user_id"], "support_update", f"Your support ticket was closed: {t.get('subject', '')}", "support", ticket_id)
+    return {"ok": True}
+
+
+# --------- Reports (Fair Play) ---------
+
+@api.get("/admin/reports")
+async def admin_reports(_: dict = Depends(require_admin), status: Optional[str] = None):
+    q: dict = {}
+    if status:
+        q["status"] = status
+    cursor = db.reports.find(q, {"_id": 0}).sort("created_at", -1).limit(200)
+    reports = await cursor.to_list(200)
+    # Enrich reporter usernames
+    reporter_ids = list({r["reporter_id"] for r in reports if r.get("reporter_id")})
+    if reporter_ids:
+        users = await db.users.find({"id": {"$in": reporter_ids}}, {"_id": 0, "id": 1, "username": 1}).to_list(len(reporter_ids))
+        um = {u["id"]: u["username"] for u in users}
+        for r in reports:
+            r["reporter_username"] = um.get(r.get("reporter_id"))
+    return reports
+
+
+@api.post("/admin/reports/{report_id}/resolve")
+async def admin_resolve_report(report_id: str, data: dict, admin: dict = Depends(require_admin)):
+    action = (data or {}).get("action", "resolved")  # resolved | dismissed | suspended
+    note = (data or {}).get("note", "")
+    r = await db.reports.find_one({"id": report_id})
+    if not r:
+        raise HTTPException(404, "Report not found")
+    await db.reports.update_one({"id": report_id}, {"$set": {
+        "status": action, "resolved_at": utcnow().isoformat(),
+        "resolved_by": admin["username"], "resolution_note": note,
+    }})
+    # If action is 'suspended' and target is a player, suspend that user
+    if action == "suspended" and r.get("target_type") == "player" and r.get("target_id"):
+        await db.users.update_one({"id": r["target_id"]}, {"$set": {"suspended": True}})
+    return {"ok": True}
+
+
+# --------- Ads listing ---------
+
+@api.get("/admin/ads")
+async def admin_ads(_: dict = Depends(require_admin)):
+    cursor = db.ads.find({}, {"_id": 0}).sort("created_at", -1).limit(200)
+    return await cursor.to_list(200)
+
+
+@api.post("/admin/ads/{ad_id}/toggle")
+async def admin_ads_toggle(ad_id: str, _: dict = Depends(require_admin)):
+    ad = await db.ads.find_one({"id": ad_id})
+    if not ad:
+        raise HTTPException(404, "Ad not found")
+    await db.ads.update_one({"id": ad_id}, {"$set": {"active": not ad.get("active", True)}})
+    return {"ok": True, "active": not ad.get("active", True)}
+
+
+@api.delete("/admin/ads/{ad_id}")
+async def admin_ads_delete(ad_id: str, _: dict = Depends(require_admin)):
+    await db.ads.delete_one({"id": ad_id})
+    return {"ok": True}
 
 # ============================================================
 # META
