@@ -1,0 +1,107 @@
+/**
+ * MatchPoint tiered service fee (mirror of backend/fees.py).
+ *
+ *   Pool size         Rate
+ *   $1    – $25       10%
+ *   $26   – $100       8%
+ *   $101  – $500       6%
+ *   $501+              5%
+ */
+export type FeeTier = {
+  minPool: number;
+  maxPool: number; // inclusive upper bound; Infinity for top tier
+  rate: number; // 0..1
+  label: string;
+};
+
+export const FEE_TIERS: ReadonlyArray<FeeTier> = [
+  { minPool: 0, maxPool: 25, rate: 0.1, label: "$1 – $25" },
+  { minPool: 25.01, maxPool: 100, rate: 0.08, label: "$26 – $100" },
+  { minPool: 100.01, maxPool: 500, rate: 0.06, label: "$101 – $500" },
+  { minPool: 500.01, maxPool: Infinity, rate: 0.05, label: "$501+" },
+];
+
+export type FeeBreakdown = {
+  pool: number;
+  rate: number;
+  tierLabel: string;
+  serviceFee: number;
+  netPrize: number;
+};
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
+export function getFeeTier(pool: number): FeeTier {
+  const p = Math.max(0, Number(pool) || 0);
+  for (const t of FEE_TIERS) {
+    if (p >= t.minPool && p <= t.maxPool) return t;
+  }
+  return FEE_TIERS[FEE_TIERS.length - 1];
+}
+
+export function calculateFee(pool: number): FeeBreakdown {
+  const p = round2(Math.max(0, Number(pool) || 0));
+  const tier = getFeeTier(p);
+  const serviceFee = round2(p * tier.rate);
+  const netPrize = round2(p - serviceFee);
+  return { pool: p, rate: tier.rate, tierLabel: tier.label, serviceFee, netPrize };
+}
+
+export function calculateTournamentFee(entryFee: number, playerCount: number): FeeBreakdown {
+  const pool = round2(Math.max(0, Number(entryFee) || 0) * Math.max(0, Math.floor(Number(playerCount) || 0)));
+  return calculateFee(pool);
+}
+
+/** 1v1 pool = stake * 2. */
+export function calculateChallengeFee(entryAmount: number): FeeBreakdown {
+  const pool = round2(Math.max(0, Number(entryAmount) || 0) * 2);
+  return calculateFee(pool);
+}
+
+/* -------- Withdrawal tiers -------- */
+export type WithdrawalSpeed = "standard" | "same_day";
+
+export type WithdrawalTier = {
+  minCents: number;
+  maxCents: number;
+  flatFeeCents: number | null;
+  pctRate: number | null;
+  label: string;
+};
+
+export const SAME_DAY_WITHDRAWAL_TIERS: ReadonlyArray<WithdrawalTier> = [
+  { minCents: 1_000, maxCents: 5_000, flatFeeCents: 199, pctRate: null, label: "$10 – $50" },
+  { minCents: 5_001, maxCents: 10_000, flatFeeCents: 299, pctRate: null, label: "$51 – $100" },
+  { minCents: 10_001, maxCents: 25_000, flatFeeCents: 499, pctRate: null, label: "$101 – $250" },
+  { minCents: 25_001, maxCents: 50_000, flatFeeCents: 799, pctRate: null, label: "$251 – $500" },
+  { minCents: 50_001, maxCents: 100_000, flatFeeCents: 1_299, pctRate: null, label: "$501 – $1,000" },
+  { minCents: 100_001, maxCents: Infinity, flatFeeCents: null, pctRate: 0.01, label: "$1,001+" },
+];
+
+export type WithdrawalFeeBreakdown = {
+  speed: WithdrawalSpeed;
+  grossCents: number;
+  feeCents: number;
+  netCents: number;
+  tierLabel: string;
+  etaLabel: string;
+};
+
+export function calculateWithdrawalFee(amountCents: number, speed: WithdrawalSpeed): WithdrawalFeeBreakdown {
+  const gross = Math.max(0, Math.floor(Number(amountCents) || 0));
+  if (speed === "standard") {
+    return { speed, grossCents: gross, feeCents: 0, netCents: gross, tierLabel: "Free", etaLabel: "2–5 business days" };
+  }
+  const tier =
+    SAME_DAY_WITHDRAWAL_TIERS.find((t) => gross >= t.minCents && gross <= t.maxCents) ??
+    SAME_DAY_WITHDRAWAL_TIERS[SAME_DAY_WITHDRAWAL_TIERS.length - 1];
+  const fee = tier.flatFeeCents !== null ? tier.flatFeeCents : Math.max(1, Math.round(gross * (tier.pctRate ?? 0)));
+  const net = Math.max(0, gross - fee);
+  return { speed, grossCents: gross, feeCents: fee, netCents: net, tierLabel: tier.label, etaLabel: "Typically 30 minutes – 5 hours" };
+}
+
+export function dollars(cents: number) {
+  return (cents / 100).toFixed(2);
+}

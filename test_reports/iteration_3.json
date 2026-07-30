@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 3: tiered platform fee + tiered same-day withdrawal fee re-verification. Backend 46/46 pytest cases pass (100%), including a new /app/backend/tests/test_tiered_fees.py suite (14 cases) covering /meta/fees, /meta/fee-preview boundary math, H2H tiered payout via live challenge flow (stake $20 → pool $40 → 8% and stake $100 → pool $200 → 6%), withdrawal Standard/Free + Same-day tiers ($25→$1.99, $500→$7.99, $2000→$20 pct), revenue row generated only for same-day, tournament 4×$25 pool $100 → 8% fee $8, net $92 split 70/30 (winner $64.40, RU $27.60). Updated 2 pre-existing tests in backend_test.py that were stale after this fee rewrite: withdraw fee test (was hard-coded 2% flat) and tournament E2E prize amounts (were 70/20 pre-fee). Frontend verified for all 4 target screens on 390×844 viewport: /wallet/withdraw shows correct fee math for Standard ($120→Free/$120) and Same-day ($120→$4.99/$115.01, tier '$101 – $250'); /challenge/create updates live PAYOUT BREAKDOWN card (stake 50→pool $100→8%→winner $92; stake 300→pool $600→5%→winner $570); /tournament/create shows PROJECTED PAYOUT card computing pool=entry*max+starting_prize with correct tier (defaults 10×16+100=$260→6%→net $244.40); /rules renders both Platform Service Fee (4 rows 10%→5%) and Same-Day Withdrawal Fee tables ($1.99…$12.99…1%). SPEC DISCREPANCY: the review request stated stake=$20 should hit '$1 – $25' 10% tier, but stake*2=$40 correctly lands in the '$26 – $100' 8% tier per fees.py — the code is internally consistent; the review-text tier label is off. All other numbers match the review spec exactly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "REVIEW SPEC (documentation)", "issue": "Review request says 'H2H stake=$20 (pool $40) → fee_tier $1 – $25, fee_rate 0.1, fee $4, winner $36'. Per fees.py FEE_TIERS the $26 – $100 tier starts at $25.01, so a $40 pool correctly resolves to 8% tier ($3.20 fee, $36.80 payout). Backend is correct — the review sentence was mis-stated. No code change required; confirming with main agent."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "wallet/withdraw", "issues": ["Two-card speed selector (Standard/FREE pill vs Same-day/flash) reads clearly on 390px. Active state uses brand color border + tinted bg — good contrast."]},
+      {"screen": "challenge/create", "issues": ["PAYOUT BREAKDOWN card updates instantly on stake change; tier label + rate + winner amount all render on one line each — clean."]},
+      {"screen": "tournament/create", "issues": ["PROJECTED PAYOUT (IF FULL) card exposes 70/30 split note and 'Bigger pools unlock lower fees' hint — helpful UX."]},
+      {"screen": "rules", "issues": ["Both new tier tables render below existing rule cards, right-aligned rate/fee column, good typographic hierarchy."]}
+    ],
+    "react_native_issues": [
+      {"component": "Image resizeMode", "issue": "Console warning still present from welcome screen: 'Image: style.resizeMode is deprecated. Please use props.resizeMode.' Reference: /app/frontend/app/(auth)/welcome.tsx background Image (unresolved from iteration 2)."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tiered_fees.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/tiered_fees.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: fix the review-request text so that the stake=$20 example says 'tier $26 – $100, 8%, fee $3.20, winner $36.80' — the backend is correct, but the spec sentence is self-contradictory (a $40 pool cannot be in the $1 – $25 tier).",
+    "OPTIONAL: migrate <Image style={{resizeMode:'cover'}}/> → prop resizeMode='cover' in /app/frontend/app/(auth)/welcome.tsx to silence deprecation warning."
+  ],
+  "critical_code_review_comments": [
+    "fees.py: tiers are inclusive on both ends with a 0.01 gap between max_pool of one tier and min_pool of the next (e.g. 25.00 vs 25.01). A pool of exactly $25.005 rounds via _round2 → $25.01, so it falls into the next tier — behavior is consistent but subtle; consider using [min, max) intervals for clearer semantics.",
+    "server.py _finalize_tournament_match: writes brackets both inside the else-branch (via update_one with final payout) and again at end via a second update_one — harmless idempotent overwrite, minor cleanup opportunity.",
+    "server.py withdrawal: revenue row is created only when fee>0, which correctly excludes standard withdrawals — verified in tests. Good.",
+    "server.py currently 1247 lines — same recommendation from iter 1/2 to split into routers. Non-blocking."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_tiered_fees.py",
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100% (46/46 pytest cases, includes 14 new tiered-fee cases)", "frontend": "100% of new tiered-fee UI (withdraw speed selector, challenge/tournament fee-preview cards, rules tables)"},
+  "seed_data_creation": "Each tiered-fee test provisions fresh TEST_fee_* users via /auth/register + /auth/verify-email and directly seeds wallet_balance via MongoDB (motor) to bypass Stripe. Tournament test creates a new 4-player tournament (entry $25, pool $100) and runs it to completion.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) Backend base URL: EXPO_PUBLIC_BACKEND_URL. 2) demo@matchpoint.gg / Demo@123 and admin@matchpoint.gg / Admin@123. 3) Run `pytest backend/tests/` — all 46 pass in ~80s. 4) Tiered-fee suite: backend/tests/test_tiered_fees.py — self-provisioning, uses motor to top up wallet balances directly. 5) The old backend_test.py TestWallet.test_withdraw_deducts_and_applies_fee was renamed to test_withdraw_standard_free; old tournament E2E prize assertions were updated to 64.40/27.60 (8% tier on $100 pool). 6) Frontend fee-preview screens confirmed live-updating on 390×844: /wallet/withdraw, /challenge/create, /tournament/create, /rules.",
+  "rca_of_issue": "No new bug. Review-request text discrepancy documented above."
+}

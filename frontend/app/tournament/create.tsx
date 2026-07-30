@@ -5,8 +5,9 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";
 import { Ionicons } from "@expo/vector-icons";
 import { Chip, Button, styles_shared } from "@/src/components/ui";
-import { colors, spacing } from "@/src/theme";
+import { colors, spacing, radius } from "@/src/theme";
 import { api } from "@/src/api";
+import { calculateFee } from "@/src/fees";
 
 export default function CreateTournament() {
   const router = useRouter();
@@ -88,6 +89,25 @@ export default function CreateTournament() {
           <Text style={styles_shared.label}>STARTING PRIZE POOL ($)</Text>
           <TextInput testID="tournament-prize-input" style={styles_shared.input} value={prize} onChangeText={setPrize} keyboardType="decimal-pad" placeholderTextColor={colors.onSurfaceTertiary} />
         </View>
+        {(() => {
+          const entry = parseFloat(fee) || 0;
+          const players = parseInt(max) || 0;
+          const startingPool = parseFloat(prize) || 0;
+          const pool = Math.round((entry * players + startingPool) * 100) / 100;
+          const bd = calculateFee(pool);
+          return (
+            <View style={styles.feeCard}>
+              <Text style={styles.feeCardTitle}>PROJECTED PAYOUT (IF FULL)</Text>
+              <View style={styles.feeRow}><Text style={styles.feeLabel}>Prize pool ({players} × ${entry.toFixed(0)} + ${startingPool.toFixed(0)})</Text><Text style={styles.feeVal}>${bd.pool.toFixed(2)}</Text></View>
+              <View style={styles.feeRow}><Text style={styles.feeLabel}>Service fee ({(bd.rate * 100).toFixed(0)}% · {bd.tierLabel})</Text><Text style={styles.feeVal}>-${bd.serviceFee.toFixed(2)}</Text></View>
+              <View style={[styles.feeRow, { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: colors.divider }]}>
+                <Text style={[styles.feeLabel, { color: colors.onSurface, fontWeight: "800" }]}>Net to players (70/30 split)</Text>
+                <Text style={[styles.feeVal, { color: colors.brand, fontWeight: "900", fontSize: 16 }]}>${bd.netPrize.toFixed(2)}</Text>
+              </View>
+              <Text style={{ color: colors.onSurfaceTertiary, fontSize: 11, marginTop: 6 }}>Bigger pools unlock lower fees — see all tiers in Rules.</Text>
+            </View>
+          );
+        })()}
         {type === "sponsored" && (
           <View>
             <Text style={styles_shared.label}>SPONSOR NAME</Text>
@@ -113,4 +133,9 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: spacing.lg },
   title: { color: colors.onSurface, fontSize: 16, fontWeight: "800", letterSpacing: 1 },
   stickyBar: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border, padding: spacing.lg },
+  feeCard: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg },
+  feeCardTitle: { color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1, fontWeight: "800", marginBottom: 6 },
+  feeRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4 },
+  feeLabel: { color: colors.onSurfaceTertiary, fontSize: 13, flex: 1, marginRight: 6 },
+  feeVal: { color: colors.onSurface, fontSize: 14, fontWeight: "700" },
 });

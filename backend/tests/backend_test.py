@@ -192,26 +192,20 @@ class TestWallet:
         assert st.status_code == 200
         assert "payment_status" in st.json() or "status" in st.json()
 
-    def test_withdraw_deducts_and_applies_fee(self, demo_token):
+    def test_withdraw_standard_free(self, demo_token):
         # baseline
         b0 = _get("/wallet", token=demo_token).json()["balance"]
         amount = 20.0
-        # ensure enough balance
         if b0 < amount:
             pytest.skip("insufficient demo balance for withdrawal test")
-        r = _post("/wallet/withdraw", {"amount": amount, "bank_account": "****9999"}, token=demo_token)
+        r = _post("/wallet/withdraw",
+                  {"amount": amount, "bank_account": "****9999", "speed": "standard"},
+                  token=demo_token)
         assert r.status_code == 200, r.text
-        b1 = _get("/wallet", token=demo_token).json()["balance"]
-        # exact deduction: full amount
-        assert abs((b0 - b1) - amount) < 0.01, f"expected {amount} deducted, got {b0 - b1}"
-        # verify a transaction with 2% fee exists
-        txs = _get("/wallet/transactions", token=demo_token).json()
-        wd = [t for t in txs if t.get("type") in ("withdraw", "withdrawal")]
-        assert wd, "no withdraw tx recorded"
-        latest = wd[0]
-        fee = latest.get("fee", 0)
-        # 2% fee
-        assert abs(fee - amount * 0.02) < 0.01, f"expected fee {amount*0.02}, got {fee}"
+        d = r.json()
+        assert d["fee"] == 0
+        assert abs(d["net"] - amount) < 0.01
+        assert d["tier"] == "Free"
 
 
 # ============================================================
@@ -391,19 +385,19 @@ class TestTournamentE2E:
         assert t2["status"] == "completed", f"expected completed, got {t2['status']}"
         assert t2.get("winner_id") == finals_p1
 
-        # Winner wallet should have received 70% of 100 = 70
+        # Winner wallet should have received 70% of net (after 8% platform tier on $100 pool) = 64.40
         winner_tok = token_by_uid[finals_p1]
         txs = _get("/wallet/transactions", token=winner_tok).json()
         prize_txs = [t for t in txs if t.get("type") == "prize_winning" and t.get("ref_id") == tid]
         assert prize_txs, "no prize_winning tx for winner"
-        assert abs(prize_txs[0]["amount"] - 70.0) < 0.01, f"expected 70, got {prize_txs[0]['amount']}"
+        assert abs(prize_txs[0]["amount"] - 64.40) < 0.01, f"expected 64.40, got {prize_txs[0]['amount']}"
 
-        # Runner-up should have received 20% = 20
+        # Runner-up should have received 30% of net = 27.60
         runner_tok = token_by_uid[finals_p2]
         txs_r = _get("/wallet/transactions", token=runner_tok).json()
         prize_txs_r = [t for t in txs_r if t.get("type") == "prize_winning" and t.get("ref_id") == tid]
         assert prize_txs_r, "no prize_winning tx for runner-up"
-        assert abs(prize_txs_r[0]["amount"] - 20.0) < 0.01
+        assert abs(prize_txs_r[0]["amount"] - 27.60) < 0.01
 
     def test_tournament_report_dispute_and_admin_resolve(self, demo_token, admin_token):
         """Report same match with disagreement → disputed → admin resolves."""

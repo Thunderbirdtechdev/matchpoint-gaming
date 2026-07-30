@@ -12,6 +12,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import os, uuid, secrets, hashlib, logging, httpx, jwt, bcrypt, asyncio, random
 from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest, CheckoutStatusResponse
+from fees import (
+    calculate_fee, calculate_challenge_fee, calculate_tournament_fee,
+    calculate_withdrawal_fee, FEE_TIERS, SAME_DAY_WITHDRAWAL_TIERS,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -169,6 +173,7 @@ class DepositIn(BaseModel):
 
 class WithdrawIn(BaseModel):
     amount: float
+    speed: Literal["standard", "same_day"] = "standard"
     bank_account: Optional[str] = "****1234"
 
 class ChallengeIn(BaseModel):
@@ -524,30 +529,38 @@ async def withdraw(data: WithdrawIn, user: dict = Depends(current_user)):
         raise HTTPException(400, "Minimum withdrawal is $10")
     if data.amount > balance:
         raise HTTPException(400, "Insufficient balance")
-    fee = round(data.amount * WITHDRAWAL_FEE_PCT / 100, 2)
-    net = round(data.amount - fee, 2)
+    amount_cents = int(round(data.amount * 100))
+    wb = calculate_withdrawal_fee(amount_cents, data.speed)
+    fee = round(wb.fee_cents / 100, 2)
+    net = round(wb.net_cents / 100, 2)
     tx_id = uid()
     # Deduct immediately
     await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": -data.amount}})
     await db.wallet_tx.insert_one({
         "id": tx_id, "user_id": user["id"], "type": "withdrawal",
         "amount": data.amount, "fee": fee, "net": net,
+        "speed": data.speed, "tier": wb.tier_label, "eta": wb.eta_label,
         "bank_account": data.bank_account, "status": "processing",
         "created_at": utcnow().isoformat(),
     })
-    # Record fee revenue
-    await db.revenue.insert_one({
-        "id": uid(), "type": "withdrawal_fee", "amount": fee,
-        "user_id": user["id"], "tx_id": tx_id, "created_at": utcnow().isoformat(),
-    })
-    # Simulate async processing (auto-complete in 2s)
+    # Record fee revenue (only same-day withdrawals generate revenue)
+    if fee > 0:
+        await db.revenue.insert_one({
+            "id": uid(), "type": "withdrawal_fee", "amount": fee,
+            "user_id": user["id"], "tx_id": tx_id, "speed": data.speed,
+            "tier": wb.tier_label, "created_at": utcnow().isoformat(),
+        })
+    # Simulate async processing. Same-day settles in 2s, standard "settles" in 5s (mocked; real would be days).
+    settle_delay = 2 if data.speed == "same_day" else 5
+
     async def _complete():
-        await asyncio.sleep(2)
+        await asyncio.sleep(settle_delay)
         await db.wallet_tx.update_one({"id": tx_id}, {"$set": {"status": "completed", "completed_at": utcnow().isoformat()}})
-        await _notify(user["id"], "withdrawal", f"Withdrawal of ${net:.2f} sent to your bank", "wallet")
+        await _notify(user["id"], "withdrawal", f"Withdrawal of ${net:.2f} sent to your bank ({wb.eta_label})", "wallet")
     asyncio.create_task(_complete())
-    await _notify(user["id"], "withdrawal", f"Withdrawal of ${data.amount:.2f} initiated (fee: ${fee:.2f})", "wallet")
-    return {"tx_id": tx_id, "fee": fee, "net": net, "status": "processing"}
+    speed_label = "Same-day" if data.speed == "same_day" else "Standard"
+    await _notify(user["id"], "withdrawal", f"{speed_label} withdrawal of ${data.amount:.2f} initiated (fee: ${fee:.2f})", "wallet")
+    return {"tx_id": tx_id, "fee": fee, "net": net, "speed": data.speed, "tier": wb.tier_label, "eta": wb.eta_label, "status": "processing"}
 
 @api.post("/wallet/webhook")
 async def stripe_webhook(request: Request):
@@ -684,9 +697,10 @@ async def _finalize_challenge(ch_id: str, winner_id: str):
     ch = await db.challenges.find_one({"id": ch_id})
     if not ch or ch["status"] == "finalized":
         return
-    total_pot = ch["stake"] * 2
-    fee = round(total_pot * PLATFORM_FEE_PCT / 100, 2)
-    payout = round(total_pot - fee, 2)
+    breakdown = calculate_challenge_fee(ch["stake"])
+    total_pot = breakdown.pool
+    fee = breakdown.service_fee
+    payout = breakdown.net_prize
     loser_id = ch["opponent_id"] if winner_id == ch["creator_id"] else ch["creator_id"]
     # Release both pending stakes
     await db.users.update_one({"id": ch["creator_id"]}, {"$inc": {"pending_balance": -ch["stake"]}})
@@ -694,11 +708,17 @@ async def _finalize_challenge(ch_id: str, winner_id: str):
     # Payout winner
     await db.users.update_one({"id": winner_id}, {"$inc": {"wallet_balance": payout, "stats.wins": 1, "stats.earnings": payout, "stats.rank": 25, "stats.matches": 1}})
     await db.users.update_one({"id": loser_id}, {"$inc": {"stats.losses": 1, "stats.rank": -15, "stats.matches": 1}})
-    await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "finalized", "winner_id": winner_id, "payout": payout, "platform_fee": fee, "finalized_at": utcnow().isoformat()}})
+    await db.challenges.update_one({"id": ch_id}, {"$set": {
+        "status": "finalized", "winner_id": winner_id, "payout": payout,
+        "platform_fee": fee, "fee_tier": breakdown.tier_label, "fee_rate": breakdown.rate,
+        "finalized_at": utcnow().isoformat(),
+    }})
     # Log revenue
     await db.revenue.insert_one({
         "id": uid(), "type": "platform_fee", "amount": fee,
-        "source": "h2h", "ref_id": ch_id, "created_at": utcnow().isoformat(),
+        "source": "h2h", "ref_id": ch_id, "pool": total_pot,
+        "rate": breakdown.rate, "tier": breakdown.tier_label,
+        "created_at": utcnow().isoformat(),
     })
     # Log wallet txs
     await db.wallet_tx.insert_one({
@@ -759,14 +779,9 @@ async def register_tournament(t_id: str, user: dict = Depends(current_user)):
         if u.get("wallet_balance", 0) < fee:
             raise HTTPException(400, "Insufficient balance for entry fee")
         await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": -fee}})
-        # Log platform fee (a portion of entry) - here we say full entry goes to prize pool + fee
-        platform_cut = round(fee * PLATFORM_FEE_PCT / 100, 2)
-        prize_add = fee - platform_cut
-        await db.revenue.insert_one({
-            "id": uid(), "type": "tournament_fee", "amount": platform_cut,
-            "source": "tournament", "ref_id": t_id, "created_at": utcnow().isoformat(),
-        })
-        await db.tournaments.update_one({"id": t_id}, {"$inc": {"prize_pool": prize_add}})
+        # Full entry fee goes into the prize pool; platform fee is applied on the
+        # TOTAL pool (tiered) at final payout.
+        await db.tournaments.update_one({"id": t_id}, {"$inc": {"prize_pool": fee}})
         await db.wallet_tx.insert_one({
             "id": uid(), "user_id": user["id"], "type": "tournament_entry",
             "amount": -fee, "status": "completed", "ref_id": t_id,
@@ -936,12 +951,14 @@ async def _finalize_tournament_match(t_id: str, brackets: list, round_i: int, ma
             next_match["status"] = "ready"
         await _notify(winner_id, "match_starting", "You advanced to the next round!", "tournament", t_id)
     else:
-        # Final round → tournament complete, payout
+        # Final round → tournament complete, payout using tiered platform fee on total pool.
         t = await db.tournaments.find_one({"id": t_id})
         prize_pool = t.get("prize_pool", 0)
-        payout = round(prize_pool * 0.7, 2)  # 70% to winner
-        runner_up_prize = round(prize_pool * 0.2, 2)  # 20% to runner up
-        platform_cut = round(prize_pool * 0.1, 2)
+        breakdown = calculate_fee(prize_pool)
+        platform_cut = breakdown.service_fee
+        net_prize = breakdown.net_prize
+        payout = round(net_prize * 0.7, 2)  # 70% of net to winner
+        runner_up_prize = round(net_prize - payout, 2)  # 30% of net to runner-up
         await db.users.update_one({"id": winner_id}, {"$inc": {"wallet_balance": payout, "stats.earnings": payout}})
         await db.wallet_tx.insert_one({
             "id": uid(), "user_id": winner_id, "type": "prize_winning",
@@ -959,9 +976,16 @@ async def _finalize_tournament_match(t_id: str, brackets: list, round_i: int, ma
         if platform_cut > 0:
             await db.revenue.insert_one({
                 "id": uid(), "type": "tournament_platform_cut", "amount": platform_cut,
-                "source": "tournament", "ref_id": t_id, "created_at": utcnow().isoformat(),
+                "source": "tournament", "ref_id": t_id, "pool": prize_pool,
+                "rate": breakdown.rate, "tier": breakdown.tier_label,
+                "created_at": utcnow().isoformat(),
             })
-        await db.tournaments.update_one({"id": t_id}, {"$set": {"status": "completed", "winner_id": winner_id, "completed_at": utcnow().isoformat()}})
+        await db.tournaments.update_one({"id": t_id}, {"$set": {
+            "status": "completed", "winner_id": winner_id, "runner_up_id": loser_id,
+            "final_payout": payout, "final_runner_up_prize": runner_up_prize,
+            "final_platform_fee": platform_cut, "fee_tier": breakdown.tier_label,
+            "completed_at": utcnow().isoformat(),
+        }})
         await _notify(winner_id, "prize_payout", f"CHAMPION! You won ${payout:.2f}", "tournament", t_id)
     await db.tournaments.update_one({"id": t_id}, {"$set": {"brackets": brackets}})
 
@@ -1048,8 +1072,9 @@ async def rules():
         "sections": [
             {"title": "Fair Play", "content": "No cheating, no smurfing, no collusion. Violations result in immediate suspension and forfeiture."},
             {"title": "Reporting Results", "content": "Both players must report the winner. Disputes require evidence and admin review."},
-            {"title": "Wallet", "content": "Deposits are instant. Withdrawals process within 24 hours. A 2% fee applies to withdrawals."},
-            {"title": "Tournaments", "content": "Entry fees fund prize pools. Late registrations may forfeit their entry."},
+            {"title": "Wallet", "content": "Deposits are instant. Standard withdrawals (2–5 business days) are free. Same-day withdrawals use a tiered fee (see below)."},
+            {"title": "Tournaments", "content": "Entry fees fund prize pools. Platform service fee is tiered on the total pool: lower rates on bigger events. Late registrations may forfeit their entry."},
+            {"title": "1v1 Challenges", "content": "Winner takes the pool minus platform service fee (10% → 5% depending on pool size)."},
         ]
     }
 
@@ -1058,8 +1083,8 @@ async def faq():
     return [
         {"q": "How do I deposit funds?", "a": "Go to Wallet → Deposit and choose an amount. Deposits are processed via Stripe."},
         {"q": "When do I get my winnings?", "a": "Prizes are credited immediately after both players report the same winner."},
-        {"q": "What's the platform fee?", "a": "10% of the total pot for challenges and tournaments."},
-        {"q": "How do withdrawals work?", "a": "Withdrawals process automatically within 24 hours with a 2% fee."},
+        {"q": "What's the platform fee?", "a": "Tiered on the total prize pool: 10% ($1–$25), 8% ($26–$100), 6% ($101–$500), 5% ($501+)."},
+        {"q": "How do withdrawals work?", "a": "Standard withdrawals (2–5 business days) are FREE. Same-day withdrawals (30 min – 5 hrs) use tiered fees: $1.99–$12.99 flat under $1,000, or 1% above."},
         {"q": "What if there's a dispute?", "a": "Submit evidence in the challenge, and our admin team will review within 48 hours."},
     ]
 
@@ -1180,6 +1205,31 @@ async def root():
 @api.get("/meta/games")
 async def meta_games():
     return {"games": GAMES, "platforms": PLATFORMS, "regions": REGIONS}
+
+
+@api.get("/meta/fees")
+async def meta_fees():
+    return {
+        "platform_tiers": [
+            {"min_pool": t.min_pool, "max_pool": (None if t.max_pool == float("inf") else t.max_pool),
+             "rate": t.rate, "label": t.label} for t in FEE_TIERS
+        ],
+        "withdrawal_tiers_same_day": [
+            {"min_cents": t.min_cents, "max_cents": (None if t.max_cents >= 10**12 else t.max_cents),
+             "flat_fee_cents": t.flat_fee_cents, "pct_rate": t.pct_rate, "label": t.label}
+            for t in SAME_DAY_WITHDRAWAL_TIERS
+        ],
+        "withdrawal_speeds": [
+            {"key": "standard", "label": "Standard", "eta": "2–5 business days", "fee": "Free"},
+            {"key": "same_day", "label": "Same-day", "eta": "Typically 30 min – 5 hours", "fee": "Tiered"},
+        ],
+    }
+
+
+@api.get("/meta/fee-preview")
+async def fee_preview(pool: float):
+    b = calculate_fee(pool)
+    return {"pool": b.pool, "rate": b.rate, "tier": b.tier_label, "service_fee": b.service_fee, "net_prize": b.net_prize}
 
 app.include_router(api)
 
