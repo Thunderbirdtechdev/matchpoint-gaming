@@ -12,7 +12,7 @@ export default function Play() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<"open" | "mine">("open");
+  const [tab, setTab] = useState<"open" | "mine" | "invites">("open");
   const [gameFilter, setGameFilter] = useState<string>("");
   const [games, setGames] = useState<string[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -20,7 +20,10 @@ export default function Play() {
 
   const load = useCallback(async () => {
     try {
-      const q = tab === "mine" ? "?mine=true" : `?status=open${gameFilter ? `&game=${encodeURIComponent(gameFilter)}` : ""}`;
+      let q = "";
+      if (tab === "invites") q = "?invites=true";
+      else if (tab === "mine") q = "?mine=true";
+      else q = `?status=open${gameFilter ? `&game=${encodeURIComponent(gameFilter)}` : ""}`;
       const data = await api<any[]>(`/challenges${q}`);
       setItems(data);
     } catch (e) { console.log(e); }
@@ -45,7 +48,10 @@ export default function Play() {
           } />
           <View style={styles.tabs}>
             <TouchableOpacity testID="play-tab-open" onPress={() => setTab("open")} style={[styles.tab, tab === "open" && styles.tabActive]}>
-              <Text style={[styles.tabLabel, tab === "open" && styles.tabLabelActive]}>OPEN CHALLENGES</Text>
+              <Text style={[styles.tabLabel, tab === "open" && styles.tabLabelActive]}>OPEN</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID="play-tab-invites" onPress={() => setTab("invites")} style={[styles.tab, tab === "invites" && styles.tabActive]}>
+              <Text style={[styles.tabLabel, tab === "invites" && styles.tabLabelActive]}>INVITES{items.length > 0 && tab !== "invites" ? "" : ""}</Text>
             </TouchableOpacity>
             <TouchableOpacity testID="play-tab-mine" onPress={() => setTab("mine")} style={[styles.tab, tab === "mine" && styles.tabActive]}>
               <Text style={[styles.tabLabel, tab === "mine" && styles.tabLabelActive]}>MY MATCHES</Text>

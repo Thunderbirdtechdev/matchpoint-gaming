@@ -11,8 +11,8 @@ import { useAuth } from "@/src/auth";
 export default function Login() {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [email, setEmail] = useState("demo@matchpoint.gg");
-  const [password, setPassword] = useState("Demo@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 

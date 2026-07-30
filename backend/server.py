@@ -182,6 +182,7 @@ class ChallengeIn(BaseModel):
     stake: float
     region: str = "GLOBAL"
     notes: Optional[str] = ""
+    opponent_username: Optional[str] = None  # If set, creates a private invite to that user only
 
 class ChallengeResultIn(BaseModel):
     winner_id: str  # "me" or opponent id
@@ -236,7 +237,7 @@ REGIONS = ["NA", "EU", "APAC", "LATAM", "GLOBAL"]
 async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
-    await db.users.create_index("username")
+    await db.users.create_index("username", unique=True)
     await db.otp.create_index([("email", 1), ("purpose", 1)])
     await db.otp.create_index("expires_at", expireAfterSeconds=0)
     await db.sessions.create_index("id", unique=True)
@@ -244,7 +245,7 @@ async def startup():
     await db.tournaments.create_index("id", unique=True)
     await db.wallet_tx.create_index("id", unique=True)
     await db.stripe_events.create_index("id", unique=True)
-    # Seed admin if none exists
+    # Seed a single admin account for admin dashboard access (no other seed data).
     admin = await db.users.find_one({"email": "admin@matchpoint.gg"})
     if not admin:
         await db.users.insert_one({
@@ -256,36 +257,6 @@ async def startup():
             "stats": {"wins": 0, "losses": 0, "earnings": 0.0, "rank": 1500, "matches": 0},
             "badges": ["founder"], "created_at": utcnow().isoformat(),
         })
-    # Seed demo user
-    demo = await db.users.find_one({"email": "demo@matchpoint.gg"})
-    if not demo:
-        await db.users.insert_one({
-            "id": uid(), "email": "demo@matchpoint.gg", "username": "ProGamer",
-            "password_hash": hash_pw("Demo@123"),
-            "email_verified": True, "is_admin": False, "suspended": False,
-            "bio": "Ranked #1 in Call of Duty", "avatar": "", "favorite_games": ["Call of Duty", "Valorant"],
-            "wallet_balance": 500.0, "pending_balance": 0.0,
-            "stats": {"wins": 24, "losses": 11, "earnings": 1250.0, "rank": 1780, "matches": 35},
-            "badges": ["early_adopter", "verified"], "created_at": utcnow().isoformat(),
-        })
-    # Seed a few sample tournaments if empty
-    if await db.tournaments.count_documents({}) == 0:
-        samples = [
-            {"name": "Nightfall Championship", "game": "Call of Duty", "sponsor": "Red Bull Gaming", "tournament_type": "sponsored", "banner": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800"},
-            {"name": "Rocket League Blitz", "game": "Rocket League", "tournament_type": "public", "banner": ""},
-            {"name": "FIFA Weekly Cup", "game": "FIFA 25", "tournament_type": "public", "banner": ""},
-            {"name": "Valorant Masters", "game": "Valorant", "sponsor": "Logitech G", "tournament_type": "sponsored", "banner": ""},
-        ]
-        for s in samples:
-            await db.tournaments.insert_one({
-                "id": uid(), "name": s["name"], "game": s["game"], "platform": "PC",
-                "entry_fee": 10.0, "max_players": 16, "prize_pool": 500.0,
-                "tournament_type": s["tournament_type"], "sponsor": s.get("sponsor"),
-                "banner": s.get("banner", ""), "description": "Compete against top players for glory.",
-                "start_at": (utcnow() + timedelta(days=random.randint(1, 7))).isoformat(),
-                "status": "open", "registered": [], "brackets": [],
-                "created_by": "system", "created_at": utcnow().isoformat(),
-            })
 
 # ============================================================
 # AUTH
@@ -590,32 +561,99 @@ async def create_challenge(data: ChallengeIn, user: dict = Depends(current_user)
     u = await db.users.find_one({"id": user["id"]})
     if u.get("wallet_balance", 0) < data.stake:
         raise HTTPException(400, "Insufficient balance for stake")
+    # Resolve invited opponent (if any)
+    invited_opponent = None
+    if data.opponent_username:
+        target = await db.users.find_one({"username": data.opponent_username})
+        if not target:
+            raise HTTPException(404, f"No user found with username '{data.opponent_username}'")
+        if target["id"] == user["id"]:
+            raise HTTPException(400, "You cannot invite yourself")
+        if target.get("suspended"):
+            raise HTTPException(400, "That player is not available")
+        invited_opponent = target
     ch_id = uid()
-    # Lock stake
+    # Lock creator stake
     await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": -data.stake, "pending_balance": data.stake}})
     doc = {
         "id": ch_id, "creator_id": user["id"], "creator_username": u["username"],
-        "opponent_id": None, "opponent_username": None,
+        "opponent_id": (invited_opponent["id"] if invited_opponent else None),
+        "opponent_username": (invited_opponent["username"] if invited_opponent else None),
         "game": data.game, "platform": data.platform, "region": data.region,
         "stake": data.stake, "notes": data.notes,
-        "status": "open",  # open -> matched -> reported -> disputed -> finalized -> cancelled
+        # invited = private invite awaiting opponent; open = public listing anyone can accept
+        "status": ("invited" if invited_opponent else "open"),
+        "invited": bool(invited_opponent),
         "results": {}, "winner_id": None,
         "created_at": utcnow().isoformat(),
     }
     await db.challenges.insert_one(doc)
+    if invited_opponent:
+        await _notify(
+            invited_opponent["id"], "challenge_invite",
+            f"{u['username']} invited you to a ${data.stake:.2f} {data.game} match",
+            "challenge", ch_id,
+        )
     return serialize(doc)
 
+
+@api.post("/challenges/{ch_id}/decline")
+async def decline_challenge(ch_id: str, user: dict = Depends(current_user)):
+    ch = await db.challenges.find_one({"id": ch_id})
+    if not ch:
+        raise HTTPException(404, "Not found")
+    if ch["status"] != "invited":
+        raise HTTPException(400, "Only pending invites can be declined")
+    if ch.get("opponent_id") != user["id"]:
+        raise HTTPException(403, "Only the invited player can decline")
+    # Refund creator stake
+    await db.users.update_one({"id": ch["creator_id"]}, {"$inc": {"wallet_balance": ch["stake"], "pending_balance": -ch["stake"]}})
+    await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "declined", "declined_at": utcnow().isoformat()}})
+    await _notify(ch["creator_id"], "challenge_declined", f"{user['username']} declined your ${ch['stake']:.2f} {ch['game']} invite", "challenge", ch_id)
+    return {"ok": True}
+
 @api.get("/challenges")
-async def list_challenges(status: Optional[str] = None, game: Optional[str] = None, mine: bool = False, user: dict = Depends(current_user)):
-    q = {}
+async def list_challenges(status: Optional[str] = None, game: Optional[str] = None, mine: bool = False, invites: bool = False, user: dict = Depends(current_user)):
+    q: dict = {}
     if status:
         q["status"] = status
     if game:
         q["game"] = game
-    if mine:
+    if invites:
+        # Invites received by the current user (private invites awaiting them)
+        q["status"] = "invited"
+        q["opponent_id"] = user["id"]
+    elif mine:
         q["$or"] = [{"creator_id": user["id"]}, {"opponent_id": user["id"]}]
+    else:
+        # Public listing: never return private invites to non-participants
+        if "status" not in q:
+            q["status"] = {"$ne": "invited"}
     cursor = db.challenges.find(q, {"_id": 0}).sort("created_at", -1).limit(100)
     return await cursor.to_list(100)
+
+
+@api.get("/users/search")
+async def user_search(q: str = "", user: dict = Depends(current_user)):
+    """Autocomplete by username prefix. Excludes current user, admin, suspended."""
+    query = (q or "").strip()
+    if len(query) < 1:
+        return []
+    import re
+    pattern = "^" + re.escape(query)
+    cursor = db.users.find(
+        {"username": {"$regex": pattern, "$options": "i"},
+         "id": {"$ne": user["id"]},
+         "is_admin": {"$ne": True},
+         "suspended": {"$ne": True}},
+        {"_id": 0, "id": 1, "username": 1, "avatar": 1, "stats.rank": 1, "stats.wins": 1},
+    ).sort("username", 1).limit(10)
+    users = await cursor.to_list(10)
+    return [{
+        "id": u["id"], "username": u["username"], "avatar": u.get("avatar", ""),
+        "rank": u.get("stats", {}).get("rank", 1500),
+        "wins": u.get("stats", {}).get("wins", 0),
+    } for u in users]
 
 @api.get("/challenges/{ch_id}")
 async def get_challenge(ch_id: str, _: dict = Depends(current_user)):
@@ -629,10 +667,12 @@ async def accept_challenge(ch_id: str, user: dict = Depends(current_user)):
     ch = await db.challenges.find_one({"id": ch_id})
     if not ch:
         raise HTTPException(404, "Not found")
-    if ch["status"] != "open":
-        raise HTTPException(400, "Challenge not open")
+    if ch["status"] not in ("open", "invited"):
+        raise HTTPException(400, "Challenge not accepting players")
     if ch["creator_id"] == user["id"]:
         raise HTTPException(400, "Cannot accept own challenge")
+    if ch["status"] == "invited" and ch.get("opponent_id") != user["id"]:
+        raise HTTPException(403, "This is a private invite")
     u = await db.users.find_one({"id": user["id"]})
     if u.get("wallet_balance", 0) < ch["stake"]:
         raise HTTPException(400, "Insufficient balance for stake")
@@ -652,11 +692,14 @@ async def cancel_challenge(ch_id: str, user: dict = Depends(current_user)):
         raise HTTPException(404, "Not found")
     if ch["creator_id"] != user["id"]:
         raise HTTPException(403, "Only creator can cancel")
-    if ch["status"] != "open":
-        raise HTTPException(400, "Only open challenges can be cancelled")
+    if ch["status"] not in ("open", "invited"):
+        raise HTTPException(400, "Only open or pending-invite challenges can be cancelled")
     # Refund stake
     await db.users.update_one({"id": user["id"]}, {"$inc": {"wallet_balance": ch["stake"], "pending_balance": -ch["stake"]}})
     await db.challenges.update_one({"id": ch_id}, {"$set": {"status": "cancelled"}})
+    # If it was a private invite, notify the invited opponent that it's been rescinded
+    if ch.get("opponent_id") and ch.get("status") == "invited":
+        await _notify(ch["opponent_id"], "challenge_invite_cancelled", f"Your {ch['game']} invite was cancelled", "challenge", ch_id)
     return {"ok": True}
 
 @api.post("/challenges/{ch_id}/report")

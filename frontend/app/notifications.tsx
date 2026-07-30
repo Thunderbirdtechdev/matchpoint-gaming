@@ -18,6 +18,8 @@ export default function Notifications() {
     deposit: "arrow-down-circle", withdrawal: "arrow-up-circle", prize_payout: "trophy",
     match_starting: "flash", match_results: "flag", tournament_registration: "ticket",
     support_update: "chatbubbles", friend_request: "person-add", promotion: "megaphone",
+    challenge_invite: "person-add", challenge_declined: "close-circle",
+    challenge_invite_cancelled: "ban",
   }[kind] || "notifications");
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
@@ -30,16 +32,28 @@ export default function Notifications() {
       </SafeAreaView>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 20, gap: spacing.sm }}>
         {items.length === 0 ? <Empty title="You're all caught up" subtitle="New activity will appear here." /> : items.map(n => (
-          <Card key={n.id} style={{ backgroundColor: n.read ? colors.surfaceSecondary : colors.surfaceTertiary }}>
-            <View style={{ flexDirection: "row", gap: spacing.md }}>
-              <View style={styles.icon}><Ionicons name={iconFor(n.kind) as any} size={18} color={colors.brand} /></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.msg}>{n.message}</Text>
-                <Text style={styles.time}>{new Date(n.created_at).toLocaleString()}</Text>
+          <TouchableOpacity
+            key={n.id}
+            testID={`notif-${n.id}`}
+            activeOpacity={0.85}
+            onPress={async () => {
+              if (!n.read) { await api(`/notifications/${n.id}/read`, { method: "POST" }); load(); }
+              if (n.category === "challenge" && n.ref_id) router.push({ pathname: "/challenge/[id]", params: { id: n.ref_id } });
+              else if (n.category === "tournament" && n.ref_id) router.push({ pathname: "/tournament/[id]", params: { id: n.ref_id } });
+              else if (n.category === "wallet") router.push("/(tabs)/wallet");
+            }}
+          >
+            <Card style={{ backgroundColor: n.read ? colors.surfaceSecondary : colors.surfaceTertiary }}>
+              <View style={{ flexDirection: "row", gap: spacing.md }}>
+                <View style={styles.icon}><Ionicons name={iconFor(n.kind) as any} size={18} color={colors.brand} /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.msg}>{n.message}</Text>
+                  <Text style={styles.time}>{new Date(n.created_at).toLocaleString()}</Text>
+                </View>
+                {!n.read && <View style={styles.dot} />}
               </View>
-              {!n.read && <View style={styles.dot} />}
-            </View>
-          </Card>
+            </Card>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </View>

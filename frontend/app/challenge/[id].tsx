@@ -26,8 +26,10 @@ export default function ChallengeDetail() {
 
   const isCreator = ch.creator_id === user?.id;
   const isOpponent = ch.opponent_id === user?.id;
-  const canAccept = ch.status === "open" && !isCreator;
-  const canCancel = ch.status === "open" && isCreator;
+  const isInvited = ch.status === "invited" && isOpponent;
+  const canAccept = (ch.status === "open" && !isCreator) || isInvited;
+  const canDecline = isInvited;
+  const canCancel = (ch.status === "open" || ch.status === "invited") && isCreator;
   const canReport = ch.status === "matched" && (isCreator || isOpponent) && !(ch.results?.[user?.id || ""]);
   const showResults = ch.status === "reported" || ch.status === "finalized" || ch.status === "disputed";
 
@@ -49,7 +51,7 @@ export default function ChallengeDetail() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 140 + insets.bottom, gap: spacing.md }}>
         <Card>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Pill label={ch.status} tone={ch.status === "open" ? "brand" : ch.status === "finalized" ? "success" : ch.status === "disputed" ? "danger" : "warning"} />
+            <Pill label={ch.status === "invited" ? "PRIVATE INVITE" : ch.status} tone={ch.status === "open" ? "brand" : ch.status === "finalized" ? "success" : ch.status === "disputed" || ch.status === "declined" ? "danger" : ch.status === "invited" ? "brand" : "warning"} />
             <Text style={styles.stake}>${ch.stake}</Text>
           </View>
           <Text style={styles.game}>{ch.game}</Text>
@@ -62,7 +64,7 @@ export default function ChallengeDetail() {
             </View>
             <Text style={styles.vsText}>VS</Text>
             <View style={{ flex: 1, alignItems: "flex-end" }}>
-              <Text style={styles.playerRole}>OPPONENT</Text>
+              <Text style={styles.playerRole}>{ch.status === "invited" ? "INVITED" : "OPPONENT"}</Text>
               <Text style={styles.player}>{ch.opponent_username || "OPEN"}</Text>
             </View>
           </View>
@@ -89,8 +91,19 @@ export default function ChallengeDetail() {
 
       {/* Sticky action bar */}
       <View style={[styles.stickyBar, { paddingBottom: 16 + insets.bottom }]}>
-        {canAccept && <Button testID="challenge-accept-btn" title={`Accept · $${ch.stake}`} onPress={() => call(() => api(`/challenges/${id}/accept`, { method: "POST" }))} loading={busy} />}
-        {canCancel && <Button testID="challenge-cancel-btn" title="Cancel Challenge" variant="danger" onPress={() => call(() => api(`/challenges/${id}/cancel`, { method: "POST" }))} loading={busy} />}
+        {canAccept && canDecline ? (
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Button testID="challenge-decline-btn" title="Decline" variant="secondary" onPress={() => call(() => api(`/challenges/${id}/decline`, { method: "POST" }))} loading={busy} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button testID="challenge-accept-btn" title={`Accept · $${ch.stake}`} onPress={() => call(() => api(`/challenges/${id}/accept`, { method: "POST" }))} loading={busy} />
+            </View>
+          </View>
+        ) : canAccept ? (
+          <Button testID="challenge-accept-btn" title={`Accept · $${ch.stake}`} onPress={() => call(() => api(`/challenges/${id}/accept`, { method: "POST" }))} loading={busy} />
+        ) : null}
+        {canCancel && <Button testID="challenge-cancel-btn" title={ch.status === "invited" ? "Cancel Invite" : "Cancel Challenge"} variant="danger" onPress={() => call(() => api(`/challenges/${id}/cancel`, { method: "POST" }))} loading={busy} />}
         {canReport && (
           <View style={{ gap: spacing.sm }}>
             <Button testID="challenge-open-report" title="Report Match Result" onPress={() => router.push({ pathname: "/report/challenge/[id]", params: { id } })} />

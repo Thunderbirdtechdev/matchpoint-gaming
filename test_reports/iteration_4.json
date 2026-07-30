@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 4: 1v1 invite-by-username flow + no-seed-data verification. Created /app/backend/tests/test_invite_flow.py with 12 focused tests covering: no-seed guardrails (admin present, demo removed, no sample tournaments), user search prefix/exclusion rules, invite creation (404 non-existent, 400 self, success with balance deduction + pending stake + challenge_invite notif to opponent), privacy (invited challenge hidden from public /challenges list, appears only in ?invites=true for the invited user), 403 wrong-user accept, 403 wrong-user decline, decline refund + challenge_declined notif, invite accept flow with stake lock, and creator cancel refund + challenge_invite_cancelled notif. All 12/12 passed in 15s. Frontend verified on 390x844 mobile viewport: (1) Login screen has NO pre-filled credentials (email and password empty on first load, no 'demo' hint). (2) Create Challenge shows Open (default active) / Invite mode toggle via [mode-open]/[mode-invite]; toggling to Invite reveals [opponent-search-input]; typing 'UIopp' calls /api/users/search and shows suggestion pill with rank+wins; tapping the suggestion (testid opponent-pick-<username>) locks selection and the submit button label changes from 'CREATE CHALLENGE - $X' to 'SEND INVITE - $X'. (3) Play tab shows OPEN/INVITES/MY MATCHES subtabs ([play-tab-open], [play-tab-invites], [play-tab-mine]); INVITES tab shows the pending invite card for the invited opponent. (4) Challenge detail for invited opponent shows both [challenge-decline-btn] and [challenge-accept-btn] side-by-side with a 'PRIVATE INVITE' badge. (5) Home tab shows red badge '1' on [home-notifications-btn] when unread notifs exist. (6) Notifications screen: notif row testid pattern notif-<uuid>, unread green dot rendered, tapping the row navigates to /challenge/<ref_id> correctly. Fresh-DB confirmed end-to-end: Home shows 'No open challenges' and empty Upcoming Events for new users.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "notifications", "issues": ["Notification row uses green unread dot on right edge - visible and clear at 390px. Tapping row marks read and navigates as expected."]},
+      {"screen": "challenge/[id] (invited opponent view)", "issues": ["Decline and Accept buttons render side-by-side at bottom action bar - clear, 44px+ touch targets. PRIVATE INVITE badge distinguishes invite from open challenge."]},
+      {"screen": "challenge/create (invite mode)", "issues": ["Autocomplete suggestion pill shows avatar + username + Rank/Wins - good affordance. Submit label transitions Open->Invite correctly."]}
+    ],
+    "react_native_issues": [
+      {"component": "Image resizeMode", "issue": "Legacy deprecation warning still present from prior iteration on welcome screen: 'Image: style.resizeMode is deprecated. Please use props.resizeMode.' Reference: /app/frontend/app/(auth)/welcome.tsx (unresolved, non-blocking)."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_invite_flow.py",
+    "/app/test_reports/pytest/invite_flow.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: migrate <Image style={{resizeMode:'cover'}}/> to prop resizeMode='cover' in /app/frontend/app/(auth)/welcome.tsx to silence deprecation warning (carried over from iter 3).",
+    "OPTIONAL: legacy /app/backend/tests/backend_test.py contains fixtures that log in as demo@matchpoint.gg (now removed). That file will fail its old tests until refactored to register fresh users. The new invite suite is self-contained and unaffected. Consider archiving or updating backend_test.py fixture to use a fresh registered user in place of demo_token."
+  ],
+  "critical_code_review_comments": [
+    "server.py: /api/users/search correctly excludes self, admin, and suspended users per test coverage. Case-insensitive prefix match via regex works as intended.",
+    "server.py: private invite privacy is enforced at the list level (list_challenges omits invited unless invites=true is set AND the requester is the invited opponent) - validated by third-party user unable to see the invited challenge in /challenges.",
+    "server.py: decline endpoint correctly refunds creator stake (wallet_balance +stake, pending_balance -stake) and issues challenge_declined notification with category='challenge' and ref_id=challenge_id.",
+    "Frontend notifications.tsx: notification row testid pattern notif-<uuid> works cleanly; tapping marks read via API and router.push('/challenge/'+ref_id) navigates as expected."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_invite_flow.py (new)"
+  ],
+  "success_rate": {"backend": "100% (12/12 new invite-flow pytest cases)", "frontend": "100% (login empty, create-challenge mode toggle+autocomplete, play INVITES tab, challenge detail accept/decline, home bell badge, notif tap navigation)"},
+  "seed_data_creation": "Each test in test_invite_flow.py provisions its own fresh TEST_inv_* users via /auth/register + /auth/verify-email + /auth/login + /auth/verify-2fa, and tops up wallet_balance directly via pymongo when funding is required. For frontend UI testing, registered 2 users via public /api/auth/*: TEST_ui_creator_36850d@matchpoint.gg (username UIcreator393b) and TEST_ui_opp_93453b@matchpoint.gg (username UIopp5de9), then created a $10 invite challenge (id b451e4f0-...) between them to exercise the invited-opponent detail screen and notification tap flow.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "1) Backend base URL: EXPO_PUBLIC_BACKEND_URL. 2) Admin is the ONLY seeded user (admin@matchpoint.gg / Admin@123). Demo user no longer exists. 3) Run pytest backend/tests/test_invite_flow.py -v --tb=short (needs MONGO_URL and DB_NAME env vars set from /app/backend/.env). 4) Frontend testids for new features: mode-open, mode-invite, opponent-search-input, opponent-pick-<username>, play-tab-open, play-tab-invites, play-tab-mine, challenge-decline-btn, challenge-accept-btn, home-notifications-btn, notif-<uuid>, notif-back-btn, notif-mark-all-btn. 5) Legacy backend_test.py uses demo user in fixtures and will 401 - update if you plan to run it. 6) OTP dev codes are visible in the /verify-2fa screen ('DEV CODE: XXXXXX' label) for easy Playwright scraping; also returned in /auth/login and /auth/register response bodies.",
+  "rca_of_issue": "No bugs found in this iteration."
+}

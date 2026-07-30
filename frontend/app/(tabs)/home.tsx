@@ -17,16 +17,19 @@ export default function Home() {
   const [ads, setAds] = useState<any[]>([]);
   const [tournaments, setTournaments] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
+  const [unread, setUnread] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [a, t, c] = await Promise.all([
+      const [a, t, c, notifs] = await Promise.all([
         api<any[]>("/ads?placement=home"),
         api<any[]>("/tournaments"),
         api<any[]>("/challenges?status=open"),
+        api<any[]>("/notifications"),
       ]);
       setAds(a); setTournaments(t.slice(0, 5)); setChallenges(c.slice(0, 5));
+      setUnread(notifs.filter(n => !n.read).length);
     } catch (e) { console.log("home load err", e); }
   }, []);
 
@@ -50,6 +53,11 @@ export default function Home() {
           <TouchableOpacity testID="home-notifications-btn" onPress={() => router.push("/notifications")}>
             <View style={styles.iconBtn}>
               <Ionicons name="notifications-outline" size={22} color={colors.onSurface} />
+              {unread > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -159,6 +167,8 @@ const styles = StyleSheet.create({
   hi: { color: colors.onSurfaceTertiary, fontSize: 11, letterSpacing: 1.5, fontWeight: "700" },
   name: { color: colors.onSurface, fontSize: 22, fontWeight: "800" },
   iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.error, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 2, borderColor: colors.surface },
+  badgeText: { color: colors.onSurface, fontSize: 10, fontWeight: "800" },
   hero: { height: 200, borderRadius: radius.lg, overflow: "hidden", justifyContent: "flex-end" },
   heroOverlay: { padding: spacing.lg, borderRadius: radius.lg, gap: 6 },
   heroTitle: { color: colors.onSurface, fontSize: 22, fontWeight: "900", letterSpacing: 0.3 },
