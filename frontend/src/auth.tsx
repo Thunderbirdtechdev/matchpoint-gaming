@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useRouter } from "expo-router";
 import { api, setToken, getToken } from "./api";
 
 export type User = {
@@ -29,6 +30,7 @@ const Ctx = createContext<AuthState>({} as AuthState);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const bootstrap = useCallback(async () => {
     try {
@@ -60,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try { await api("/auth/logout", { method: "POST" }); } catch {}
     await setToken(null);
     setUser(null);
+    router.replace("/(auth)/welcome");
   };
 
   const refresh = async () => {
