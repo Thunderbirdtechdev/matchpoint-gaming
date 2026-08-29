@@ -1,16 +1,16 @@
 import {
-  Swords, Trophy, BarChart3, ShieldCheck, Users, Zap, Star, Gavel,
+  Swords, Trophy, BarChart3, ShieldCheck, Wallet, Zap, Lock, Gavel,
 } from "lucide-react";
 
 const features = [
-  { icon: Swords, title: "Challenge System", desc: "Create public or private challenges with custom rules and entry stakes." },
-  { icon: Trophy, title: "Tournament System", desc: "Single, double elimination, round robin and league formats." },
-  { icon: BarChart3, title: "Leaderboards", desc: "Global, monthly and season rankings across every supported title." },
-  { icon: Star, title: "Reputation System", desc: "Build trust through clean play, completed matches and reviews." },
-  { icon: ShieldCheck, title: "Dispute Protection", desc: "Evidence-based moderation team protects every result." },
-  { icon: Users, title: "Community Features", desc: "Friends, follows, achievements and player profiles." },
-  { icon: Zap, title: "Fast Payouts", desc: "Withdraw winnings to your wallet the moment a match is verified." },
-  { icon: Gavel, title: "Moderation Team", desc: "Trained moderators review every flagged match within hours." },
+  { icon: Swords, title: "1v1 Challenges", desc: "Create or accept head-to-head matches with custom rules and real-money stakes starting at $10." },
+  { icon: Trophy, title: "Tournaments", desc: "Join multi-player brackets with configurable payout structures and prize pools." },
+  { icon: Wallet, title: "Secure Wallet", desc: "Deposit via card, track every transaction, and cash out to your bank — powered by Stripe." },
+  { icon: Lock, title: "Escrow Protection", desc: "Entry fees are locked in escrow until the match is verified. No one touches funds early." },
+  { icon: ShieldCheck, title: "Fair Play Disputes", desc: "Upload evidence, our moderation team reviews and resolves disputes within hours." },
+  { icon: Zap, title: "Instant Payouts", desc: "Standard withdrawals are free. Same-day cash outs land in your bank in hours." },
+  { icon: BarChart3, title: "Leaderboards & Stats", desc: "Track your W/L record, earnings, rank tier, and reputation across all games." },
+  { icon: Gavel, title: "Transparent Fees", desc: "Clear fee tiers based on entry amount. No hidden charges — you always see what you'll win." },
 ];
 
 export function Features() {

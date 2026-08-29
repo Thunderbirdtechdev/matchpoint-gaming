@@ -9,6 +9,7 @@ const links = [
   { to: "/games", label: "Games" },
   { to: "/how-it-works", label: "How it works" },
   { to: "/about", label: "About" },
+  { to: "/faq", label: "FAQ" },
 ] as const;
 
 export function Navbar() {
@@ -31,16 +32,17 @@ export function Navbar() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:flex">
+        <nav className="hidden items-center gap-1 text-[12px] font-bold uppercase tracking-wider lg:flex lg:ml-auto lg:mr-4">
           {links.map((l) => (
-            <Link
+            <Button
               key={l.to}
-              to={l.to}
-              className="relative py-1 transition-colors hover:text-foreground"
-              activeProps={{ className: "text-foreground" }}
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-surface/60"
             >
-              {l.label}
-            </Link>
+              <Link to={l.to}>{l.label}</Link>
+            </Button>
           ))}
         </nav>
 

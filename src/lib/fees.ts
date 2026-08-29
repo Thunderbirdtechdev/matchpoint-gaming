@@ -1,3 +1,17 @@
+/** Minimum entry amount (USD) for any competition. */
+export const MIN_ENTRY_USD = 10;
+
+/** The 4 supported games for V1. */
+export const SUPPORTED_GAMES = ["fortnite", "nba2k", "madden", "ncaa"] as const;
+export type SupportedGame = (typeof SUPPORTED_GAMES)[number];
+
+export const GAME_LABELS: Record<SupportedGame, string> = {
+  fortnite: "Fortnite",
+  nba2k: "NBA 2K",
+  madden: "Madden NFL",
+  ncaa: "College Football 25",
+};
+
 /**
  * MatchPoint tiered service fee.
  *

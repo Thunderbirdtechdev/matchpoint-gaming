@@ -14,14 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trophy, Crown, X } from "lucide-react";
 import { toast } from "sonner";
-import { calculateTournamentFee } from "@/lib/fees";
+import { calculateTournamentFee, SUPPORTED_GAMES, GAME_LABELS, MIN_ENTRY_USD } from "@/lib/fees";
 
 export const Route = createFileRoute("/_authenticated/my-tournaments")({
   head: () => ({ meta: [{ title: "Tournaments — MatchPoint" }] }),
   component: MyTournamentsPage,
 });
 
-const GAMES = ["fortnite", "madden", "nba2k", "mlb", "cod", "fc"];
+const GAMES = [...SUPPORTED_GAMES];
 
 function MyTournamentsPage() {
   const { user } = useAuth();
@@ -176,7 +176,7 @@ function MyTournamentsPage() {
               <div className="space-y-2"><Label>Game</Label>
                 <Select value={form.game_slug} onValueChange={(v) => setForm({ ...form, game_slug: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{GAMES.map((g) => <SelectItem key={g} value={g} className="capitalize">{g}</SelectItem>)}</SelectContent>
+                  <SelectContent>{GAMES.map((g) => <SelectItem key={g} value={g}>{GAME_LABELS[g as keyof typeof GAME_LABELS] ?? g}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2"><Label>Platform</Label><Input value={form.platform} onChange={(e) => setForm({ ...form, platform: e.target.value })} /></div>

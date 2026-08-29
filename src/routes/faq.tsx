@@ -6,10 +6,10 @@ import {
 } from "@/components/ui/accordion";
 
 const faqs = [
-  { q: "Is MatchPoint free to use?", a: "Yes. Creating an account, joining challenges and entering tournaments is free. We offer a Pro plan for instant payouts and advanced features." },
-  { q: "How do payouts work?", a: "Once both players confirm a match result, winnings hit your wallet automatically. Standard accounts cash out within 48 hours; Pro accounts are instant." },
+  { q: "Is MatchPoint free to use?", a: "Yes. Creating an account is free. You only pay the entry fee when you join a competition, plus a small platform fee when a match settles." },
+  { q: "How do payouts work?", a: "Once both players confirm a match result, winnings land in your wallet automatically. Standard withdrawals to your bank are free (2-5 days). Same-day cash outs are available for a small fee." },
   { q: "What happens if there's a dispute?", a: "Either player can submit evidence (screenshots, replay or video). Our moderation team reviews every dispute within 24 hours and issues a final decision." },
-  { q: "Which games are supported?", a: "Launch titles are Fortnite, Madden NFL, NBA 2K, MLB The Show, Call of Duty and EA Sports FC. More are added every season." },
+  { q: "Which games are supported?", a: "We're launching with Fortnite, NBA 2K, Madden NFL, and College Football 25. More titles will be added over time." },
   { q: "Is matchmaking skill-based?", a: "Yes. Reputation and recent performance feed into our matchmaker so you face opponents of similar skill." },
   { q: "Can I run my own tournament?", a: "Organizations can host branded tournaments using our bracket automation tools. Contact us for details." },
 ];

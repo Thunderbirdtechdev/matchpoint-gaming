@@ -27,6 +27,8 @@ dist-ssr
 
 # Claude Code local config (never shared/pushed)
 .claude/
+MEMORY.md
+v1-progress.md
 .DS_Store
 *.suo
 *.ntvs*

@@ -3,8 +3,11 @@ import { useEffect } from "react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { Hero } from "@/components/site/Hero";
 import { Stats } from "@/components/site/Stats";
+import { PlatformStats } from "@/components/site/PlatformStats";
+import { Games } from "@/components/site/Games";
 import { HowItWorks } from "@/components/site/HowItWorks";
 import { Features } from "@/components/site/Features";
+import { Pricing } from "@/components/site/Pricing";
 import { LeaderboardPreview } from "@/components/site/LeaderboardPreview";
 import { Testimonials } from "@/components/site/Testimonials";
 import { CTA } from "@/components/site/CTA";
@@ -16,7 +19,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Skill-based gaming platform. Compete in Fortnite, Madden, NBA 2K, MLB The Show, Call of Duty & EA Sports FC tournaments and win real cash prizes.",
+          "Skill-based gaming platform. Compete in Fortnite, NBA 2K, Madden & College Football 1v1 challenges and tournaments for real cash prizes.",
       },
       { property: "og:title", content: "MatchPoint — Play. Compete. Win." },
       {
@@ -42,24 +45,15 @@ function HomePage() {
   return (
     <SiteShell>
       <Hero />
-      <div className="animate-fade-in [animation-delay:100ms] [animation-fill-mode:both]">
-        <Stats />
-      </div>
-      <div className="animate-fade-in [animation-delay:150ms] [animation-fill-mode:both]">
-        <HowItWorks />
-      </div>
-      <div className="animate-fade-in [animation-delay:150ms] [animation-fill-mode:both]">
-        <Features />
-      </div>
-      <div className="animate-fade-in [animation-delay:150ms] [animation-fill-mode:both]">
-        <LeaderboardPreview />
-      </div>
-      <div className="animate-fade-in [animation-delay:150ms] [animation-fill-mode:both]">
-        <Testimonials />
-      </div>
-      <div className="animate-fade-in [animation-delay:150ms] [animation-fill-mode:both]">
-        <CTA />
-      </div>
+      <Stats />
+      <PlatformStats />
+      <Games />
+      <HowItWorks />
+      <Features />
+      <Pricing />
+      <LeaderboardPreview />
+      <Testimonials />
+      <CTA />
     </SiteShell>
   );
 }

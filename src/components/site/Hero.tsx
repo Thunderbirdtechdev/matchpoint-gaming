@@ -1,26 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Play, Zap, Shield, Swords, Crown, Timer } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import heroBg from "@/assets/hero-bg.jpg";
-
-const liveMatch = {
-  game: "Call of Duty · Search & Destroy",
-  stake: "$50",
-  timer: "12:04",
-  a: { handle: "@apex.zero", record: "412W · 61L", score: 4 },
-  b: { handle: "@nightfall", record: "298W · 88L", score: 3 },
-};
-
-const topThree = [
-  { rank: 1, handle: "@apex.zero", earnings: "$18,420" },
-  { rank: 2, handle: "@bucketboy", earnings: "$14,910" },
-  { rank: 3, handle: "@gridironGod", earnings: "$12,650" },
-];
+import { ArrowRight, Play, Zap, Shield, Swords } from "lucide-react";
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
+import { HeroSlideshow } from "@/components/site/HeroSlideshow";
+import { Typewriter } from "@/components/ui/typewriter";
 
 const trust = [
   { icon: Shield, label: "Verified matches" },
-  { icon: Zap, label: "Fast payouts" },
-  { icon: Swords, label: "Anti-cheat enforced" },
+  { icon: Zap, label: "Instant payouts" },
+  { icon: Swords, label: "Escrow-protected" },
 ];
 
 export function Hero() {
@@ -33,50 +20,64 @@ export function Hero() {
       <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 md:pb-28 md:pt-28">
         <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-12">
           {/* Left — message */}
-          <div className="animate-fade-in">
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-accent backdrop-blur">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+          <div>
+            <h1 className="font-display text-7xl leading-[0.88] tracking-wide sm:text-8xl md:text-[7.5rem]">
+              <span className="block overflow-hidden">
+                <span className="inline-block animate-hero-word">Play.</span>
               </span>
-              Season 1 · Live Now
-            </div>
-
-            <h1 className="mt-7 font-display text-7xl leading-[0.88] tracking-wide sm:text-8xl md:text-[7.5rem]">
-              <span className="block">Play. Compete.</span>
-              <span className="mt-1 block text-gradient-brand">Win.</span>
+              <span className="block overflow-hidden">
+                <span className="inline-block animate-hero-word [animation-delay:150ms] animate-hero-glow">Compete.</span>
+              </span>
+              <span className="mt-1 block overflow-hidden">
+                <span className="inline-block animate-hero-word [animation-delay:300ms] text-gradient-brand animate-hero-gradient">Win.</span>
+              </span>
             </h1>
 
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-              The skill-based arena for serious gamers. Throw down 1v1 challenges, drop
-              into tournaments, and cash out what you earn.
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg animate-hero-word [animation-delay:500ms]">
+              MatchPoint is the skill-based arena where real gamers settle it.
+              Challenge anyone to a 1v1 in Fortnite, NBA 2K, Madden, or College
+              Football — stake real money, compete head-to-head, and cash out your
+              winnings instantly to your bank. No middlemen. No excuses.
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Button
-                asChild
-                size="lg"
-                className="h-12 bg-gradient-brand px-7 font-display text-lg tracking-[0.12em] text-primary-foreground glow-primary transition-all hover:scale-[1.02] hover:opacity-95"
-              >
-                <Link to="/register">
-                  Enter the Arena
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-12 border-border/80 bg-surface/40 px-7 font-display text-lg tracking-[0.12em] backdrop-blur hover:bg-surface"
-              >
-                <Link to="/games">
-                  <Play className="mr-1 h-4 w-4" />
-                  Browse Games
-                </Link>
-              </Button>
+            <div className="mt-9 flex flex-col gap-4 sm:flex-row animate-hero-word [animation-delay:650ms]">
+              <Link to="/register" className="group">
+                <InteractiveHoverButton
+                  text="Enter the Arena"
+                  icon={<ArrowRight className="h-5 w-5" />}
+                  className="w-48 border-primary/50 bg-background p-3 font-display text-base tracking-[0.08em] glow-primary sm:w-52"
+                />
+              </Link>
+              <Link to="/games" className="group">
+                <InteractiveHoverButton
+                  text="Browse Games"
+                  icon={<Play className="h-5 w-5" />}
+                  className="w-48 border-border/80 bg-surface/40 p-3 font-display text-base tracking-[0.08em] backdrop-blur sm:w-52"
+                />
+              </Link>
             </div>
 
-            <ul className="mt-10 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-border/50 pt-6">
+            {/* Typewriter tagline under buttons */}
+            <div className="mt-6 h-6 animate-hero-word [animation-delay:800ms]">
+              <Typewriter
+                text={[
+                  "1v1 Challenges · Tournaments · Real Cash Prizes",
+                  "Fortnite · NBA 2K · Madden · College Football",
+                  "$10 Minimum Entry · Free Withdrawals · Instant Payouts",
+                ]}
+                speed={40}
+                deleteSpeed={20}
+                waitTime={3000}
+                initialDelay={1200}
+                loop
+                showCursor
+                cursorChar="|"
+                cursorClassName="ml-1 text-primary-glow"
+                className="text-sm text-muted-foreground font-display tracking-[0.12em] uppercase"
+              />
+            </div>
+
+            <ul className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-3 border-t border-border/50 pt-6 animate-hero-word [animation-delay:950ms]">
               {trust.map((t) => (
                 <li key={t.label} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <t.icon className="h-4 w-4 shrink-0 text-primary-glow" />
@@ -86,108 +87,12 @@ export function Hero() {
             </ul>
           </div>
 
-          {/* Right — live arena panel */}
-          <div className="relative animate-fade-in [animation-delay:120ms] [animation-fill-mode:both]">
-            <img
-              src={heroBg}
-              alt=""
-              width={1920}
-              height={1080}
-              className="pointer-events-none absolute inset-0 h-full w-full rounded-3xl object-cover opacity-15"
-            />
-
-            <div className="relative space-y-4">
-              {/* Live match card */}
-              <div className="rounded-2xl border border-border/60 bg-gradient-card p-5 shadow-elevated backdrop-blur">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-destructive">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-                      Live
-                    </div>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">{liveMatch.game}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-background/50 px-2.5 py-1 text-xs text-muted-foreground">
-                    <Timer className="h-3.5 w-3.5" />
-                    {liveMatch.timer}
-                  </div>
-                </div>
-
-                <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
-                  <Player {...liveMatch.a} />
-                  <div className="shrink-0 text-center">
-                    <div className="font-display text-3xl tracking-wide text-gradient-brand">
-                      {liveMatch.a.score}–{liveMatch.b.score}
-                    </div>
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                      Score
-                    </div>
-                  </div>
-                  <Player {...liveMatch.b} align="right" />
-                </div>
-
-                <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-4">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    Stake
-                  </span>
-                  <span className="font-display text-xl tracking-wide text-accent">
-                    {liveMatch.stake}
-                  </span>
-                </div>
-              </div>
-
-              {/* Top 3 strip */}
-              <div className="rounded-2xl border border-border/60 bg-gradient-card p-5 shadow-card backdrop-blur">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                  <Crown className="h-3.5 w-3.5 text-accent" />
-                  Season leaders
-                </div>
-                <ul className="mt-3 divide-y divide-border/40">
-                  {topThree.map((p) => (
-                    <li key={p.handle} className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 py-2.5">
-                      <span className="shrink-0 font-display text-base tracking-wide text-muted-foreground">
-                        {p.rank}
-                      </span>
-                      <span className="truncate text-sm font-medium">{p.handle}</span>
-                      <span className="shrink-0 font-display text-base tracking-wide text-accent">
-                        {p.earnings}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Prize pool counter */}
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 px-5 py-4 backdrop-blur">
-                <span className="min-w-0 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                  Prize pools paid out
-                </span>
-                <span className="shrink-0 font-display text-2xl tracking-wide text-gradient-brand">
-                  $2.4M
-                </span>
-              </div>
-            </div>
+          {/* Right — game slideshow */}
+          <div className="animate-fade-in [animation-delay:120ms] [animation-fill-mode:both]">
+            <HeroSlideshow />
           </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function Player({
-  handle,
-  record,
-  align = "left",
-}: {
-  handle: string;
-  record: string;
-  score?: number;
-  align?: "left" | "right";
-}) {
-  return (
-    <div className={`min-w-0 ${align === "right" ? "text-right" : ""}`}>
-      <div className="truncate text-sm font-semibold">{handle}</div>
-      <div className="truncate text-xs text-muted-foreground">{record}</div>
-    </div>
   );
 }

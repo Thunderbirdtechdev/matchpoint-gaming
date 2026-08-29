@@ -14,14 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Swords, Flag, X, Trophy } from "lucide-react";
 import { toast } from "sonner";
-import { calculateChallengeFee } from "@/lib/fees";
+import { calculateChallengeFee, SUPPORTED_GAMES, GAME_LABELS, MIN_ENTRY_USD } from "@/lib/fees";
 
 export const Route = createFileRoute("/_authenticated/challenges")({
   head: () => ({ meta: [{ title: "Challenges — MatchPoint" }] }),
   component: ChallengesPage,
 });
 
-const GAMES = ["fortnite", "madden", "nba2k", "mlb", "cod", "fc"];
+const GAMES = [...SUPPORTED_GAMES];
 const PLATFORMS = ["PC", "PlayStation", "Xbox", "Switch"];
 
 function ChallengesPage() {
@@ -116,7 +116,7 @@ function ChallengesPage() {
                 <Label>Game</Label>
                 <Select value={form.game_slug} onValueChange={(v) => setForm({ ...form, game_slug: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{GAMES.map((g) => <SelectItem key={g} value={g} className="capitalize">{g}</SelectItem>)}</SelectContent>
+                  <SelectContent>{GAMES.map((g) => <SelectItem key={g} value={g}>{GAME_LABELS[g as keyof typeof GAME_LABELS] ?? g}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
@@ -128,8 +128,8 @@ function ChallengesPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Entry amount (USD)</Label>
-              <Input type="number" min="0" step="1" value={form.entry_amount} onChange={(e) => setForm({ ...form, entry_amount: e.target.value })} />
+              <Label>Entry amount (USD, min ${MIN_ENTRY_USD})</Label>
+              <Input type="number" min={MIN_ENTRY_USD} step="1" value={form.entry_amount} onChange={(e) => setForm({ ...form, entry_amount: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Rules</Label>
