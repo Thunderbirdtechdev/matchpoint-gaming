@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Swords, Trophy, Users, Loader2 } from "lucide-react";
 import { PremiumCard } from "@/components/ui/premium-card";
 import { Status } from "@/components/ui/status";
@@ -77,7 +78,23 @@ export function ListingCard({
 
       {/* Body */}
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="line-clamp-2 text-sm font-semibold leading-snug">{listing.title}</h3>
+        {isChallenge ? (
+          <Link
+            to="/match/$id"
+            params={{ id: listing.id }}
+            className="line-clamp-2 text-sm font-semibold leading-snug hover:text-primary-glow"
+          >
+            {listing.title}
+          </Link>
+        ) : (
+          <Link
+            to="/tournament/$id"
+            params={{ id: listing.id }}
+            className="line-clamp-2 text-sm font-semibold leading-snug hover:text-primary-glow"
+          >
+            {listing.title}
+          </Link>
+        )}
 
         <div className="mt-3 flex items-center gap-2">
           <Avatar className="h-6 w-6">

@@ -953,6 +953,79 @@ export type Database = {
         }
         Relationships: []
       }
+      // Added by hand for migration 20260903120000_tournament_brackets_and_evidence.
+      tournament_matches: {
+        Row: {
+          created_at: string
+          id: string
+          player1_id: string | null
+          player2_id: string | null
+          round: number
+          slot: number
+          status: string
+          tournament_id: string
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          player1_id?: string | null
+          player2_id?: string | null
+          round: number
+          slot: number
+          status?: string
+          tournament_id: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          player1_id?: string | null
+          player2_id?: string | null
+          round?: number
+          slot?: number
+          status?: string
+          tournament_id?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
+      match_evidence: {
+        Row: {
+          challenge_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          file_path: string
+          tournament_match_id: string | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          file_path: string
+          tournament_match_id?: string | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          file_path?: string
+          tournament_match_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       // Added by hand for migration 20260902210000_player_profiles_and_verification.
       // Regenerate this file once that migration is applied.
       player_verification: {
@@ -1151,6 +1224,26 @@ export type Database = {
           matches_played: number | null
           user_id: string | null
           wins: number | null
+        }
+        Relationships: []
+      }
+      // Added by hand for migration 20260903120000_tournament_brackets_and_evidence.
+      tournament_bracket: {
+        Row: {
+          id: string | null
+          player1_avatar: string | null
+          player1_id: string | null
+          player1_name: string | null
+          player1_username: string | null
+          player2_avatar: string | null
+          player2_id: string | null
+          player2_name: string | null
+          player2_username: string | null
+          round: number | null
+          slot: number | null
+          status: string | null
+          tournament_id: string | null
+          winner_id: string | null
         }
         Relationships: []
       }
