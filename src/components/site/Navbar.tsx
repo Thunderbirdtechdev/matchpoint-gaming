@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 const links = [
   { to: "/games", label: "Games" },
   { to: "/how-it-works", label: "How it works" },
+  { to: "/marketplace", label: "Marketplace" },
   { to: "/about", label: "About" },
   { to: "/faq", label: "FAQ" },
 ] as const;
@@ -76,13 +77,19 @@ export function Navbar() {
               <Link to="/dashboard">
                 <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
                 <span className="relative z-10 inline-flex items-center">
-                  <LayoutDashboard className="mr-1.5 h-4 w-4" />Dashboard
+                  <LayoutDashboard className="mr-1.5 h-4 w-4" />
+                  Dashboard
                 </span>
               </Link>
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex text-xs font-semibold uppercase tracking-wider">
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="hidden sm:inline-flex text-xs font-semibold uppercase tracking-wider"
+              >
                 <Link to="/login">Sign in</Link>
               </Button>
               <Button

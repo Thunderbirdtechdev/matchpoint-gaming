@@ -1,7 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, ShieldCheck, Landmark, HeadsetIcon, Trophy } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRef, useCallback, type MouseEvent } from "react";
+import { useState } from "react";
+import { useSpotlight } from "@/hooks/use-spotlight";
+import {
+  ShieldCheckIcon,
+  LandmarkIcon,
+  HeadsetIcon,
+  TrophyIcon,
+} from "@/components/ui/animated-icons";
 
 import cardFortnite from "@/assets/card-fortnite.jpg";
 import cardNba2k from "@/assets/card-nba2k.jpg";
@@ -16,39 +23,11 @@ const tournaments = [
 ];
 
 const trustStrip = [
-  { icon: ShieldCheck, label: "Fair Play", sub: "Every match verified" },
-  { icon: Landmark, label: "Secure Payouts", sub: "Powered by Stripe" },
+  { icon: ShieldCheckIcon, label: "Fair Play", sub: "Every match verified" },
+  { icon: LandmarkIcon, label: "Secure Payouts", sub: "Powered by Stripe" },
   { icon: HeadsetIcon, label: "24/7 Support", sub: "We've got your back" },
-  { icon: Trophy, label: "Compete & Win", sub: "Real cash prizes" },
+  { icon: TrophyIcon, label: "Compete & Win", sub: "Real cash prizes" },
 ];
-
-/** Cursor-tracking spotlight + tilt for a card */
-function useSpotlight() {
-  const ref = useRef<HTMLDivElement>(null);
-
-  const onMove = useCallback((e: MouseEvent) => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const cx = x / rect.width - 0.5;
-    const cy = y / rect.height - 0.5;
-    el.style.setProperty("--spot-x", `${x}px`);
-    el.style.setProperty("--spot-y", `${y}px`);
-    el.style.setProperty("--tilt-x", `${cy * -4}deg`);
-    el.style.setProperty("--tilt-y", `${cx * 6}deg`);
-  }, []);
-
-  const onLeave = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.setProperty("--tilt-x", "0deg");
-    el.style.setProperty("--tilt-y", "0deg");
-  }, []);
-
-  return { ref, onMove, onLeave };
-}
 
 function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
   const { ref, onMove, onLeave } = useSpotlight();
@@ -68,7 +47,8 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
       <div
         className="pointer-events-none absolute inset-0 z-10 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
-          background: "radial-gradient(400px circle at var(--spot-x, 50%) var(--spot-y, 50%), oklch(0.51 0.23 277 / 0.08), transparent 60%)",
+          background:
+            "radial-gradient(400px circle at var(--spot-x, 50%) var(--spot-y, 50%), oklch(0.51 0.23 277 / 0.08), transparent 60%)",
         }}
       />
 
@@ -76,7 +56,8 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
       <div
         className="relative rounded-[11px] bg-background/80 transition-transform duration-300 ease-out will-change-transform group-hover:-translate-y-1"
         style={{
-          transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(var(--lift, 0px))",
+          transform:
+            "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(var(--lift, 0px))",
         }}
       >
         {/* Image */}
@@ -115,13 +96,18 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
 
 function TrustCard({ t }: { t: (typeof trustStrip)[number] }) {
   const { ref, onMove, onLeave } = useSpotlight();
+  const [hovered, setHovered] = useState(false);
   const Icon = t.icon;
 
   return (
     <div
       ref={ref}
       onMouseMove={onMove}
-      onMouseLeave={onLeave}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        onLeave();
+        setHovered(false);
+      }}
       className="premium-card group relative overflow-hidden rounded-xl"
     >
       {/* Gradient border */}
@@ -131,14 +117,17 @@ function TrustCard({ t }: { t: (typeof trustStrip)[number] }) {
       <div
         className="pointer-events-none absolute inset-0 z-10 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
-          background: "radial-gradient(300px circle at var(--spot-x, 50%) var(--spot-y, 50%), oklch(0.51 0.23 277 / 0.07), transparent 60%)",
+          background:
+            "radial-gradient(300px circle at var(--spot-x, 50%) var(--spot-y, 50%), oklch(0.51 0.23 277 / 0.07), transparent 60%)",
         }}
       />
 
       {/* Inner */}
       <div className="relative flex items-center gap-3 rounded-[11px] bg-background/50 p-4 backdrop-blur transition-all duration-300 ease-out group-hover:-translate-y-0.5 group-hover:bg-background/70">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 transition-all duration-300 group-hover:bg-primary/15 group-hover:shadow-[0_0_16px_oklch(0.51_0.23_277_/_0.15)]">
-          <Icon className="h-5 w-5 text-primary-glow trust-icon-float" />
+        <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent ring-1 ring-inset ring-primary/20 transition-all duration-300 group-hover:ring-primary/45 group-hover:shadow-[0_0_22px_oklch(0.51_0.23_277_/_0.28)]">
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/12 to-transparent" />
+          <span className="pointer-events-none absolute -inset-2 rounded-full bg-primary/25 opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
+          <Icon active={hovered} className="relative h-5 w-5 text-primary-glow" />
         </div>
         <div>
           <div className="text-sm font-semibold">{t.label}</div>
@@ -157,7 +146,9 @@ export function Stats() {
       <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 md:py-20">
         {/* Header */}
         <div className="text-center">
-          <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">Trusted by competitors</p>
+          <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">
+            Trusted by competitors
+          </p>
           <h2 className="mt-3 font-display text-4xl tracking-wide sm:text-5xl md:text-6xl">
             Built for <span className="text-gradient-brand">Competition</span>
           </h2>
@@ -167,9 +158,16 @@ export function Stats() {
         <div className="mt-14">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <h3 className="font-display text-sm tracking-[0.2em] uppercase text-foreground">Trending Tournaments</h3>
+              <h3 className="font-display text-sm tracking-[0.2em] uppercase text-foreground">
+                Trending Tournaments
+              </h3>
             </div>
-            <Button asChild variant="ghost" size="sm" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            >
               <Link to="/register">
                 View all tournaments <ArrowRight className="ml-1 h-3 w-3" />
               </Link>

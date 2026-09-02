@@ -473,21 +473,6 @@
   100% { transform: scale(1) rotate(0deg); opacity: 1 }
 }
 
-/* Premium card animations */
-@keyframes trust-icon-float {
-  0%, 100% { transform: translateY(0) }
-  50% { transform: translateY(-3px) }
-}
-
-.trust-icon-float {
-  animation: trust-icon-float 3s ease-in-out infinite;
-  animation-play-state: paused;
-}
-
-.group:hover .trust-icon-float {
-  animation-play-state: running;
-}
-
 .hiw-icon-float {
   animation: hiw-icon-bob 2.5s ease-in-out infinite;
 }
