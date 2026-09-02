@@ -29,12 +29,15 @@ const statusVariants = cva(
           "border-orange-500/20 bg-orange-500/10 text-orange-400 **:data-[slot=status-indicator]:bg-orange-400",
         info: "border-blue-500/20 bg-blue-500/10 text-blue-400 **:data-[slot=status-indicator]:bg-blue-400",
 
-        /* On-image overlay variants — dark glass backing for legibility. */
-        live: "border-white/15 bg-black/45 text-white backdrop-blur-md **:data-[slot=status-indicator]:bg-green-400",
+        /*
+         * On-image overlay variants. These sit on photography, so they use SOLID
+         * fills rather than a tint of their own hue — a translucent same-hue wash
+         * (e.g. gold text on 20% gold) muddies against the image and reads unfinished.
+         */
+        live: "border-white/10 bg-black/80 text-white **:data-[slot=status-indicator]:bg-green-400",
         prize:
-          "border-accent/35 bg-accent/20 text-accent backdrop-blur-md **:data-[slot=status-indicator]:bg-accent",
-        glass:
-          "border-white/15 bg-black/45 text-white/85 backdrop-blur-md **:data-[slot=status-indicator]:bg-white/70",
+          "border-transparent bg-accent font-bold text-accent-foreground shadow-[0_2px_10px_oklch(0.84_0.16_88_/_0.35)] **:data-[slot=status-indicator]:bg-accent-foreground",
+        glass: "border-white/10 bg-black/80 text-white **:data-[slot=status-indicator]:bg-white/80",
       },
     },
     defaultVariants: {
