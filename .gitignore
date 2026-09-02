@@ -35,3 +35,4 @@ v1-progress.md
 *.njsproj
 *.sln
 *.sw?
+supabase/.temp/

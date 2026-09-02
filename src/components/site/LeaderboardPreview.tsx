@@ -1,14 +1,44 @@
 import { Link } from "@tanstack/react-router";
 import { Trophy, TrendingUp, Crown, Medal, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { GAME_LABELS, type SupportedGame } from "@/lib/fees";
 
-const top = [
-  { rank: 1, handle: "@buildbattle", game: "Fortnite", wins: 412, earnings: "$18,420", amount: 18420 },
-  { rank: 2, handle: "@bucketboy", game: "NBA 2K", wins: 378, earnings: "$14,910", amount: 14910 },
-  { rank: 3, handle: "@gridironGod", game: "Madden NFL", wins: 341, earnings: "$12,650", amount: 12650 },
-  { rank: 4, handle: "@clutchQB", game: "College Football", wins: 309, earnings: "$11,200", amount: 11200 },
-  { rank: 5, handle: "@dimeDropper", game: "NBA 2K", wins: 287, earnings: "$9,840", amount: 9840 },
-];
+type LeaderboardRow = {
+  rank: number;
+  username: string;
+  handle: string;
+  game: string;
+  wins: number;
+  earnings: string;
+};
+
+/** Top earners, from the player_leaderboard view. Empty until matches settle. */
+function useTopPlayers() {
+  return useQuery({
+    queryKey: ["leaderboard-top"],
+    queryFn: async (): Promise<LeaderboardRow[]> => {
+      const { data, error } = await supabase
+        .from("player_leaderboard")
+        .select("rank, username, display_name, favorite_game, wins, earnings")
+        .order("rank", { ascending: true })
+        .limit(5);
+      if (error) throw error;
+
+      return (data ?? []).map((p) => ({
+        rank: p.rank ?? 0,
+        username: p.username ?? "",
+        handle: p.display_name || (p.username ? `@${p.username}` : "Anonymous"),
+        game: p.favorite_game
+          ? (GAME_LABELS[p.favorite_game as SupportedGame] ?? p.favorite_game)
+          : "—",
+        wins: p.wins ?? 0,
+        earnings: `$${Number(p.earnings ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+      }));
+    },
+  });
+}
 
 /** Monthly platform earnings trend (6 months) */
 const months = ["Mar", "Apr", "May", "Jun", "Jul", "Aug"];
@@ -19,7 +49,7 @@ function buildPath(data: number[], width: number, height: number, padding = 0) {
   const stepX = (width - padding * 2) / (data.length - 1);
   const points = data.map((v, i) => ({
     x: padding + i * stepX,
-    y: height - padding - ((v / maxEarning) * (height - padding * 2)),
+    y: height - padding - (v / maxEarning) * (height - padding * 2),
   }));
 
   // smooth curve
@@ -46,11 +76,7 @@ function AreaChart({ visible }: { visible: boolean }) {
 
   return (
     <div className="relative">
-      <svg
-        viewBox={`0 0 ${w} ${h + 24}`}
-        className="w-full"
-        preserveAspectRatio="xMidYMid meet"
-      >
+      <svg viewBox={`0 0 ${w} ${h + 24}`} className="w-full" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="area-fill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="oklch(0.51 0.23 277 / 0.25)" />
@@ -194,6 +220,7 @@ function RankBadge({ rank }: { rank: number }) {
 export function LeaderboardPreview() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const { data: top = [], isLoading: loadingTop } = useTopPlayers();
 
   const onIntersect = useCallback((entries: IntersectionObserverEntry[]) => {
     if (entries[0].isIntersecting) setVisible(true);
@@ -217,14 +244,15 @@ export function LeaderboardPreview() {
               visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">Leaderboards</p>
+            <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">
+              Leaderboards
+            </p>
             <h2 className="mt-3 font-display text-4xl tracking-wide sm:text-5xl md:text-6xl">
-              Climb the Global{" "}
-              <span className="text-gradient-brand">Ranks</span>
+              Climb the Global <span className="text-gradient-brand">Ranks</span>
             </h2>
             <p className="mt-4 text-muted-foreground leading-relaxed">
-              Every win moves you up. Top earners get featured, sponsored and invited
-              to seasonal championship events with bigger prize pools.
+              Every win moves you up. Top earners get featured, sponsored and invited to seasonal
+              championship events with bigger prize pools.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-6 text-sm">
@@ -260,7 +288,8 @@ export function LeaderboardPreview() {
               <div
                 className="absolute -inset-px rounded-2xl"
                 style={{
-                  background: "linear-gradient(180deg, oklch(0.6 0.15 277 / 0.35) 0%, oklch(0.4 0.08 280 / 0.12) 50%, oklch(0.6 0.15 277 / 0.2) 100%)",
+                  background:
+                    "linear-gradient(180deg, oklch(0.6 0.15 277 / 0.35) 0%, oklch(0.4 0.08 280 / 0.12) 50%, oklch(0.6 0.15 277 / 0.2) 100%)",
                 }}
               />
 
@@ -274,28 +303,46 @@ export function LeaderboardPreview() {
                 </div>
 
                 {/* Rows */}
-                {top.map((p, i) => (
-                  <div
-                    key={p.handle}
-                    className={`grid grid-cols-[44px_minmax(0,1fr)_100px] items-center gap-3 px-5 py-4 text-sm transition-all duration-700 sm:grid-cols-[44px_minmax(0,1fr)_100px_100px] ${
-                      i < top.length - 1 ? "border-b border-border/15" : ""
-                    } ${visible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-6"}`}
-                    style={{ transitionDelay: `${i * 120 + 400}ms` }}
-                  >
-                    <RankBadge rank={p.rank} />
-
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold">{p.handle}</div>
-                      <div className="text-xs text-muted-foreground">{p.wins.toLocaleString()} wins</div>
-                    </div>
-
-                    <span className="hidden truncate text-xs text-muted-foreground sm:block">{p.game}</span>
-
-                    <div className="text-right">
-                      <span className="font-display text-base tracking-wide text-foreground">{p.earnings}</span>
-                    </div>
+                {top.length === 0 ? (
+                  <div className="px-5 py-10 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      {loadingTop
+                        ? "Loading the leaderboard…"
+                        : "No settled matches yet — the first winners will show up here."}
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  top.map((p, i) => (
+                    <Link
+                      key={p.username || p.handle}
+                      to="/player/$username"
+                      params={{ username: p.username }}
+                      className={`grid grid-cols-[44px_minmax(0,1fr)_100px] items-center gap-3 px-5 py-4 text-sm transition-all duration-700 hover:bg-surface/40 sm:grid-cols-[44px_minmax(0,1fr)_100px_100px] ${
+                        i < top.length - 1 ? "border-b border-border/15" : ""
+                      } ${visible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-6"}`}
+                      style={{ transitionDelay: `${i * 120 + 400}ms` }}
+                    >
+                      <RankBadge rank={p.rank} />
+
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold">{p.handle}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {p.wins.toLocaleString()} wins
+                        </div>
+                      </div>
+
+                      <span className="hidden truncate text-xs text-muted-foreground sm:block">
+                        {p.game}
+                      </span>
+
+                      <div className="text-right">
+                        <span className="font-display text-base tracking-wide text-foreground">
+                          {p.earnings}
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                )}
 
                 {/* Area chart */}
                 <div className="border-t border-border/20 px-5 py-4">

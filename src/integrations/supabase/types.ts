@@ -953,6 +953,41 @@ export type Database = {
         }
         Relationships: []
       }
+      // Added by hand for migration 20260902210000_player_profiles_and_verification.
+      // Regenerate this file once that migration is applied.
+      player_verification: {
+        Row: {
+          age_confirmed_at: string | null
+          country: string | null
+          created_at: string
+          date_of_birth: string | null
+          identity_session_id: string | null
+          identity_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age_confirmed_at?: string | null
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          identity_session_id?: string | null
+          identity_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age_confirmed_at?: string | null
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          identity_session_id?: string | null
+          identity_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       waitlist_signups: {
         Row: {
           created_at: string
@@ -1088,7 +1123,54 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      // Added by hand for migration 20260902210000_player_profiles_and_verification.
+      // Regenerate this file (`supabase gen types typescript`) once that migration
+      // is applied, and these blocks can be dropped.
+      player_public: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          display_name: string | null
+          favorite_game: string | null
+          id: string | null
+          is_age_verified: boolean | null
+          platform: string | null
+          rank_tier: string | null
+          region: string | null
+          reputation: number | null
+          username: string | null
+          xp: number | null
+        }
+        Relationships: []
+      }
+      player_stats: {
+        Row: {
+          earnings: number | null
+          losses: number | null
+          matches_played: number | null
+          user_id: string | null
+          wins: number | null
+        }
+        Relationships: []
+      }
+      player_leaderboard: {
+        Row: {
+          avatar_url: string | null
+          display_name: string | null
+          earnings: number | null
+          favorite_game: string | null
+          id: string | null
+          is_age_verified: boolean | null
+          losses: number | null
+          matches_played: number | null
+          rank: number | null
+          rank_tier: string | null
+          username: string | null
+          wins: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_revenue_by_source: {
