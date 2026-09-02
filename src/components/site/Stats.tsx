@@ -62,7 +62,7 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
       style={{ perspective: "800px" }}
     >
       {/* Gradient border layer */}
-      <div className="absolute -inset-px rounded-xl bg-gradient-to-b from-border/50 via-border/30 to-border/50 transition-all duration-300 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
+      <div className="absolute -inset-px rounded-xl bg-gradient-to-b from-border/50 via-border/30 to-border/50 transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
 
       {/* Spotlight overlay */}
       <div
@@ -125,7 +125,7 @@ function TrustCard({ t }: { t: (typeof trustStrip)[number] }) {
       className="premium-card group relative overflow-hidden rounded-xl"
     >
       {/* Gradient border */}
-      <div className="absolute -inset-px rounded-xl bg-gradient-to-br from-border/40 via-border/20 to-border/40 transition-all duration-300 group-hover:from-primary/40 group-hover:via-primary/15 group-hover:to-primary/40" />
+      <div className="absolute -inset-px rounded-xl bg-gradient-to-br from-border/40 via-border/20 to-border/40 transition-all duration-300 ease-out group-hover:-translate-y-0.5 group-hover:from-primary/40 group-hover:via-primary/15 group-hover:to-primary/40" />
 
       {/* Spotlight */}
       <div
@@ -167,10 +167,6 @@ export function Stats() {
         <div className="mt-14">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
-              </span>
               <h3 className="font-display text-sm tracking-[0.2em] uppercase text-foreground">Trending Tournaments</h3>
             </div>
             <Button asChild variant="ghost" size="sm" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground">

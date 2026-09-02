@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import { GAME_LABELS, type SupportedGame } from "@/lib/fees";
+import { InductionBadge } from "@/components/ui/induction-badge";
 
 import slideFortnite from "@/assets/slide-fortnite.jpg";
 import slideNba2k from "@/assets/slide-nba2k.jpg";
@@ -62,10 +63,9 @@ export function HeroSlideshow() {
 
               {/* Slide content */}
               <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-primary-glow backdrop-blur-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary-glow animate-pulse" />
+                <InductionBadge className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-primary-glow backdrop-blur-sm">
                   Live on MatchPoint
-                </div>
+                </InductionBadge>
                 <h3 className="mt-3 font-display text-3xl tracking-wide sm:text-4xl">
                   {GAME_LABELS[s.game]}
                 </h3>
@@ -84,14 +84,14 @@ export function HeroSlideshow() {
             type="button"
             onClick={() => emblaApi?.scrollTo(i)}
             aria-label={`Go to ${GAME_LABELS[s.game]}`}
-            className="group relative h-2 rounded-full transition-all duration-300"
-            style={{ width: i === activeIndex ? 24 : 8 }}
+            aria-current={i === activeIndex}
+            className="group relative flex h-4 w-4 items-center justify-center"
           >
             <span
-              className={`absolute inset-0 rounded-full transition-colors duration-300 ${
+              className={`h-2 w-2 rounded-full transition-all duration-300 ${
                 i === activeIndex
-                  ? "bg-primary-glow"
-                  : "bg-foreground/30 group-hover:bg-foreground/50"
+                  ? "scale-125 bg-primary-glow shadow-[0_0_10px_var(--primary-glow)]"
+                  : "bg-foreground/30 group-hover:bg-foreground/60"
               }`}
             />
           </button>

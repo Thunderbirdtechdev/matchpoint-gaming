@@ -3,6 +3,7 @@ import { ArrowRight, Play, Zap, Shield, Swords } from "lucide-react";
 import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
 import { HeroSlideshow } from "@/components/site/HeroSlideshow";
 import { Typewriter } from "@/components/ui/typewriter";
+import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 
 const trust = [
   { icon: Shield, label: "Verified matches" },
@@ -12,12 +13,12 @@ const trust = [
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden bg-gradient-hero">
-      <div className="absolute inset-0 grid-pattern opacity-40" />
+    <section className="relative overflow-hidden bg-background">
+      <BackgroundPattern />
       <div className="absolute -left-40 -top-24 h-[28rem] w-[28rem] rounded-full bg-primary/20 blur-3xl" />
       <div className="absolute -right-32 top-40 h-[26rem] w-[26rem] rounded-full bg-primary-glow/15 blur-3xl" />
 
-      <div className="relative mx-auto max-w-7xl px-4 pb-20 pt-20 sm:px-6 md:pb-28 md:pt-28">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-8 pt-20 sm:px-6 md:pb-12 md:pt-28">
         <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-12">
           {/* Left — message */}
           <div>
@@ -45,7 +46,7 @@ export function Hero() {
                 <InteractiveHoverButton
                   text="Enter the Arena"
                   icon={<ArrowRight className="h-5 w-5" />}
-                  className="w-48 border-primary/50 bg-background p-3 font-display text-base tracking-[0.08em] glow-primary sm:w-52"
+                  className="w-48 border-primary/50 bg-background p-3 font-display text-base tracking-[0.08em] sm:w-52"
                 />
               </Link>
               <Link to="/games" className="group">

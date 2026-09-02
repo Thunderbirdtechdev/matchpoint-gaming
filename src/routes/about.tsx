@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { SiteShell } from "@/components/site/SiteShell";
 import { CTA } from "@/components/site/CTA";
+import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 import { useEffect, useRef, useState, useCallback, type MouseEvent } from "react";
 
 /* ─── Data ─── */
@@ -137,7 +138,7 @@ function ValueCard({ v, i, visible }: { v: (typeof values)[number]; i: number; v
       style={{ transitionDelay: `${i * 100 + 200}ms` }}
     >
       {/* Border */}
-      <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-border/40 via-border/20 to-border/40 transition-all duration-300 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
+      <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-border/40 via-border/20 to-border/40 transition-all duration-300 ease-out group-hover:-translate-y-0.5 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
       {/* Spotlight */}
       <div
         className="pointer-events-none absolute inset-0 z-10 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -182,7 +183,7 @@ function AboutPage() {
     <SiteShell>
       {/* ── Hero ── */}
       <section ref={hero.ref} className="relative overflow-hidden border-b border-border/50">
-        <div className="absolute inset-0 grid-pattern opacity-30" />
+        <BackgroundPattern />
         <div className="absolute -top-32 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-primary/20 blur-3xl" />
         <div className="relative mx-auto max-w-5xl px-4 py-24 text-center sm:px-6 md:py-32">
           <p

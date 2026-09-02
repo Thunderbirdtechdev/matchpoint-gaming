@@ -1,4 +1,5 @@
 import { type ReactNode, useState, useEffect } from "react";
+import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 
 export function PageHeader({
   eyebrow,
@@ -23,7 +24,7 @@ export function PageHeader({
 
   return (
     <section className="relative overflow-hidden border-b border-border/50">
-      <div className="absolute inset-0 grid-pattern opacity-30" />
+      <BackgroundPattern />
       <div className="absolute -top-32 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-primary/20 blur-3xl" />
       <div className={`relative mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-28 ${image ? "grid items-center gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-14" : ""}`}>
         <div>

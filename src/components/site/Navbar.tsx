@@ -1,5 +1,6 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu, X, LayoutDashboard } from "lucide-react";
+import { motion } from "framer-motion";
 import logo from "@/assets/logo.png";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,12 @@ const links = [
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState<string | null>(null);
   const { user } = useAuth();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const activeLink = links.find((l) => pathname.startsWith(l.to))?.to ?? null;
+  const highlight = hovered ?? activeLink;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
@@ -32,32 +38,62 @@ export function Navbar() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 text-[12px] font-bold uppercase tracking-wider lg:flex lg:ml-auto lg:mr-4">
-          {links.map((l) => (
-            <Button
-              key={l.to}
-              asChild
-              variant="ghost"
-              size="sm"
-              className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground hover:bg-surface/60"
-            >
-              <Link to={l.to}>{l.label}</Link>
-            </Button>
-          ))}
+        <nav
+          onMouseLeave={() => setHovered(null)}
+          className="hidden items-center gap-0.5 text-[12px] font-bold uppercase tracking-wider lg:flex lg:ml-auto lg:mr-4"
+        >
+          {links.map((l) => {
+            const isActive = activeLink === l.to;
+            return (
+              <Link
+                key={l.to}
+                to={l.to}
+                onMouseEnter={() => setHovered(l.to)}
+                className={`relative rounded-lg px-3.5 py-2 text-xs font-bold uppercase tracking-wider transition-colors duration-200 ${
+                  isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {highlight === l.to && (
+                  <motion.span
+                    layoutId="nav-highlight"
+                    className="absolute inset-0 rounded-lg bg-surface/70 ring-1 ring-inset ring-border/50"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10">{l.label}</span>
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2">
           {user ? (
-            <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground font-bold uppercase tracking-wider hover:opacity-90">
-              <Link to="/dashboard"><LayoutDashboard className="mr-1.5 h-4 w-4" />Dashboard</Link>
+            <Button
+              asChild
+              size="sm"
+              className="group relative overflow-hidden bg-gradient-brand text-primary-foreground font-bold uppercase tracking-wider transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-6px_var(--primary-glow)] active:translate-y-0"
+            >
+              <Link to="/dashboard">
+                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
+                <span className="relative z-10 inline-flex items-center">
+                  <LayoutDashboard className="mr-1.5 h-4 w-4" />Dashboard
+                </span>
+              </Link>
             </Button>
           ) : (
             <>
               <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex text-xs font-semibold uppercase tracking-wider">
                 <Link to="/login">Sign in</Link>
               </Button>
-              <Button asChild size="sm" className="bg-gradient-brand text-primary-foreground text-xs font-bold uppercase tracking-wider hover:opacity-90">
-                <Link to="/register">Play Free</Link>
+              <Button
+                asChild
+                size="sm"
+                className="group relative overflow-hidden bg-gradient-brand text-primary-foreground text-xs font-bold uppercase tracking-wider transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-6px_var(--primary-glow)] active:translate-y-0"
+              >
+                <Link to="/register">
+                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
+                  <span className="relative z-10">Play Free</span>
+                </Link>
               </Button>
             </>
           )}

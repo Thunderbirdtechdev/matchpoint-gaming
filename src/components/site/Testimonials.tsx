@@ -74,7 +74,7 @@ function TestimonialCard({
       }}
     >
       {/* Gradient border */}
-      <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-border/40 via-border/20 to-border/40 transition-all duration-300 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
+      <div className="absolute -inset-px rounded-2xl bg-gradient-to-b from-border/40 via-border/20 to-border/40 transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
 
       {/* Spotlight overlay */}
       <div

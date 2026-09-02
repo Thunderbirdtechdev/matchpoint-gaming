@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -29,7 +30,7 @@ function ForgotPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
-      <div className="absolute inset-0 grid-pattern opacity-30" />
+      <BackgroundPattern />
       <div className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12 sm:px-6">
         <Link to="/" className="mx-auto flex items-center gap-2">
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-brand"><Trophy className="h-5 w-5 text-primary-foreground" /></div>
