@@ -7,6 +7,7 @@ import {
   WalletIcon,
   type AnimatedIconHandle,
 } from "@/components/ui/animated-icons";
+import { IconTile } from "@/components/ui/icon-tile";
 
 const steps = [
   {
@@ -109,16 +110,17 @@ function Step({
       )}
 
       {/* Icon */}
-      <div
-        className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surface/80 ring-1 ring-border/40 transition-all duration-300 group-hover:ring-primary/40 group-hover:bg-primary/10 group-hover:shadow-[0_0_20px_oklch(0.51_0.23_277_/_0.15)]"
+      <IconTile
+        size="lg"
+        className="mb-4"
         style={{
           animation: visible
             ? `hiw-icon-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) ${i * 180 + 700}ms both`
             : "none",
         }}
       >
-        <Icon ref={iconRef} size={22} className="text-primary hiw-icon-float" />
-      </div>
+        <Icon ref={iconRef} size={22} className="hiw-icon-float" />
+      </IconTile>
 
       {/* Text */}
       <h3

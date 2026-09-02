@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Search, Swords, Trophy } from "lucide-react";
 import { SearchIcon, type AnimatedIconHandle } from "@/components/ui/animated-icons";
+import { IconTile } from "@/components/ui/icon-tile";
 import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site/SiteShell";
@@ -409,9 +410,9 @@ function MarketplacePage() {
             onMouseEnter={() => emptyIconRef.current?.startAnimation()}
             onMouseLeave={() => emptyIconRef.current?.stopAnimation()}
           >
-            <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
-              <SearchIcon ref={emptyIconRef} size={20} className="text-primary-glow" />
-            </div>
+            <IconTile size="lg">
+              <SearchIcon ref={emptyIconRef} size={20} />
+            </IconTile>
             <h3 className="mt-4 font-display text-xl tracking-wide">
               {hasFilters ? "Nothing matches those filters" : "Nothing open right now"}
             </h3>

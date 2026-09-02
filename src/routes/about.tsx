@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Globe, Target, ArrowRight } from "lucide-react";
+import { Target, ArrowRight } from "lucide-react";
 import {
   ShieldCheckIcon,
   ZapIcon,
@@ -7,11 +7,13 @@ import {
   BanknoteIcon,
   BicepsFlexedIcon,
   HeadsetIcon,
+  GlobeIcon,
   type AnimatedIconHandle,
 } from "@/components/ui/animated-icons";
 import { SiteShell } from "@/components/site/SiteShell";
 import { CTA } from "@/components/site/CTA";
 import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
+import { IconTile } from "@/components/ui/icon-tile";
 import { useEffect, useRef, useState, useCallback, type MouseEvent } from "react";
 
 /* ─── Data ─── */
@@ -161,9 +163,9 @@ function ValueCard({ v, i, visible }: { v: (typeof values)[number]; i: number; v
         }}
       />
       <div className="relative rounded-[15px] bg-background/70 p-7 transition-transform duration-300 group-hover:-translate-y-0.5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20 transition-all duration-300 group-hover:bg-primary/15 group-hover:ring-primary/40 group-hover:shadow-[0_0_16px_oklch(0.51_0.23_277_/_0.15)]">
-          <Icon ref={iconRef} size={22} className="text-primary" />
-        </div>
+        <IconTile size="lg">
+          <Icon ref={iconRef} size={22} />
+        </IconTile>
         <h3 className="mt-5 text-lg font-semibold">{v.title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{v.desc}</p>
       </div>
@@ -411,9 +413,9 @@ function AboutPage() {
                 }`}
                 style={{ transitionDelay: `${i * 120 + 200}ms` }}
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Globe className="h-5 w-5 text-primary" />
-                </div>
+                <IconTile size="sm">
+                  <GlobeIcon size={20} />
+                </IconTile>
                 <h3 className="mt-4 font-display text-lg tracking-wide">{t.role}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t.desc}</p>
               </div>

@@ -24,6 +24,12 @@ export { ZapIcon, type ZapIconHandle } from "./zap";
 export { BicepsFlexedIcon, type BicepsFlexedIconHandle } from "./biceps-flexed";
 export { UsersIcon, type UsersIconHandle } from "./users";
 export { SearchIcon, type SearchIconHandle } from "./search";
+export { LockIcon, type LockIconHandle } from "./lock";
+export { ChartColumnIcon, type ChartColumnIconHandle } from "./chart-column";
+export { ReceiptTextIcon, type ReceiptTextIconHandle } from "./receipt-text";
+export { MailIcon, type MailIconHandle } from "./mail";
+export { MessageCircleIcon, type MessageCircleIconHandle } from "./message-circle";
+export { GlobeIcon, type GlobeIconHandle } from "./globe";
 
 /** Every icon in this set exposes the same imperative handle. */
 export type AnimatedIconHandle = {

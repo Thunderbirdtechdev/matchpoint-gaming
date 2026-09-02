@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef } from "react";
 import { useSpotlight } from "@/hooks/use-spotlight";
+import { IconTile } from "@/components/ui/icon-tile";
 import {
   ShieldCheckIcon,
   BanknoteIcon,
@@ -125,11 +126,9 @@ function TrustCard({ t }: { t: (typeof trustStrip)[number] }) {
 
       {/* Inner */}
       <div className="relative flex items-center gap-3 rounded-[11px] bg-background/50 p-4 backdrop-blur transition-all duration-300 ease-out group-hover:-translate-y-0.5 group-hover:bg-background/70">
-        <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent ring-1 ring-inset ring-primary/20 transition-all duration-300 group-hover:ring-primary/45 group-hover:shadow-[0_0_22px_oklch(0.51_0.23_277_/_0.28)]">
-          <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/12 to-transparent" />
-          <span className="pointer-events-none absolute -inset-2 rounded-full bg-primary/25 opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
-          <Icon ref={iconRef} size={20} className="relative text-primary-glow" />
-        </div>
+        <IconTile>
+          <Icon ref={iconRef} size={20} />
+        </IconTile>
         <div>
           <div className="text-sm font-semibold">{t.label}</div>
           <div className="text-[11px] text-muted-foreground">{t.sub}</div>
