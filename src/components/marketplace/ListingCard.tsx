@@ -1,5 +1,6 @@
 import { Swords, Trophy, Users, Loader2 } from "lucide-react";
 import { PremiumCard } from "@/components/ui/premium-card";
+import { Status } from "@/components/ui/status";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -59,13 +60,19 @@ export function ListingCard({
           className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-        <span className="absolute bottom-2 left-3 rounded-md bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-glow backdrop-blur-sm">
+        <Status
+          variant="brandSolid"
+          className="absolute bottom-2 left-3 px-2 py-0.5 text-[10px] uppercase tracking-wider"
+        >
           {gameLabel}
-        </span>
-        <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white backdrop-blur-md">
-          {isChallenge ? <Swords className="h-3 w-3" /> : <Trophy className="h-3 w-3" />}
+        </Status>
+        <Status
+          variant="glass"
+          className="absolute right-3 top-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]"
+        >
+          {isChallenge ? <Swords /> : <Trophy />}
           {isChallenge ? "1v1" : "Tournament"}
-        </span>
+        </Status>
       </div>
 
       {/* Body */}

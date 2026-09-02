@@ -35,6 +35,8 @@ const statusVariants = cva(
          * (e.g. gold text on 20% gold) muddies against the image and reads unfinished.
          */
         live: "border-white/10 bg-black/80 text-white **:data-[slot=status-indicator]:bg-green-400",
+        brandSolid:
+          "border-transparent bg-primary font-bold text-primary-foreground shadow-[0_2px_10px_oklch(0.51_0.23_277_/_0.35)] **:data-[slot=status-indicator]:bg-primary-foreground",
         prize:
           "border-transparent bg-accent font-bold text-accent-foreground shadow-[0_2px_10px_oklch(0.84_0.16_88_/_0.35)] **:data-[slot=status-indicator]:bg-accent-foreground",
         glass: "border-white/10 bg-black/80 text-white **:data-[slot=status-indicator]:bg-white/80",

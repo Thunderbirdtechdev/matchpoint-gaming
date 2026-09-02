@@ -26,13 +26,17 @@ export function PremiumCard({
       onMouseMove={onMove}
       onMouseLeave={onLeave}
       className={cn(
+        // The whole card lifts as one unit. Lifting the inner layers instead
+        // would expose a strip of this element's own background along the
+        // bottom edge, which reads as a stray bar under the card.
         "group relative overflow-hidden rounded-xl bg-background/60 backdrop-blur",
+        "transition-transform duration-300 ease-out will-change-transform hover:-translate-y-1",
         className,
       )}
       style={{ perspective: "800px" }}
     >
       {/* Gradient border layer — lifts with the inner card */}
-      <div className="absolute -inset-px rounded-xl bg-gradient-to-b from-border/50 via-border/30 to-border/50 transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
+      <div className="absolute -inset-px rounded-xl bg-gradient-to-b from-border/50 via-border/30 to-border/50 transition-all duration-300 ease-out group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
 
       {/* Spotlight overlay */}
       <div
@@ -45,7 +49,7 @@ export function PremiumCard({
       {/* Inner surface */}
       <div
         className={cn(
-          "relative flex h-full flex-col rounded-[11px] bg-background/80 transition-transform duration-300 ease-out will-change-transform group-hover:-translate-y-1",
+          "relative flex h-full flex-col rounded-[11px] bg-background/80 transition-transform duration-300 ease-out will-change-transform",
           innerClassName,
         )}
         style={{ transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))" }}

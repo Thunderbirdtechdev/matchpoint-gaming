@@ -3,6 +3,8 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef } from "react";
 import { useSpotlight } from "@/hooks/use-spotlight";
+import { PremiumCard } from "@/components/ui/premium-card";
+import { Status } from "@/components/ui/status";
 import { IconTile } from "@/components/ui/icon-tile";
 import {
   ShieldCheckIcon,
@@ -32,36 +34,9 @@ const trustStrip = [
 ];
 
 function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
-  const { ref, onMove, onLeave } = useSpotlight();
-
   return (
-    <div
-      ref={ref}
-      onMouseMove={onMove}
-      onMouseLeave={onLeave}
-      className="premium-card group relative overflow-hidden rounded-xl bg-background/60 backdrop-blur"
-      style={{ perspective: "800px" }}
-    >
-      {/* Gradient border layer */}
-      <div className="absolute -inset-px rounded-xl bg-gradient-to-b from-border/50 via-border/30 to-border/50 transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:from-primary/50 group-hover:via-primary/20 group-hover:to-primary/50" />
-
-      {/* Spotlight overlay */}
-      <div
-        className="pointer-events-none absolute inset-0 z-10 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background:
-            "radial-gradient(400px circle at var(--spot-x, 50%) var(--spot-y, 50%), oklch(0.51 0.23 277 / 0.08), transparent 60%)",
-        }}
-      />
-
-      {/* Inner card */}
-      <div
-        className="relative rounded-[11px] bg-background/80 transition-transform duration-300 ease-out will-change-transform group-hover:-translate-y-1"
-        style={{
-          transform:
-            "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(var(--lift, 0px))",
-        }}
-      >
+    <PremiumCard>
+      <>
         {/* Image */}
         <div className="relative aspect-[16/9] overflow-hidden rounded-t-[11px]">
           <img
@@ -73,11 +48,12 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
             height={360}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-          <div className="absolute bottom-2 left-3">
-            <span className="rounded-md bg-primary/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-glow backdrop-blur-sm">
-              {t.game}
-            </span>
-          </div>
+          <Status
+            variant="brandSolid"
+            className="absolute bottom-2 left-3 px-2 py-0.5 text-[10px] uppercase tracking-wider"
+          >
+            {t.game}
+          </Status>
         </div>
 
         {/* Info */}
@@ -91,8 +67,8 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
             <Link to="/register">Join Tournament</Link>
           </Button>
         </div>
-      </div>
-    </div>
+      </>
+    </PremiumCard>
   );
 }
 
