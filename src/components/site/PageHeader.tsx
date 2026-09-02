@@ -95,7 +95,7 @@ export function PageHeader({
                   onMouseEnter={() => coinsRef.current?.startAnimation()}
                   onMouseLeave={() => coinsRef.current?.stopAnimation()}
                 >
-                  <CoinsIcon ref={coinsRef} size={14} aria-hidden="true" />
+                  <CoinsIcon ref={coinsRef} size={16} aria-hidden="true" />
                   <StatusLabel>Real Cash Prizes</StatusLabel>
                 </Status>
                 <Status
@@ -103,7 +103,7 @@ export function PageHeader({
                   onMouseEnter={() => gamepadRef.current?.startAnimation()}
                   onMouseLeave={() => gamepadRef.current?.stopAnimation()}
                 >
-                  <GamepadIcon ref={gamepadRef} size={14} aria-hidden="true" />
+                  <GamepadIcon ref={gamepadRef} size={16} aria-hidden="true" />
                   <StatusLabel>4 Games Live</StatusLabel>
                 </Status>
               </div>

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * over any photo.
  */
 const statusVariants = cva(
-  "inline-flex w-fit shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors [&_svg]:size-3.5 [&_svg]:shrink-0",
+  "inline-flex w-fit shrink-0 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {

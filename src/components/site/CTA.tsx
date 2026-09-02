@@ -143,10 +143,10 @@ export function CTA() {
                 asChild
                 text="Create Account"
                 icon={<ArrowRight className="h-4 w-4" />}
-                // On the brand-coloured band a bg-primary fill would vanish, so
-                // this one inverts: light face, dark fill.
-                fillClassName="bg-background"
-                fillTextClassName="text-foreground"
+                // On the brand band a bg-primary fill is invisible, and so is a
+                // fill that matches the button's own face. Dark face, white fill.
+                fillClassName="bg-primary-foreground"
+                fillTextClassName="text-background"
                 className="h-13 border-transparent bg-background px-8 font-display text-base tracking-[0.12em] text-foreground"
               >
                 <Link to="/register" />
@@ -154,9 +154,10 @@ export function CTA() {
               <InteractiveHoverButton
                 asChild
                 text="Browse Games"
-                fillClassName="bg-primary-foreground/15"
-                fillTextClassName="text-primary-foreground"
-                className="h-13 border-primary-foreground/30 bg-transparent px-8 font-display text-base tracking-[0.12em] text-primary-foreground"
+                icon={<ArrowRight className="h-4 w-4" />}
+                fillClassName="bg-primary-foreground"
+                fillTextClassName="text-background"
+                className="h-13 border-primary-foreground/40 bg-transparent px-8 font-display text-base tracking-[0.12em] text-primary-foreground"
               >
                 <Link to="/games" />
               </InteractiveHoverButton>

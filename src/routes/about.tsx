@@ -10,6 +10,7 @@ import {
   GlobeIcon,
   type AnimatedIconHandle,
 } from "@/components/ui/animated-icons";
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
 import { SiteShell } from "@/components/site/SiteShell";
 import { CTA } from "@/components/site/CTA";
 import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
@@ -235,14 +236,14 @@ function AboutPage() {
               hero.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
             }`}
           >
-            <Link
-              to="/register"
-              className="leaderboard-cta group relative inline-flex h-13 items-center gap-3 overflow-hidden rounded-xl bg-gradient-brand px-8 font-display text-base uppercase tracking-[0.12em] text-primary-foreground transition-all duration-300 hover:shadow-[0_0_30px_oklch(0.51_0.23_277_/_0.35)]"
+            <InteractiveHoverButton
+              asChild
+              text="Join MatchPoint"
+              icon={<ArrowRight className="h-4.5 w-4.5" />}
+              className="h-13 rounded-xl border-primary/50 px-8 font-display text-base uppercase tracking-[0.12em] shadow-lg"
             >
-              <span className="absolute inset-0 leaderboard-btn-shimmer" />
-              <span className="relative">Join MatchPoint</span>
-              <ArrowRight className="relative h-4.5 w-4.5 transition-transform duration-300 group-hover:translate-x-1" />
-            </Link>
+              <Link to="/register" />
+            </InteractiveHoverButton>
           </div>
         </div>
       </section>
