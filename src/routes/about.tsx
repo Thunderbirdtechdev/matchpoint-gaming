@@ -1,16 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Globe, Target, ArrowRight } from "lucide-react";
 import {
-  Shield,
-  Zap,
-  Users,
-  Globe,
-  Target,
-  Trophy,
-  ArrowRight,
-  Landmark,
-  Scale,
+  ShieldCheckIcon,
+  ZapIcon,
+  UsersIcon,
+  BanknoteIcon,
+  BicepsFlexedIcon,
   HeadsetIcon,
-} from "lucide-react";
+  type AnimatedIconHandle,
+} from "@/components/ui/animated-icons";
 import { SiteShell } from "@/components/site/SiteShell";
 import { CTA } from "@/components/site/CTA";
 import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
@@ -48,27 +46,27 @@ const story = [
 
 const values = [
   {
-    icon: Shield,
+    icon: ShieldCheckIcon,
     title: "Fair Play Guaranteed",
     desc: "Every disputed match is reviewed by trained human moderators. We verify clips, screenshots, and game data. No bots, no bias.",
   },
   {
-    icon: Zap,
+    icon: ZapIcon,
     title: "Instant Everything",
     desc: "Sub-second matchmaking, real-time leaderboard updates, and same-day payouts. Speed isn't a feature — it's the standard.",
   },
   {
-    icon: Landmark,
+    icon: BanknoteIcon,
     title: "Secure & Transparent",
     desc: "All transactions powered by Stripe. Your money is protected, fees are public, and payouts are guaranteed. No hidden charges ever.",
   },
   {
-    icon: Scale,
+    icon: BicepsFlexedIcon,
     title: "Skill-Based Only",
     desc: "No pay-to-win mechanics, no random matchmaking. You win because you're better. Period.",
   },
   {
-    icon: Users,
+    icon: UsersIcon,
     title: "Community First",
     desc: "Built by competitive gamers who've been in the trenches. Every feature exists because a player asked for it.",
   },
@@ -87,10 +85,22 @@ const stats = [
 ];
 
 const team = [
-  { role: "Founders", desc: "Competitive Fortnite and Madden players who got tired of getting scammed on wager sites." },
-  { role: "Engineering", desc: "Full-stack engineers building real-time systems that handle thousands of concurrent matches." },
-  { role: "Trust & Safety", desc: "Former esports moderators who review every dispute with evidence-based protocols." },
-  { role: "Community", desc: "Player advocates who gather feedback, run events, and keep the community thriving." },
+  {
+    role: "Founders",
+    desc: "Competitive Fortnite and Madden players who got tired of getting scammed on wager sites.",
+  },
+  {
+    role: "Engineering",
+    desc: "Full-stack engineers building real-time systems that handle thousands of concurrent matches.",
+  },
+  {
+    role: "Trust & Safety",
+    desc: "Former esports moderators who review every dispute with evidence-based protocols.",
+  },
+  {
+    role: "Community",
+    desc: "Player advocates who gather feedback, run events, and keep the community thriving.",
+  },
 ];
 
 /* ─── Hooks ─── */
@@ -127,11 +137,14 @@ function useSpotlight() {
 
 function ValueCard({ v, i, visible }: { v: (typeof values)[number]; i: number; visible: boolean }) {
   const { ref, onMove } = useSpotlight();
+  const iconRef = useRef<AnimatedIconHandle>(null);
   const Icon = v.icon;
   return (
     <div
       ref={ref}
       onMouseMove={onMove}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
+      onMouseLeave={() => iconRef.current?.stopAnimation()}
       className={`group relative overflow-hidden rounded-2xl transition-all duration-700 ${
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
       }`}
@@ -142,11 +155,14 @@ function ValueCard({ v, i, visible }: { v: (typeof values)[number]; i: number; v
       {/* Spotlight */}
       <div
         className="pointer-events-none absolute inset-0 z-10 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{ background: "radial-gradient(350px circle at var(--spot-x, 50%) var(--spot-y, 50%), oklch(0.51 0.23 277 / 0.07), transparent 60%)" }}
+        style={{
+          background:
+            "radial-gradient(350px circle at var(--spot-x, 50%) var(--spot-y, 50%), oklch(0.51 0.23 277 / 0.07), transparent 60%)",
+        }}
       />
       <div className="relative rounded-[15px] bg-background/70 p-7 transition-transform duration-300 group-hover:-translate-y-0.5">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20 transition-all duration-300 group-hover:bg-primary/15 group-hover:ring-primary/40 group-hover:shadow-[0_0_16px_oklch(0.51_0.23_277_/_0.15)]">
-          <Icon className="h-5.5 w-5.5 text-primary" />
+          <Icon ref={iconRef} size={22} className="text-primary" />
         </div>
         <h3 className="mt-5 text-lg font-semibold">{v.title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{v.desc}</p>
@@ -161,7 +177,11 @@ export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "About — MatchPoint" },
-      { name: "description", content: "MatchPoint is the home of skill-based competitive gaming — built by players, for players." },
+      {
+        name: "description",
+        content:
+          "MatchPoint is the home of skill-based competitive gaming — built by players, for players.",
+      },
       { property: "og:title", content: "About MatchPoint" },
       { property: "og:description", content: "The home of skill-based competitive gaming." },
       { property: "og:url", content: "https://matchpointgaming.org/about" },
@@ -198,8 +218,7 @@ function AboutPage() {
               hero.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
             }`}
           >
-            Built by Players,{" "}
-            <span className="text-gradient-brand">for Players</span>
+            Built by Players, <span className="text-gradient-brand">for Players</span>
           </h1>
           <p
             className={`mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed transition-all duration-700 delay-200 ${
@@ -227,7 +246,10 @@ function AboutPage() {
       </section>
 
       {/* ── Mission ── */}
-      <section ref={missionSection.ref} className="relative border-b border-border/50 bg-surface/20">
+      <section
+        ref={missionSection.ref}
+        className="relative border-b border-border/50 bg-surface/20"
+      >
         <div className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 md:py-24">
           <div
             className={`transition-all duration-700 ${
@@ -253,7 +275,9 @@ function AboutPage() {
               storySection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
             }`}
           >
-            <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">Our Journey</p>
+            <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">
+              Our Journey
+            </p>
             <h2 className="mt-3 font-display text-3xl tracking-wide sm:text-4xl md:text-5xl">
               The <span className="text-gradient-brand">Story</span> So Far
             </h2>
@@ -285,9 +309,15 @@ function AboutPage() {
                     </div>
 
                     {/* Content */}
-                    <div className={`ml-12 md:ml-0 md:w-[calc(50%-2rem)] ${isLeft ? "md:text-right md:pr-8" : "md:text-left md:pl-8 md:ml-auto"}`}>
-                      <span className="font-display text-xs tracking-[0.2em] uppercase text-primary">{s.year}</span>
-                      <h3 className="mt-1 font-display text-xl tracking-wide sm:text-2xl">{s.title}</h3>
+                    <div
+                      className={`ml-12 md:ml-0 md:w-[calc(50%-2rem)] ${isLeft ? "md:text-right md:pr-8" : "md:text-left md:pl-8 md:ml-auto"}`}
+                    >
+                      <span className="font-display text-xs tracking-[0.2em] uppercase text-primary">
+                        {s.year}
+                      </span>
+                      <h3 className="mt-1 font-display text-xl tracking-wide sm:text-2xl">
+                        {s.title}
+                      </h3>
                       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{s.text}</p>
                     </div>
                   </div>
@@ -325,14 +355,19 @@ function AboutPage() {
       </section>
 
       {/* ── Values ── */}
-      <section ref={valuesSection.ref} className="relative border-b border-border/50 py-20 md:py-28">
+      <section
+        ref={valuesSection.ref}
+        className="relative border-b border-border/50 py-20 md:py-28"
+      >
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div
             className={`text-center transition-all duration-700 ${
               valuesSection.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
             }`}
           >
-            <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">What We Stand For</p>
+            <p className="font-display text-xs tracking-[0.3em] uppercase text-accent">
+              What We Stand For
+            </p>
             <h2 className="mt-3 font-display text-3xl tracking-wide sm:text-4xl md:text-5xl">
               Our <span className="text-gradient-brand">Values</span>
             </h2>
@@ -347,7 +382,10 @@ function AboutPage() {
       </section>
 
       {/* ── Team ── */}
-      <section ref={teamSection.ref} className="relative border-b border-border/50 bg-surface/20 py-20 md:py-28">
+      <section
+        ref={teamSection.ref}
+        className="relative border-b border-border/50 bg-surface/20 py-20 md:py-28"
+      >
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div
             className={`text-center transition-all duration-700 ${
@@ -359,7 +397,8 @@ function AboutPage() {
               Who's Behind <span className="text-gradient-brand">MatchPoint</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-              We're a small, focused team of gamers, engineers, and community builders. No investors pulling strings — just people who care about competitive gaming.
+              We're a small, focused team of gamers, engineers, and community builders. No investors
+              pulling strings — just people who care about competitive gaming.
             </p>
           </div>
 

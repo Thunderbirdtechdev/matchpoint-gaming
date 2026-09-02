@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Search, Swords, Trophy, SearchX } from "lucide-react";
+import { Search, Swords, Trophy } from "lucide-react";
+import { SearchIcon, type AnimatedIconHandle } from "@/components/ui/animated-icons";
 import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site/SiteShell";
@@ -102,6 +103,7 @@ function MarketplacePage() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("default");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const emptyIconRef = useRef<AnimatedIconHandle>(null);
 
   /* ── Data ── */
 
@@ -402,9 +404,13 @@ function MarketplacePage() {
             ))}
           </div>
         ) : (
-          <div className="mt-4 grid place-items-center rounded-2xl border border-dashed border-border/60 bg-surface/20 px-6 py-20 text-center">
+          <div
+            className="mt-4 grid place-items-center rounded-2xl border border-dashed border-border/60 bg-surface/20 px-6 py-20 text-center"
+            onMouseEnter={() => emptyIconRef.current?.startAnimation()}
+            onMouseLeave={() => emptyIconRef.current?.stopAnimation()}
+          >
             <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary/10 ring-1 ring-inset ring-primary/20">
-              <SearchX className="h-5 w-5 text-primary-glow" />
+              <SearchIcon ref={emptyIconRef} size={20} className="text-primary-glow" />
             </div>
             <h3 className="mt-4 font-display text-xl tracking-wide">
               {hasFilters ? "Nothing matches those filters" : "Nothing open right now"}

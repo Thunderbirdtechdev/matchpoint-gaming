@@ -17,6 +17,13 @@ export { ShieldCheckIcon, type ShieldCheckIconHandle } from "./shield-check";
 export { HeadsetIcon, type HeadsetIconHandle } from "./headset";
 export { BanknoteIcon, type BanknoteIconHandle } from "./banknote";
 export { SwordsIcon, type SwordsIconHandle } from "./swords";
+export { UserPlusIcon, type UserPlusIconHandle } from "./user-plus";
+export { LocateFixedIcon, type LocateFixedIconHandle } from "./locate-fixed";
+export { WalletIcon, type WalletIconHandle } from "./wallet";
+export { ZapIcon, type ZapIconHandle } from "./zap";
+export { BicepsFlexedIcon, type BicepsFlexedIconHandle } from "./biceps-flexed";
+export { UsersIcon, type UsersIconHandle } from "./users";
+export { SearchIcon, type SearchIconHandle } from "./search";
 
 /** Every icon in this set exposes the same imperative handle. */
 export type AnimatedIconHandle = {
