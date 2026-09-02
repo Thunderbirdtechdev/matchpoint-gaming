@@ -33,7 +33,7 @@ import {
   type ListingKind,
   type StakeBandId,
 } from "@/components/marketplace/listing";
-import headerImg from "@/assets/how-it-works.jpg";
+import headerImg from "@/assets/hero-bg.jpg";
 
 export const Route = createFileRoute("/marketplace")({
   head: () => ({
@@ -277,7 +277,7 @@ function MarketplacePage() {
           </>
         }
         description="Every open 1v1 challenge and tournament on MatchPoint, in one place. Filter by game, platform and stake — then put your skills where your money is."
-        image={{ src: headerImg, alt: "Players competing on MatchPoint" }}
+        image={{ src: headerImg, alt: "MatchPoint competitive arena" }}
       />
 
       <section className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 md:py-20">
