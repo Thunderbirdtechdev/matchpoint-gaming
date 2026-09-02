@@ -1,15 +1,39 @@
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import fortnite from "@/assets/game-fortnite.jpg";
 import madden from "@/assets/game-madden.jpg";
 import nba from "@/assets/game-nba.jpg";
 
 const games = [
-  { slug: "fortnite", name: "Fortnite", img: fortnite, modes: "1v1 Build Fights, Box Fights, Zone Wars", platforms: "PC, PlayStation, Xbox, Switch" },
-  { slug: "nba2k", name: "NBA 2K", img: nba, modes: "1v1 Play Now, MyTeam, Head-to-Head", platforms: "PC, PlayStation, Xbox" },
-  { slug: "madden", name: "Madden NFL", img: madden, modes: "1v1 Head-to-Head, MUT, Online Ranked", platforms: "PC, PlayStation, Xbox" },
-  { slug: "ncaa", name: "College Football 25", img: madden, modes: "1v1 Head-to-Head, Online Dynasty", platforms: "PlayStation, Xbox" },
+  {
+    slug: "fortnite",
+    name: "Fortnite",
+    img: fortnite,
+    modes: "1v1 Build Fights, Box Fights, Zone Wars",
+    platforms: "PC, PlayStation, Xbox, Switch",
+  },
+  {
+    slug: "nba2k",
+    name: "NBA 2K",
+    img: nba,
+    modes: "1v1 Play Now, MyTeam, Head-to-Head",
+    platforms: "PC, PlayStation, Xbox",
+  },
+  {
+    slug: "madden",
+    name: "Madden NFL",
+    img: madden,
+    modes: "1v1 Head-to-Head, MUT, Online Ranked",
+    platforms: "PC, PlayStation, Xbox",
+  },
+  {
+    slug: "ncaa",
+    name: "College Football 25",
+    img: madden,
+    modes: "1v1 Head-to-Head, Online Dynasty",
+    platforms: "PlayStation, Xbox",
+  },
 ];
 
 export function Games() {
@@ -22,8 +46,8 @@ export function Games() {
             Four games. Real competition.
           </h2>
           <p className="mt-4 max-w-xl text-muted-foreground">
-            We're launching with the titles that matter most — with 1v1 challenges and
-            tournaments running around the clock.
+            We're launching with the titles that matter most — with 1v1 challenges and tournaments
+            running around the clock.
           </p>
         </div>
 
@@ -46,7 +70,9 @@ export function Games() {
               </div>
 
               <div className="absolute inset-x-0 bottom-0 p-5">
-                <h3 className="font-display text-xl font-bold uppercase tracking-wider">{g.name}</h3>
+                <h3 className="font-display text-xl font-bold uppercase tracking-wider">
+                  {g.name}
+                </h3>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{g.modes}</p>
                 <p className="mt-2 text-[11px] text-muted-foreground/70">{g.platforms}</p>
               </div>
@@ -59,16 +85,14 @@ export function Games() {
         </div>
 
         <div className="mt-10 text-center">
-          <Button
+          <InteractiveHoverButton
             asChild
-            size="lg"
-            className="h-12 bg-gradient-brand px-8 font-display text-lg tracking-[0.12em] text-primary-foreground hover:opacity-90"
+            text="Start Competing"
+            icon={<ArrowRight className="h-5 w-5" />}
+            className="h-12 border-primary/50 px-8 font-display text-lg tracking-[0.12em]"
           >
-            <Link to="/register">
-              Start Competing
-              <ArrowRight className="ml-1.5 h-4 w-4" />
-            </Link>
-          </Button>
+            <Link to="/register" />
+          </InteractiveHoverButton>
         </div>
       </div>
     </section>

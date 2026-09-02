@@ -1,3 +1,4 @@
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
 import { Check, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
@@ -19,7 +20,10 @@ const perks = [
 
 export function Pricing() {
   return (
-    <section id="pricing" className="relative overflow-hidden border-y border-border/50 bg-background py-20 md:py-28">
+    <section
+      id="pricing"
+      className="relative overflow-hidden border-y border-border/50 bg-background py-20 md:py-28"
+    >
       {/* Subtle particle dots */}
       <div className="absolute inset-0 grid-pattern opacity-8" />
 
@@ -30,8 +34,8 @@ export function Pricing() {
             Transparent Fees. No Surprises.
           </h2>
           <p className="mx-auto mt-5 max-w-lg text-base italic text-muted-foreground">
-            MatchPoint takes a small percentage of the prize pool when a match
-            settles. Bigger pools get lower rates.
+            MatchPoint takes a small percentage of the prize pool when a match settles. Bigger pools
+            get lower rates.
           </p>
         </div>
 
@@ -43,7 +47,8 @@ export function Pricing() {
             <div
               className="absolute -inset-px rounded-2xl"
               style={{
-                background: "linear-gradient(180deg, oklch(0.65 0.15 277 / 0.5) 0%, oklch(0.5 0.1 277 / 0.2) 30%, oklch(0.4 0.08 280 / 0.15) 100%)",
+                background:
+                  "linear-gradient(180deg, oklch(0.65 0.15 277 / 0.5) 0%, oklch(0.5 0.1 277 / 0.2) 30%, oklch(0.4 0.08 280 / 0.15) 100%)",
               }}
             />
             {/* Soft top glow */}
@@ -55,9 +60,15 @@ export function Pricing() {
             <div className="relative overflow-hidden rounded-2xl bg-background">
               {/* Table header */}
               <div className="grid grid-cols-3 gap-4 border-b border-border/30 px-6 py-4">
-                <span className="font-display text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">Pool Size</span>
-                <span className="font-display text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">Platform Fee</span>
-                <span className="font-display text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">Example (1v1)</span>
+                <span className="font-display text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  Pool Size
+                </span>
+                <span className="font-display text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  Platform Fee
+                </span>
+                <span className="font-display text-[11px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+                  Example (1v1)
+                </span>
               </div>
 
               {/* Table rows */}
@@ -69,7 +80,9 @@ export function Pricing() {
                   }`}
                 >
                   <span className="text-[15px] font-medium text-foreground">{t.pool}</span>
-                  <span className="font-display text-3xl font-bold tracking-wide text-foreground">{t.rate}</span>
+                  <span className="font-display text-3xl font-bold tracking-wide text-foreground">
+                    {t.rate}
+                  </span>
                   <span className="text-[13px] text-muted-foreground">{t.example}</span>
                 </div>
               ))}
@@ -93,13 +106,14 @@ export function Pricing() {
               ))}
             </ul>
 
-            <Link
-              to="/register"
-              className="mt-10 flex h-14 w-full items-center justify-between rounded-xl bg-gradient-brand px-6 font-display text-base uppercase tracking-[0.15em] text-primary-foreground shadow-lg transition-all duration-300 hover:opacity-90 hover:shadow-[0_0_30px_oklch(0.51_0.23_277_/_0.3)] sm:text-lg"
+            <InteractiveHoverButton
+              asChild
+              text="Create Free Account"
+              icon={<ArrowRight className="h-5 w-5" />}
+              className="mt-10 h-14 w-full rounded-xl border-primary/50 px-6 font-display text-base uppercase tracking-[0.15em] shadow-lg sm:text-lg"
             >
-              <span>Create Free Account</span>
-              <ArrowRight className="h-5 w-5" />
-            </Link>
+              <Link to="/register" />
+            </InteractiveHoverButton>
           </div>
         </div>
 

@@ -27,35 +27,41 @@ export function Hero() {
                 <span className="inline-block animate-hero-word">Play.</span>
               </span>
               <span className="block overflow-hidden">
-                <span className="inline-block animate-hero-word [animation-delay:150ms] animate-hero-glow">Compete.</span>
+                <span className="inline-block animate-hero-word [animation-delay:150ms] animate-hero-glow">
+                  Compete.
+                </span>
               </span>
               <span className="mt-1 block overflow-hidden">
-                <span className="inline-block animate-hero-word [animation-delay:300ms] text-gradient-brand animate-hero-gradient">Win.</span>
+                <span className="inline-block animate-hero-word [animation-delay:300ms] text-gradient-brand animate-hero-gradient">
+                  Win.
+                </span>
               </span>
             </h1>
 
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg animate-hero-word [animation-delay:500ms]">
-              MatchPoint is the skill-based arena where real gamers settle it.
-              Challenge anyone to a 1v1 in Fortnite, NBA 2K, Madden, or College
-              Football — stake real money, compete head-to-head, and cash out your
-              winnings instantly to your bank. No middlemen. No excuses.
+              MatchPoint is the skill-based arena where real gamers settle it. Challenge anyone to a
+              1v1 in Fortnite, NBA 2K, Madden, or College Football — stake real money, compete
+              head-to-head, and cash out your winnings instantly to your bank. No middlemen. No
+              excuses.
             </p>
 
             <div className="mt-9 flex flex-col gap-4 sm:flex-row animate-hero-word [animation-delay:650ms]">
-              <Link to="/register" className="group">
-                <InteractiveHoverButton
-                  text="Enter the Arena"
-                  icon={<ArrowRight className="h-5 w-5" />}
-                  className="w-48 border-primary/50 bg-background p-3 font-display text-base tracking-[0.08em] sm:w-52"
-                />
-              </Link>
-              <Link to="/games" className="group">
-                <InteractiveHoverButton
-                  text="Browse Games"
-                  icon={<Play className="h-5 w-5" />}
-                  className="w-48 border-border/80 bg-surface/40 p-3 font-display text-base tracking-[0.08em] backdrop-blur sm:w-52"
-                />
-              </Link>
+              <InteractiveHoverButton
+                asChild
+                text="Enter the Arena"
+                icon={<ArrowRight className="h-5 w-5" />}
+                className="w-48 border-primary/50 bg-background p-3 font-display text-base tracking-[0.08em] sm:w-52"
+              >
+                <Link to="/register" />
+              </InteractiveHoverButton>
+              <InteractiveHoverButton
+                asChild
+                text="Browse Games"
+                icon={<Play className="h-5 w-5" />}
+                className="w-48 border-border/80 bg-surface/40 p-3 font-display text-base tracking-[0.08em] backdrop-blur sm:w-52"
+              >
+                <Link to="/games" />
+              </InteractiveHoverButton>
             </div>
 
             {/* Typewriter tagline under buttons */}

@@ -1,6 +1,6 @@
+import { InteractiveHoverButton } from "@/components/ui/interactive-hover-button";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 
@@ -34,7 +34,9 @@ function CTASlideshow() {
     if (!emblaApi) return;
     emblaApi.on("select", onSelect);
     onSelect();
-    return () => { emblaApi.off("select", onSelect); };
+    return () => {
+      emblaApi.off("select", onSelect);
+    };
   }, [emblaApi, onSelect]);
 
   useEffect(() => {
@@ -99,9 +101,7 @@ function CTASlideshow() {
           >
             <span
               className={`absolute inset-0 rounded-full transition-colors duration-300 ${
-                i === activeIndex
-                  ? "bg-white"
-                  : "bg-white/30 group-hover:bg-white/50"
+                i === activeIndex ? "bg-white" : "bg-white/30 group-hover:bg-white/50"
               }`}
             />
             {/* Auto-progress fill */}
@@ -135,28 +135,31 @@ export function CTA() {
               Ready to prove you&rsquo;re the best?
             </h2>
             <p className="mt-5 max-w-lg text-base text-primary-foreground/75 leading-relaxed">
-              Create your free account, fund your wallet, and start competing in
-              Fortnite, NBA 2K, Madden, and College Football today.
+              Create your free account, fund your wallet, and start competing in Fortnite, NBA 2K,
+              Madden, and College Football today.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Button
-                size="lg"
+              <InteractiveHoverButton
                 asChild
-                className="group h-13 bg-background px-8 font-display text-base tracking-[0.12em] text-foreground transition-all duration-300 hover:bg-background/90 hover:shadow-[0_0_24px_oklch(1_0_0_/_0.2)]"
+                text="Create Account"
+                icon={<ArrowRight className="h-4 w-4" />}
+                // On the brand-coloured band a bg-primary fill would vanish, so
+                // this one inverts: light face, dark fill.
+                fillClassName="bg-background"
+                fillTextClassName="text-foreground"
+                className="h-13 border-transparent bg-background px-8 font-display text-base tracking-[0.12em] text-foreground"
               >
-                <Link to="/register">
-                  Create Account
-                  <ArrowRight className="ml-1.5 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
+                <Link to="/register" />
+              </InteractiveHoverButton>
+              <InteractiveHoverButton
                 asChild
-                className="h-13 border-primary-foreground/30 bg-transparent px-8 font-display text-base tracking-[0.12em] text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+                text="Browse Games"
+                fillClassName="bg-primary-foreground/15"
+                fillTextClassName="text-primary-foreground"
+                className="h-13 border-primary-foreground/30 bg-transparent px-8 font-display text-base tracking-[0.12em] text-primary-foreground"
               >
-                <Link to="/games">Browse Games</Link>
-              </Button>
+                <Link to="/games" />
+              </InteractiveHoverButton>
             </div>
             <div className="mt-7 font-display text-[11px] tracking-[0.22em] uppercase text-primary-foreground/50">
               No download required · $10 minimum entry · Free standard withdrawals
