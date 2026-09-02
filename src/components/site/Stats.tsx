@@ -1,13 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useRef } from "react";
 import { useSpotlight } from "@/hooks/use-spotlight";
 import {
   ShieldCheckIcon,
-  LandmarkIcon,
+  BanknoteIcon,
   HeadsetIcon,
-  TrophyIcon,
+  SwordsIcon,
+  type AnimatedIconHandle,
 } from "@/components/ui/animated-icons";
 
 import cardFortnite from "@/assets/card-fortnite.jpg";
@@ -24,9 +25,9 @@ const tournaments = [
 
 const trustStrip = [
   { icon: ShieldCheckIcon, label: "Fair Play", sub: "Every match verified" },
-  { icon: LandmarkIcon, label: "Secure Payouts", sub: "Powered by Stripe" },
+  { icon: BanknoteIcon, label: "Secure Payouts", sub: "Powered by Stripe" },
   { icon: HeadsetIcon, label: "24/7 Support", sub: "We've got your back" },
-  { icon: TrophyIcon, label: "Compete & Win", sub: "Real cash prizes" },
+  { icon: SwordsIcon, label: "Compete & Win", sub: "Real cash prizes" },
 ];
 
 function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
@@ -96,17 +97,17 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
 
 function TrustCard({ t }: { t: (typeof trustStrip)[number] }) {
   const { ref, onMove, onLeave } = useSpotlight();
-  const [hovered, setHovered] = useState(false);
+  const iconRef = useRef<AnimatedIconHandle>(null);
   const Icon = t.icon;
 
   return (
     <div
       ref={ref}
       onMouseMove={onMove}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => iconRef.current?.startAnimation()}
       onMouseLeave={() => {
         onLeave();
-        setHovered(false);
+        iconRef.current?.stopAnimation();
       }}
       className="premium-card group relative overflow-hidden rounded-xl"
     >
@@ -127,7 +128,7 @@ function TrustCard({ t }: { t: (typeof trustStrip)[number] }) {
         <div className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-primary/25 via-primary/10 to-transparent ring-1 ring-inset ring-primary/20 transition-all duration-300 group-hover:ring-primary/45 group-hover:shadow-[0_0_22px_oklch(0.51_0.23_277_/_0.28)]">
           <span className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/12 to-transparent" />
           <span className="pointer-events-none absolute -inset-2 rounded-full bg-primary/25 opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
-          <Icon active={hovered} className="relative h-5 w-5 text-primary-glow" />
+          <Icon ref={iconRef} size={20} className="relative text-primary-glow" />
         </div>
         <div>
           <div className="text-sm font-semibold">{t.label}</div>

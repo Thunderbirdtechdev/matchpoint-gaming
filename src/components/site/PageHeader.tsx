@@ -1,7 +1,7 @@
-import { type ReactNode, useState, useEffect } from "react";
-import { Coins, Gamepad2 } from "lucide-react";
+import { type ReactNode, useState, useEffect, useRef } from "react";
 import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 import { Status, StatusIndicator, StatusLabel } from "@/components/ui/status";
+import { CoinsIcon, GamepadIcon, type AnimatedIconHandle } from "@/components/ui/animated-icons";
 
 export function PageHeader({
   eyebrow,
@@ -17,6 +17,8 @@ export function PageHeader({
   image?: { src: string; alt: string };
 }) {
   const [visible, setVisible] = useState(false);
+  const coinsRef = useRef<AnimatedIconHandle>(null);
+  const gamepadRef = useRef<AnimatedIconHandle>(null);
 
   useEffect(() => {
     if (!image) return;
@@ -88,12 +90,20 @@ export function PageHeader({
 
               {/* Bottom badges */}
               <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-2 p-5">
-                <Status variant="prize">
-                  <Coins aria-hidden="true" />
+                <Status
+                  variant="prize"
+                  onMouseEnter={() => coinsRef.current?.startAnimation()}
+                  onMouseLeave={() => coinsRef.current?.stopAnimation()}
+                >
+                  <CoinsIcon ref={coinsRef} size={14} aria-hidden="true" />
                   <StatusLabel>Real Cash Prizes</StatusLabel>
                 </Status>
-                <Status variant="glass">
-                  <Gamepad2 aria-hidden="true" />
+                <Status
+                  variant="glass"
+                  onMouseEnter={() => gamepadRef.current?.startAnimation()}
+                  onMouseLeave={() => gamepadRef.current?.stopAnimation()}
+                >
+                  <GamepadIcon ref={gamepadRef} size={14} aria-hidden="true" />
                   <StatusLabel>4 Games Live</StatusLabel>
                 </Status>
               </div>
