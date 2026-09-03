@@ -144,9 +144,7 @@ REVOKE EXECUTE ON FUNCTION public.has_capability(UUID, TEXT) FROM PUBLIC, anon;
 GRANT  EXECUTE ON FUNCTION public.has_capability(UUID, TEXT) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.has_capability(UUID, TEXT) IS
-  'Module 7. True when any of the user''s roles grants the named capability. '
-  'Prefer this over has_role() in new policies and server functions — has_role '
-  'is an exact match with no hierarchy, so it silently excludes super_admin.';
+  'Module 7. True when any of the user''s roles grants the named capability. Prefer this over has_role() in new policies and server functions - has_role is an exact match with no hierarchy, so it silently excludes super_admin.';
 
 
 -- ---------------------------------------------------------------------------
@@ -212,9 +210,20 @@ ON CONFLICT DO NOTHING;
 -- Logged with a NULL actor, which is what "the migration did this, not a person"
 -- looks like in the audit trail. The NOT EXISTS guard keeps a re-run from
 -- stacking duplicate bootstrap entries on top of a real grant history.
+--
+-- Every literal below is cast explicitly. In INSERT ... SELECT, Postgres works
+-- out the SELECT's own output types BEFORE matching them to the target columns,
+-- and an untyped NULL there resolves to text — which then fails to assign to a
+-- uuid column ("column actor_id is of type uuid but expression is of type
+-- text"). A bare VALUES list would have inferred the types from the target and
+-- hidden this; a SELECT does not.
 INSERT INTO public.role_grants (target_user_id, role, action, actor_id, note)
-SELECT DISTINCT ur.user_id, 'super_admin', 'grant', NULL,
-       'Module 7 bootstrap: existing admin promoted so the role system has an owner.'
+SELECT DISTINCT
+       ur.user_id,
+       'super_admin'::TEXT,
+       'grant'::TEXT,
+       NULL::UUID,
+       'Module 7 bootstrap: existing admin promoted so the role system has an owner.'::TEXT
 FROM public.user_roles ur
 WHERE ur.role = 'admin'::public.app_role
   AND NOT EXISTS (
