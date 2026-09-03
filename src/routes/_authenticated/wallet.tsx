@@ -15,7 +15,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, Landmark, Zap, CalendarClock, ShieldCheck, Gift, Users, Copy } from "lucide-react";
+import {
+  Wallet,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Loader2,
+  Landmark,
+  Zap,
+  CalendarClock,
+  ShieldCheck,
+  Gift,
+  Users,
+  Copy,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   getMyWallet,
@@ -25,6 +37,8 @@ import {
 } from "@/lib/wallet.functions";
 import { redeemPromoCode, getMyReferralInfo } from "@/lib/promo.functions";
 import { calculateWithdrawalFee, type WithdrawalSpeed } from "@/lib/fees";
+import { BalanceSummary, type EscrowHold } from "@/components/wallet/BalanceSummary";
+import { LedgerPanel } from "@/components/wallet/LedgerPanel";
 
 type SearchParams = { deposit?: string; connect?: string };
 
@@ -39,10 +53,6 @@ export const Route = createFileRoute("/_authenticated/wallet")({
 
 function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-function txLabel(t: string) {
-  return t.replace(/_/g, " ");
 }
 
 function WalletPage() {
@@ -76,7 +86,10 @@ function WalletPage() {
       toast.success("Deposit received — your balance will update shortly.");
       const id = setInterval(() => qc.invalidateQueries({ queryKey: ["wallet"] }), 2000);
       const stop = setTimeout(() => clearInterval(id), 12000);
-      return () => { clearInterval(id); clearTimeout(stop); };
+      return () => {
+        clearInterval(id);
+        clearTimeout(stop);
+      };
     }
     if (search.deposit === "cancel") toast.message("Deposit canceled.");
   }, [search.deposit, qc]);
@@ -93,13 +106,17 @@ function WalletPage() {
 
   const depositMut = useMutation({
     mutationFn: async (amount_cents: number) => deposit({ data: { amount_cents } }),
-    onSuccess: ({ url }) => { if (url) window.location.href = url; },
+    onSuccess: ({ url }) => {
+      if (url) window.location.href = url;
+    },
     onError: (e: Error) => toast.error(e.message || "Could not start deposit"),
   });
 
   const connectMut = useMutation({
     mutationFn: async () => connectOnboarding(),
-    onSuccess: ({ url }) => { if (url) window.location.href = url; },
+    onSuccess: ({ url }) => {
+      if (url) window.location.href = url;
+    },
     onError: (e: Error) => toast.error(e.message || "Could not start payout setup"),
   });
 
@@ -123,7 +140,9 @@ function WalletPage() {
   const redeemPromoMut = useMutation({
     mutationFn: async () => redeemPromo({ data: { code: promoCode.trim() } }),
     onSuccess: (res) => {
-      toast.success(`Promo applied — $${(res.credited_cents / 100).toFixed(2)} added to your wallet.`);
+      toast.success(
+        `Promo applied — $${(res.credited_cents / 100).toFixed(2)} added to your wallet.`,
+      );
       setPromoCode("");
       qc.invalidateQueries({ queryKey: ["wallet"] });
     },
@@ -133,31 +152,37 @@ function WalletPage() {
   const balance = data?.wallet?.balance_cents ?? 0;
   const payoutsEnabled = !!data?.connect?.payouts_enabled;
 
-
   return (
     <DashboardShell title="Wallet" subtitle="Deposit, track winnings, and cash out.">
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Balance */}
-        <div className="rounded-2xl border border-border/60 bg-gradient-brand p-8 text-primary-foreground">
-          <Wallet className="h-7 w-7" />
-          <div className="mt-6 text-sm opacity-80">Available balance</div>
-          <div className="mt-1 text-4xl font-bold">
-            {isLoading ? <Loader2 className="h-7 w-7 animate-spin" /> : fmt(balance)}
-          </div>
-          <p className="mt-6 text-xs opacity-70">
-            Used to enter tournaments and challenges. Winnings land here automatically.
-          </p>
-        </div>
+      {/* Available / in escrow / pending — one number would hide staked money */}
+      <div className="mb-6">
+        <BalanceSummary
+          available={data?.balances?.available_cents ?? balance}
+          escrow={data?.balances?.escrow_cents ?? 0}
+          pending={data?.balances?.pending_cents ?? 0}
+          total={data?.balances?.total_cents ?? balance}
+          holds={(data?.escrow_holds ?? []) as EscrowHold[]}
+          loading={isLoading}
+        />
+      </div>
 
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Deposit */}
         <div className="rounded-2xl border border-border/60 bg-card p-6">
           <div className="flex items-center gap-2 text-sm font-medium">
             <ArrowDownCircle className="h-4 w-4" /> Deposit funds
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">Add money via card. Funds available after payment confirms.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Add money via card. Funds available after payment confirms.
+          </p>
           <div className="mt-4 flex gap-2">
             {[10, 25, 50, 100].map((v) => (
-              <Button key={v} size="sm" variant={depositAmount === String(v) ? "default" : "outline"} onClick={() => setDepositAmount(String(v))}>
+              <Button
+                key={v}
+                size="sm"
+                variant={depositAmount === String(v) ? "default" : "outline"}
+                onClick={() => setDepositAmount(String(v))}
+              >
                 ${v}
               </Button>
             ))}
@@ -194,28 +219,38 @@ function WalletPage() {
         {!payoutsEnabled ? (
           <>
             <p className="mt-2 text-xs text-muted-foreground">
-              Connect a bank account to cash out — a quick, secure setup through Stripe (the same processor you deposit with).
-              Once connected, withdrawals are automatic — no approval needed.
+              Connect a bank account to cash out — a quick, secure setup through Stripe (the same
+              processor you deposit with). Once connected, withdrawals are automatic — no approval
+              needed.
             </p>
-            <Button className="mt-4" onClick={() => connectMut.mutate()} disabled={connectMut.isPending}>
+            <Button
+              className="mt-4"
+              onClick={() => connectMut.mutate()}
+              disabled={connectMut.isPending}
+            >
               {connectMut.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Landmark className="mr-2 h-4 w-4" /> {data?.connect ? "Finish payout setup" : "Set up payouts"}
+                  <Landmark className="mr-2 h-4 w-4" />{" "}
+                  {data?.connect ? "Finish payout setup" : "Set up payouts"}
                 </>
               )}
             </Button>
             <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" /> Handled securely by Stripe — MatchPoint never sees your bank details.
+              <ShieldCheck className="h-3.5 w-3.5" /> Handled securely by Stripe — MatchPoint never
+              sees your bank details.
             </div>
           </>
         ) : (
           <>
             <p className="mt-2 text-xs text-muted-foreground">
-              Cash out automatically to your linked bank account. <span className="font-medium text-foreground">Standard</span>{" "}
-              payouts are <span className="font-medium text-foreground">free</span> and arrive in 2–5 business days.
-              <span className="font-medium text-foreground"> Same-day</span> payouts land in 30 minutes – 5 hours for a small fee.
+              Cash out automatically to your linked bank account.{" "}
+              <span className="font-medium text-foreground">Standard</span> payouts are{" "}
+              <span className="font-medium text-foreground">free</span> and arrive in 2–5 business
+              days.
+              <span className="font-medium text-foreground"> Same-day</span> payouts land in 30
+              minutes – 5 hours for a small fee.
             </p>
 
             {/* Speed selector */}
@@ -276,25 +311,39 @@ function WalletPage() {
               </Button>
             </div>
 
-            {payoutAmount && Number(payoutAmount) > 0 && (() => {
-              const gross = Math.round(Number(payoutAmount) * 100);
-              const b = calculateWithdrawalFee(gross, speed);
-              return (
-                <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {speed === "same_day" ? "Same-day fee" : "Standard fee"}
-                    </span>
-                    <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
-                      {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
-                    </span>
+            {payoutAmount &&
+              Number(payoutAmount) > 0 &&
+              (() => {
+                const gross = Math.round(Number(payoutAmount) * 100);
+                const b = calculateWithdrawalFee(gross, speed);
+                return (
+                  <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Withdraw amount</span>
+                      <span className="font-medium">{fmt(b.grossCents)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {speed === "same_day" ? "Same-day fee" : "Standard fee"}
+                      </span>
+                      <span
+                        className={
+                          b.feeCents > 0
+                            ? "font-medium text-rose-500"
+                            : "font-medium text-emerald-500"
+                        }
+                      >
+                        {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex justify-between border-t border-border/60 pt-1">
+                      <span>You'll receive</span>
+                      <span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span>
+                    </div>
+                    <div className="mt-1 text-[10px] text-muted-foreground">{b.etaLabel}</div>
                   </div>
-                  <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span></div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">{b.etaLabel}</div>
-                </div>
-              );
-            })()}
+                );
+              })()}
           </>
         )}
       </div>
@@ -335,13 +384,16 @@ function WalletPage() {
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <code className="flex-1 truncate rounded-md bg-black/20 px-2 py-2 text-xs">
-                  {typeof window !== "undefined" ? window.location.origin : ""}/register?ref={referralInfo.username}
+                  {typeof window !== "undefined" ? window.location.origin : ""}/register?ref=
+                  {referralInfo.username}
                 </code>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/register?ref=${referralInfo.username}`);
+                    navigator.clipboard.writeText(
+                      `${window.location.origin}/register?ref=${referralInfo.username}`,
+                    );
                     toast.success("Link copied");
                   }}
                 >
@@ -350,7 +402,10 @@ function WalletPage() {
               </div>
               <div className="mt-3 text-xs text-muted-foreground">
                 {referralInfo.paid_count} friend{referralInfo.paid_count === 1 ? "" : "s"} joined ·{" "}
-                <span className="text-emerald-500 font-medium">{fmt(referralInfo.total_earned_cents)}</span> earned
+                <span className="text-emerald-500 font-medium">
+                  {fmt(referralInfo.total_earned_cents)}
+                </span>{" "}
+                earned
               </div>
             </>
           ) : (
@@ -359,57 +414,9 @@ function WalletPage() {
         </div>
       </div>
 
-
-      {/* Transactions */}
-      <div className="mt-8 rounded-2xl border border-border/60 bg-card">
-        <div className="border-b border-border/60 px-6 py-4 text-sm font-medium">Recent activity</div>
-        {isLoading ? (
-          <div className="p-6 text-sm text-muted-foreground">Loading…</div>
-        ) : !data?.transactions.length ? (
-          <div className="p-6 text-sm text-muted-foreground">No transactions yet. Deposit funds to get started.</div>
-        ) : (
-          <ul className="divide-y divide-border/60">
-            {data.transactions.map((t) => {
-              const meta = (t.metadata as Record<string, unknown> | null) ?? {};
-              const feeCents = typeof meta.fee_cents === "number" ? meta.fee_cents : null;
-              const netCents = typeof meta.net_cents === "number" ? meta.net_cents : null;
-              const recipient = typeof meta.recipient_email === "string" ? meta.recipient_email : null;
-              // platform_fee ledger rows have amount_cents = 0 because the fee is bundled
-              // into the withdrawal debit. Surface the collected fee from metadata so the
-              // row doesn't render as $0.00.
-              const isFeeRow = t.type === "platform_fee";
-              const displayCents = isFeeRow && feeCents !== null ? -feeCents : t.amount_cents;
-              const credit = displayCents >= 0;
-              return (
-                <li key={t.id} className="flex items-center justify-between px-6 py-3 text-sm">
-                  <div className="flex items-center gap-3">
-                    {credit ? <ArrowDownCircle className="h-4 w-4 text-emerald-500" /> : <ArrowUpCircle className="h-4 w-4 text-rose-500" />}
-                    <div>
-                      <div className="font-medium capitalize">{txLabel(t.type)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(t.created_at).toLocaleString()} {t.description ? `· ${t.description}` : ""}
-                      </div>
-                      {!isFeeRow && feeCents !== null && (
-                        <div className="mt-1 text-[11px] text-muted-foreground">
-                          Fee {fmt(feeCents)}
-                          {netCents !== null && <> · Net {fmt(netCents)}</>}
-                          {recipient && <> · → {recipient}</>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={credit ? "font-medium text-emerald-500" : "font-medium text-rose-500"}>
-                      {credit ? "+" : ""}{fmt(displayCents)}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground capitalize">{t.status}</div>
-                  </div>
-                </li>
-              );
-            })}
-
-          </ul>
-        )}
+      {/* Full ledger: paginated + filterable by type and status */}
+      <div className="mt-8">
+        <LedgerPanel />
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -426,16 +433,28 @@ function WalletPage() {
                   <div className="space-y-3 text-sm">
                     <p>Send funds to your connected bank account?</p>
                     <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
-                      <div className="flex justify-between"><span className="text-muted-foreground">Withdraw amount</span><span className="font-medium">{fmt(b.grossCents)}</span></div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Withdraw amount</span>
+                        <span className="font-medium">{fmt(b.grossCents)}</span>
+                      </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
                           {speed === "same_day" ? "Same-day fee" : "Standard fee"}
                         </span>
-                        <span className={b.feeCents > 0 ? "font-medium text-rose-500" : "font-medium text-emerald-500"}>
+                        <span
+                          className={
+                            b.feeCents > 0
+                              ? "font-medium text-rose-500"
+                              : "font-medium text-emerald-500"
+                          }
+                        >
                           {b.feeCents > 0 ? `−${fmt(b.feeCents)}` : "FREE"}
                         </span>
                       </div>
-                      <div className="mt-1 flex justify-between border-t border-border/60 pt-1"><span>You'll receive</span><span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span></div>
+                      <div className="mt-1 flex justify-between border-t border-border/60 pt-1">
+                        <span>You'll receive</span>
+                        <span className="font-semibold text-emerald-500">{fmt(b.netCents)}</span>
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground">{b.etaLabel}.</p>
                   </div>
@@ -453,13 +472,15 @@ function WalletPage() {
                 payoutMut.mutate(cents, { onSettled: () => setConfirmOpen(false) });
               }}
             >
-              {payoutMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit request"}
+              {payoutMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Submit request"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </DashboardShell>
   );
 }
-

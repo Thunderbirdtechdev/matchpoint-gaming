@@ -57,12 +57,111 @@ export const getMyWallet = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
 
+    // `escrow_debit` already subtracts the stake from wallets.balance_cents, so
+    // that column IS the available balance — money staked in a live match exists
+    // only as a held row here. Surfacing it separately is the difference between
+    // "your balance dropped" and "your money is in a match".
+    const { data: holds } = await supabaseAdmin
+      .from("escrow_holds")
+      .select("id, amount_cents, challenge_id, tournament_id, created_at")
+      .eq("user_id", context.userId)
+      .eq("status", "held")
+      .order("created_at", { ascending: false });
+
+    const escrowCents = (holds ?? []).reduce((sum, h) => sum + Number(h.amount_cents ?? 0), 0);
+
+    // Deposits that Stripe has not confirmed yet: real money in flight, but not
+    // spendable, so it must not be folded into either of the other two numbers.
+    const { data: pendingRows } = await supabaseAdmin
+      .from("wallet_transactions")
+      .select("amount_cents")
+      .eq("user_id", context.userId)
+      .eq("status", "pending");
+
+    const pendingCents = (pendingRows ?? []).reduce(
+      (sum, t) => sum + Math.max(0, Number(t.amount_cents ?? 0)),
+      0,
+    );
+
+    const availableCents = Number(wallet?.balance_cents ?? 0);
+
     return {
       wallet,
       transactions: transactions ?? [],
       connect: connect ?? null,
       paypal_email: payout?.paypal_email ?? null,
       cashapp_tag: payout?.cashapp_tag ?? null,
+      balances: {
+        available_cents: availableCents,
+        escrow_cents: escrowCents,
+        pending_cents: pendingCents,
+        /** Available + escrow. Excludes pending, which isn't yours until it clears. */
+        total_cents: availableCents + escrowCents,
+      },
+      escrow_holds: holds ?? [],
+    };
+  });
+
+const LEDGER_TYPES = [
+  "deposit",
+  "withdrawal",
+  "entry_fee",
+  "prize_payout",
+  "platform_fee",
+  "refund",
+  "escrow_hold",
+  "escrow_release",
+  "adjustment",
+] as const;
+
+/**
+ * Paginated, filterable ledger.
+ *
+ * Separate from `getMyWallet` because the summary is cheap and cached while the
+ * ledger changes with every page/filter interaction — bundling them would refetch
+ * balances on each page turn.
+ */
+export const getWalletLedger = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        page: z.number().int().min(0).default(0),
+        page_size: z.number().int().min(5).max(100).default(20),
+        type: z.enum([...LEDGER_TYPES, "all"]).default("all"),
+        status: z.enum(["all", "pending", "completed", "failed", "reversed"]).default("all"),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let query = supabaseAdmin
+      .from("wallet_transactions")
+      .select("*", { count: "exact" })
+      .eq("user_id", context.userId);
+
+    if (data.type !== "all") query = query.eq("type", data.type);
+    if (data.status !== "all") query = query.eq("status", data.status);
+
+    const from = data.page * data.page_size;
+    const {
+      data: rows,
+      count,
+      error,
+    } = await query
+      .order("created_at", { ascending: false })
+      .range(from, from + data.page_size - 1);
+
+    if (error) throw new Error(error.message);
+
+    const total = count ?? 0;
+    return {
+      items: rows ?? [],
+      total,
+      page: data.page,
+      page_size: data.page_size,
+      total_pages: Math.max(1, Math.ceil(total / data.page_size)),
     };
   });
 
@@ -138,7 +237,11 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
         stripeAccountId = acct.id;
         const { data: inserted } = await supabaseAdmin
           .from("stripe_connect_accounts")
-          .insert({ user_id: context.userId, stripe_account_id: stripeAccountId, country: acct.country ?? null })
+          .insert({
+            user_id: context.userId,
+            stripe_account_id: stripeAccountId,
+            country: acct.country ?? null,
+          })
           .select()
           .single();
         row = inserted;
@@ -152,7 +255,6 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
         throw new Error(`Couldn't start payout onboarding: ${msg}`);
       }
     }
-
 
     const base = origin();
     const link = await stripe.accountLinks.create({
@@ -202,7 +304,9 @@ export const createCashout = createServerFn({ method: "POST" })
 
     // Velocity check: cap count and total amount of withdrawals per rolling
     // window, since these now process automatically with no admin review.
-    const since = new Date(Date.now() - WITHDRAWAL_VELOCITY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+    const since = new Date(
+      Date.now() - WITHDRAWAL_VELOCITY_WINDOW_HOURS * 60 * 60 * 1000,
+    ).toISOString();
     const { data: recentWithdrawals, error: velErr } = await supabaseAdmin
       .from("wallet_transactions")
       .select("amount_cents")
@@ -305,7 +409,10 @@ export const createCashout = createServerFn({ method: "POST" })
       const recipient = userRes?.user?.email;
       if (recipient) {
         const fmtUsd = (cents: number) =>
-          new Intl.NumberFormat("en-US", { style: "currency", currency: (wallet.currency ?? "usd").toUpperCase() }).format(cents / 100);
+          new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: (wallet.currency ?? "usd").toUpperCase(),
+          }).format(cents / 100);
         const { enqueueAppEmail } = await import("@/lib/email/send-app-email.server");
         await enqueueAppEmail({
           templateName: "user-payout-update",
