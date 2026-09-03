@@ -54,6 +54,15 @@ CREATE POLICY "verification update own" ON public.player_verification
 -- so a writable `is_age_verified` flag would be self-serve. This view is owned
 -- by the migration role and runs with definer rights (security_invoker is off
 -- by default), letting it read the private table while exposing only the flag.
+--
+--   ⚠️  DO NOT add further columns from player_verification to this view.
+--
+-- Because it runs as definer, RLS on player_verification does NOT apply here.
+-- Adding `v.date_of_birth` or `v.country` would make them world-readable
+-- immediately — no error, no warning, nothing to catch it. Only the derived
+-- boolean below is safe to project. Supabase's linter flags this view under
+-- "Security Definer View" (0010); that finding is knowingly accepted, see
+-- v1-progress.md → "Security linter findings".
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE VIEW public.player_public AS
