@@ -3,7 +3,7 @@ import type {} from "@tanstack/react-start";
 
 const BODY = `# MatchPoint
 
-> Skill-based competitive gaming platform for 1v1 challenges, tournaments and real cash prizes across Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 27.
+> Skill-based competitive gaming platform for 1v1 challenges, tournaments and real cash prizes across Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26.
 
 MatchPoint lets players create challenges, enter tournaments, climb leaderboards and earn real cash payouts. Disputes are reviewed by human moderators and winnings are paid out from player wallets.
 

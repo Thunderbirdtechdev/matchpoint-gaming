@@ -7,8 +7,8 @@ import slideFortnite from "@/assets/slide-fortnite.jpg";
 import slideNba2k from "@/assets/slide-nba2k.jpg";
 import slideMadden from "@/assets/slide-madden.jpg";
 import slideNcaa from "@/assets/slide-ncaa.png";
-// TODO: 3:4 portrait standing in for a 16:10 slide — crops. Needs real MLB art.
-import slideMlb from "@/assets/game-mlb.jpg";
+// Official 'MLB The Show 26' cover (client-supplied), composited to 16:9 — see scripts/build-mlb-art.py.
+import slideMlb from "@/assets/slide-mlb.jpg";
 
 const slides: { game: SupportedGame; img: string; tagline: string }[] = [
   { game: "fortnite", img: slideFortnite, tagline: "Build. Fight. Dominate." },

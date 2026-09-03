@@ -23,7 +23,7 @@ const faqs = [
   },
   {
     q: "Which games are supported?",
-    a: "We're launching with Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 27. More titles will be added over time.",
+    a: "We're launching with Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. More titles will be added over time.",
   },
   {
     q: "Is matchmaking skill-based?",

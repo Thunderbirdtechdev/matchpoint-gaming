@@ -40,7 +40,7 @@ export function Hero() {
 
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg animate-hero-word [animation-delay:500ms]">
               MatchPoint is the skill-based arena where real gamers settle it. Challenge anyone to a
-              1v1 in Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 or MLB The Show 27 — stake real
+              1v1 in Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 or MLB The Show 26 — stake real
               money, compete head-to-head, and cash out your winnings instantly to your bank. No
               middlemen. No excuses.
             </p>
@@ -69,7 +69,7 @@ export function Hero() {
               <Typewriter
                 text={[
                   "1v1 Challenges · Tournaments · Real Cash Prizes",
-                  "Fortnite · NBA 2K27 · Madden NFL 27 · NCAA 27 · MLB The Show 27",
+                  "Fortnite · NBA 2K27 · Madden NFL 27 · NCAA 27 · MLB The Show 26",
                   "$10 Minimum Entry · Free Withdrawals · Instant Payouts",
                 ]}
                 speed={40}

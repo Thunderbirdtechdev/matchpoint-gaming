@@ -37,7 +37,7 @@ const games = [
   },
   {
     slug: "mlbshow",
-    name: "MLB The Show 27",
+    name: "MLB The Show 26",
     img: mlb,
     modes: "1v1 Head-to-Head, Diamond Dynasty",
     platforms: "PlayStation, Xbox, Switch",

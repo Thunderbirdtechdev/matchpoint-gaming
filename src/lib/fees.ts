@@ -17,7 +17,7 @@ export const GAME_LABELS: Record<SupportedGame, string> = {
   nba2k: "NBA 2K27",
   madden: "Madden NFL 27",
   ncaa: "NCAA 27",
-  mlbshow: "MLB The Show 27",
+  mlbshow: "MLB The Show 26",
 };
 
 /**
