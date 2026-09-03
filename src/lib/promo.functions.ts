@@ -1,14 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireCapability } from "@/lib/authz";
 
+/**
+ * Promo codes mint wallet credit, but they are a marketing lever rather than a
+ * treasury one — capped, single-redemption, and revocable. So they sit with
+ * platform operations (`promo.manage`, held by admin) rather than behind
+ * `finance.treasury`.
+ */
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data: isAdmin, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error) throw error;
-  if (!isAdmin) throw new Error("Forbidden");
+  await requireCapability(ctx, "promo.manage");
 }
 
 /** Redeem a promo code — validates, records, and credits the wallet atomically. */

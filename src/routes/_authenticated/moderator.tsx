@@ -6,7 +6,7 @@ import { Loader2, ShieldAlert, LifeBuoy, Paperclip, ArrowLeft, Gavel } from "luc
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useRoles } from "@/hooks/use-roles";
 import {
   getDisputeDetail,
   recommendDisputeResolution,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/matches.functions";
 import { getTicket, replyToTicket, updateTicket } from "@/lib/support.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { RequireCapability } from "@/components/dashboard/RequireCapability";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Status } from "@/components/ui/status";
@@ -34,25 +35,16 @@ const DISPUTE_VARIANT: Record<string, "warning" | "info" | "success" | "default"
 };
 
 function ModeratorPage() {
-  const { user } = useAuth();
   const [tab, setTab] = useState<"disputes" | "tickets">("disputes");
   const [openDispute, setOpenDispute] = useState<string | null>(null);
   const [openTicket, setOpenTicket] = useState<string | null>(null);
 
-  const { data: roles } = useQuery({
-    queryKey: ["roles", user?.id],
-    enabled: !!user,
-    queryFn: async () =>
-      (await supabase.from("user_roles").select("role").eq("user_id", user!.id)).data?.map(
-        (r) => r.role,
-      ) ?? [],
-  });
-
-  const isStaff = roles?.includes("moderator") || roles?.includes("admin");
+  const { canAny } = useRoles();
+  const isStaff = canAny(["moderation.disputes.review", "moderation.tickets"]);
 
   const { data: disputes } = useQuery({
     queryKey: ["all-disputes"],
-    enabled: !!isStaff,
+    enabled: isStaff,
     queryFn: async () =>
       (await supabase.from("disputes").select("*").order("created_at", { ascending: false }))
         .data ?? [],
@@ -60,19 +52,11 @@ function ModeratorPage() {
 
   const { data: tickets } = useQuery({
     queryKey: ["all-tickets"],
-    enabled: !!isStaff,
+    enabled: isStaff,
     queryFn: async () =>
       (await supabase.from("support_tickets").select("*").order("updated_at", { ascending: false }))
         .data ?? [],
   });
-
-  if (roles && !isStaff) {
-    return (
-      <DashboardShell title="Moderator">
-        <p className="text-sm text-muted-foreground">You don&rsquo;t have moderator access.</p>
-      </DashboardShell>
-    );
-  }
 
   if (openDispute) {
     return <DisputeReview disputeId={openDispute} onBack={() => setOpenDispute(null)} />;
@@ -85,7 +69,11 @@ function ModeratorPage() {
   const openTickets = (tickets ?? []).filter((t) => t.status === "open").length;
 
   return (
-    <DashboardShell title="Moderator queue" subtitle="Review disputes and answer support tickets.">
+    <RequireCapability
+      anyOf={["moderation.disputes.review", "moderation.tickets"]}
+      title="Moderator queue"
+      subtitle="Review disputes and answer support tickets."
+    >
       <Tabs value={tab} onValueChange={(v) => setTab(v as "disputes" | "tickets")}>
         <TabsList className="h-auto bg-surface/50 p-1">
           <TabsTrigger value="disputes" className="gap-2 px-4 py-2 text-xs font-bold uppercase">
@@ -155,7 +143,7 @@ function ModeratorPage() {
           )}
         </div>
       )}
-    </DashboardShell>
+    </RequireCapability>
   );
 }
 

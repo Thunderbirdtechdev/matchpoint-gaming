@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { RequireCapability } from "@/components/dashboard/RequireCapability";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -36,29 +34,17 @@ type PayoutRow = {
 };
 
 function PayoutsPage() {
-  const { user } = useAuth();
-  const { data: roles } = useQuery({
-    queryKey: ["roles", user?.id],
-    enabled: !!user,
-    queryFn: async () => (await supabase.from("user_roles").select("role").eq("user_id", user!.id)).data?.map((r) => r.role) ?? [],
-  });
-  const isAdmin = roles?.includes("admin");
-
-  if (roles && !isAdmin) {
-    return (
-      <DashboardShell title="Payouts">
-        <p className="text-sm text-muted-foreground">You don't have access to payout management.</p>
-      </DashboardShell>
-    );
-  }
-
   return (
-    <DashboardShell title="Payout Management" subtitle="Review, process and authorize player withdrawals.">
+    <RequireCapability
+      capability="finance.payouts"
+      title="Payout Management"
+      subtitle="Review, process and authorize player withdrawals."
+    >
       <Link to="/admin" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Back to admin
       </Link>
       <PayoutsManager />
-    </DashboardShell>
+    </RequireCapability>
   );
 }
 

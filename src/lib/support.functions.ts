@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { can } from "@/lib/authz";
 
 /**
  * Support tickets.
@@ -15,13 +16,15 @@ const SIGNED_URL_TTL_SECONDS = 300;
 
 type Admin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
-async function isStaff(admin: Admin, userId: string): Promise<boolean> {
-  const { data } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .in("role", ["moderator", "admin"]);
-  return !!data?.length;
+/**
+ * Module 7: this was a hardcoded `.in("role", ["moderator", "admin"])`, which
+ * silently excluded super_admin — the most privileged account on the platform
+ * could not answer a support ticket. Asking for the capability instead means a
+ * new staff role is picked up here without touching this file.
+ */
+type AuthCtx = Parameters<typeof can>[0];
+async function isStaff(ctx: AuthCtx): Promise<boolean> {
+  return can(ctx, "moderation.tickets");
 }
 
 export const createTicket = createServerFn({ method: "POST" })
@@ -91,7 +94,7 @@ export const replyToTicket = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Ticket not found.");
 
-    const staff = await isStaff(supabaseAdmin, context.userId);
+    const staff = await isStaff(context);
     if (ticket.user_id !== context.userId && !staff) {
       throw new Error("You can only reply to your own tickets.");
     }
@@ -134,7 +137,7 @@ export const updateTicket = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (!(await isStaff(supabaseAdmin, context.userId))) {
+    if (!(await isStaff(context))) {
       throw new Error("Support staff only.");
     }
 
@@ -169,7 +172,7 @@ export const getTicket = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!ticket) throw new Error("Ticket not found.");
 
-    const staff = await isStaff(supabaseAdmin, context.userId);
+    const staff = await isStaff(context);
     if (ticket.user_id !== context.userId && !staff) {
       throw new Error("You can only view your own tickets.");
     }

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { calculateWithdrawalFee } from "./fees";
+import { requireCapability } from "@/lib/authz";
 
 const MethodSchema = z.enum(["paypal", "cashapp"]);
 const SpeedSchema = z.enum(["standard", "same_day"]);
@@ -191,13 +192,13 @@ export const listMyPayoutRequests = createServerFn({ method: "GET" })
 
 // ────────────────────────────── ADMIN ──────────────────────────────
 
+/**
+ * Player payout requests — reviewing and marking them paid moves real money out
+ * to a player's PayPal or Cash App, so this is the treasury lane
+ * (`finance.payouts`), not general admin.
+ */
 async function assertAdmin(supabase: any, userId: string) {
-  const { data: isAdmin, error } = await supabase.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if (error) throw error;
-  if (!isAdmin) throw new Error("Forbidden");
+  await requireCapability({ supabase, userId }, "finance.payouts");
 }
 
 const AdminListSchema = z.object({

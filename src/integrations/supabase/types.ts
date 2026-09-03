@@ -971,6 +971,52 @@ export type Database = {
         }
         Relationships: []
       }
+      // Added by hand for migration 20260903210000_role_hierarchy_and_capabilities.
+      role_capabilities: {
+        Row: {
+          capability: string
+          role: string
+        }
+        Insert: {
+          capability: string
+          role: string
+        }
+        Update: {
+          capability?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      role_grants: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          role: string
+          target_user_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          role: string
+          target_user_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          role?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       // Added by hand for migration 20260903180000_support_and_dispute_review.
       support_tickets: {
         Row: {
@@ -1439,6 +1485,13 @@ export type Database = {
         }
         Returns: number
       }
+      has_capability: {
+        Args: {
+          _capability: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1497,7 +1550,12 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "financial_admin"
+        | "moderator"
+        | "user"
       crypto_currency: "USDC" | "BTC"
       crypto_network: "base" | "bitcoin"
       crypto_payout_status:
@@ -1652,7 +1710,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: [
+        "super_admin",
+        "admin",
+        "financial_admin",
+        "moderator",
+        "user",
+      ],
       crypto_currency: ["USDC", "BTC"],
       crypto_network: ["base", "bitcoin"],
       crypto_payout_status: [

@@ -2,9 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DashboardShell } from "@/components/dashboard/DashboardShell";
+import { RequireCapability } from "@/components/dashboard/RequireCapability";
+import { useRoles } from "@/hooks/use-roles";
+import {
+  APP_ROLES,
+  CAPABILITY_GROUPS,
+  CAPABILITY_LABELS,
+  ROLE_CAPABILITIES,
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
+  capabilityMapMatches,
+  type AppRole,
+} from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,9 +31,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift } from "lucide-react";
+import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History } from "lucide-react";
 import { toast } from "sonner";
-import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
+import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
 import { getHotWalletStatus } from "@/lib/crypto.functions";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
 import { adminCreatePromoCode, adminListPromoCodes, adminTogglePromoCode } from "@/lib/promo.functions";
@@ -32,67 +43,91 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
+/**
+ * Every card here is gated on its own capability rather than on the page.
+ *
+ * That matters because /admin is now visited by two different jobs: an `admin`
+ * sees revenue read-only, promo codes and the moderator roster; a
+ * `financial_admin` sees payouts, the treasury and wallet adjustments and none
+ * of the moderation tooling. Gating the page as a whole would have forced one
+ * of them out entirely.
+ */
 function AdminPage() {
-  const { user } = useAuth();
-  const { data: roles } = useQuery({
-    queryKey: ["roles", user?.id],
-    enabled: !!user,
-    queryFn: async () => (await supabase.from("user_roles").select("role").eq("user_id", user!.id)).data?.map((r) => r.role) ?? [],
-  });
-  const isAdmin = roles?.includes("admin");
+  const { can } = useRoles();
 
   const { data: users } = useQuery({
     queryKey: ["all-profiles"],
-    enabled: !!isAdmin,
+    enabled: can("users.view"),
     queryFn: async () => (await supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(100)).data ?? [],
   });
 
-  if (roles && !isAdmin) {
-    return <DashboardShell title="Admin"><p className="text-sm text-muted-foreground">You don't have admin access.</p></DashboardShell>;
-  }
-
   return (
-    <DashboardShell title="Admin Dashboard" subtitle="Manage users and platform health.">
-      <RevenueReportsCard />
-      <div className="h-6" />
-      <CompanyRevenueCard />
-      <div className="h-6" />
-      <HotWalletCard isAdmin={!!isAdmin} />
-      <div className="h-6" />
-      <PayoutsCard />
-      <div className="h-6" />
-      <RolesCard />
-      <div className="h-6" />
-      <PromoCodesCard />
-      <div className="h-6" />
-      <AdminCreditWalletCard />
+    <RequireCapability
+      anyOf={["roles.view", "finance.view", "users.view", "promo.manage"]}
+      title="Admin Dashboard"
+      subtitle="Manage users and platform health."
+    >
+      {can("finance.view") && (
+        <>
+          <RevenueReportsCard />
+          <div className="h-6" />
+          <CompanyRevenueCard />
+          <div className="h-6" />
+          <HotWalletCard />
+          <div className="h-6" />
+        </>
+      )}
 
+      {can("finance.payouts") && (
+        <>
+          <PayoutsCard />
+          <div className="h-6" />
+        </>
+      )}
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
-        <table className="w-full text-sm">
-          <thead className="bg-surface/50 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 text-left">Player</th>
-              <th className="px-4 py-3 text-left">Tier</th>
-              <th className="px-4 py-3 text-right">XP</th>
-              <th className="px-4 py-3 text-right">Reputation</th>
-              <th className="px-4 py-3 text-right">Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users?.map((u) => (
-              <tr key={u.id} className="border-t border-border/40">
-                <td className="px-4 py-3"><div className="font-medium">{u.display_name ?? u.username}</div><div className="text-xs text-muted-foreground">@{u.username}</div></td>
-                <td className="px-4 py-3 text-muted-foreground">{u.rank_tier}</td>
-                <td className="px-4 py-3 text-right">{u.xp}</td>
-                <td className="px-4 py-3 text-right">{u.reputation}</td>
-                <td className="px-4 py-3 text-right text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</td>
+      {can("roles.view") && (
+        <>
+          <RolesCard />
+          <div className="h-6" />
+        </>
+      )}
+
+      {can("promo.manage") && (
+        <>
+          <PromoCodesCard />
+          <div className="h-6" />
+        </>
+      )}
+
+      {can("finance.wallet_adjust") && <AdminCreditWalletCard />}
+
+      {can("users.view") && (
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
+          <table className="w-full text-sm">
+            <thead className="bg-surface/50 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 text-left">Player</th>
+                <th className="px-4 py-3 text-left">Tier</th>
+                <th className="px-4 py-3 text-right">XP</th>
+                <th className="px-4 py-3 text-right">Reputation</th>
+                <th className="px-4 py-3 text-right">Joined</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </DashboardShell>
+            </thead>
+            <tbody>
+              {users?.map((u) => (
+                <tr key={u.id} className="border-t border-border/40">
+                  <td className="px-4 py-3"><div className="font-medium">{u.display_name ?? u.username}</div><div className="text-xs text-muted-foreground">@{u.username}</div></td>
+                  <td className="px-4 py-3 text-muted-foreground">{u.rank_tier}</td>
+                  <td className="px-4 py-3 text-right">{u.xp}</td>
+                  <td className="px-4 py-3 text-right">{u.reputation}</td>
+                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </RequireCapability>
   );
 }
 
@@ -274,16 +309,13 @@ function AdminCreditWalletCard() {
   );
 }
 
-function HotWalletCard({ isAdmin }: { isAdmin: boolean }) {
+function HotWalletCard() {
   const statusFn = useServerFn(getHotWalletStatus);
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["hot-wallet-status"],
-    enabled: isAdmin,
     queryFn: () => statusFn({}),
     refetchInterval: 30_000,
   });
-
-  if (!isAdmin) return null;
 
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -743,120 +775,295 @@ function PayoutCard({ row, actionable, onChanged }: { row: PayoutRow; actionable
 
 type StaffRow = {
   user_id: string;
-  role: "admin" | "moderator";
-  created_at: string;
+  roles: AppRole[];
+  granted_at: string;
   profile: { id: string; username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
 };
 
+type AuditRow = {
+  id: string;
+  role: string;
+  action: "grant" | "revoke";
+  note: string | null;
+  created_at: string;
+  target: { username?: string | null; display_name?: string | null } | null;
+  actor: { username?: string | null; display_name?: string | null } | null;
+};
+
+const ROLE_BADGE: Record<AppRole, string> = {
+  super_admin: "border-primary/50 bg-primary/10 text-primary-glow",
+  admin: "border-blue-500/40 bg-blue-500/10 text-blue-300",
+  financial_admin: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  moderator: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  user: "border-border text-muted-foreground",
+};
+
+function RoleBadge({ role }: { role: AppRole }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${ROLE_BADGE[role]}`}
+    >
+      {ROLE_LABELS[role]}
+    </span>
+  );
+}
+
+/**
+ * Staff & roles.
+ *
+ * The dropdown only offers roles the signed-in account may actually grant, and
+ * that list comes from the SERVER (`adminListStaff` returns it alongside the
+ * roster) rather than being derived on the client. An admin sees only
+ * "Moderator" here; appointing a financial_admin or another admin is a
+ * super_admin action, because an admin who could grant themselves
+ * financial_admin would have a two-click path into the treasury.
+ */
 function RolesCard() {
   const listFn = useServerFn(adminListStaff);
+  const auditFn = useServerFn(adminListRoleAudit);
   const grantFn = useServerFn(adminGrantRole);
   const revokeFn = useServerFn(adminRevokeRole);
   const qc = useQueryClient();
   const { user } = useAuth();
 
-  const { data: staff, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["admin-staff"],
-    queryFn: () => listFn({}) as Promise<StaffRow[]>,
+    queryFn: () => listFn({}) as Promise<{ staff: StaffRow[]; grantable: AppRole[] }>,
   });
 
+  const { data: audit } = useQuery({
+    queryKey: ["admin-role-audit"],
+    queryFn: () => auditFn({ data: { limit: 25 } }) as Promise<AuditRow[]>,
+  });
+
+  // Surfaces drift between src/lib/roles.ts and the seeded role_capabilities
+  // table, so a mismatch shows up as a warning rather than as a button that
+  // renders but always fails.
+  const { data: dbCaps } = useQuery({
+    queryKey: ["role-capabilities"],
+    queryFn: async () =>
+      (await supabase.from("role_capabilities").select("role, capability")).data ?? [],
+  });
+  const drift = dbCaps?.length ? capabilityMapMatches(dbCaps) : null;
+
+  const grantable = data?.grantable ?? [];
+  const staff = data?.staff ?? [];
+
   const [target, setTarget] = useState("");
-  const [role, setRole] = useState<"admin" | "moderator">("moderator");
+  const [role, setRole] = useState<AppRole | "">("");
+  const [showMatrix, setShowMatrix] = useState(false);
+
+  const effectiveRole = role || grantable[grantable.length - 1] || "";
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-staff"] });
+    qc.invalidateQueries({ queryKey: ["admin-role-audit"] });
+    qc.invalidateQueries({ queryKey: ["roles"] });
+  };
 
   const grant = useMutation({
-    mutationFn: () => grantFn({ data: { target: target.trim(), role } }),
-    onSuccess: () => {
-      toast.success(`Granted ${role}.`);
+    mutationFn: () => grantFn({ data: { target: target.trim(), role: effectiveRole as AppRole } }),
+    onSuccess: (res: { roles?: string[] }) => {
+      const granted = res.roles ?? [effectiveRole];
+      toast.success(
+        granted.length > 1
+          ? `Granted ${granted.join(" + ")}. Super admin carries admin so existing permission checks keep matching.`
+          : `Granted ${granted[0]}.`,
+      );
       setTarget("");
-      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+      invalidate();
     },
     onError: (e: Error) => toast.error(e.message || "Grant failed"),
   });
 
   const revoke = useMutation({
-    mutationFn: (vars: { userId: string; role: "admin" | "moderator" }) =>
+    mutationFn: (vars: { userId: string; role: AppRole }) =>
       revokeFn({ data: { target: vars.userId, role: vars.role } }),
     onSuccess: () => {
       toast.success("Role revoked.");
-      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+      invalidate();
     },
     onError: (e: Error) => toast.error(e.message || "Revoke failed"),
   });
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-6">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Wallet className="h-4 w-4" /> Admin &amp; moderator roles
-      </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Grant admin or moderator privileges to any existing player account — the role attaches to their normal gameplay account, no separate login. They'll see the admin tools next time they sign in.
-      </p>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_auto]">
-        <Input
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-          placeholder="username, email, or user id"
-        />
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as "admin" | "moderator")}
-          className="h-10 rounded-md border border-border/60 bg-background px-3 text-sm"
-        >
-          <option value="moderator">Moderator</option>
-          <option value="admin">Admin</option>
-        </select>
-        <Button
-          onClick={() => {
-            if (!target.trim()) return toast.error("Enter a username, email, or id");
-            grant.mutate();
-          }}
-          disabled={grant.isPending}
-        >
-          {grant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Grant role"}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <ShieldCheck className="h-4 w-4" /> Staff &amp; roles
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => setShowMatrix((v) => !v)}>
+          {showMatrix ? "Hide" : "Show"} permissions
         </Button>
       </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">
+        Roles attach to a normal player account — no separate login. Operations and finance are
+        separate lanes: an admin runs the platform but cannot move money, and a financial admin
+        moves money but sees no disputes or tickets.
+      </p>
+
+      {drift && !drift.ok && (
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+          <p className="font-medium text-amber-200">Permission map is out of sync.</p>
+          <p className="mt-1 text-amber-100/80">
+            The database and <code className="rounded bg-black/30 px-1">src/lib/roles.ts</code>{" "}
+            disagree. Enforcement follows the database, so some buttons may render but fail.
+          </p>
+          {drift.missingInDb.length > 0 && (
+            <p className="mt-1.5 text-amber-100/70">In code only: {drift.missingInDb.join(", ")}</p>
+          )}
+          {drift.missingLocally.length > 0 && (
+            <p className="mt-1 text-amber-100/70">
+              In database only: {drift.missingLocally.join(", ")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {showMatrix && (
+        <div className="mt-4 overflow-x-auto rounded-lg border border-border/60">
+          <table className="w-full min-w-[560px] text-xs">
+            <thead className="bg-surface/50">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium uppercase text-muted-foreground">
+                  Permission
+                </th>
+                {APP_ROLES.filter((r) => r !== "user").map((r) => (
+                  <th key={r} className="px-3 py-2 text-center">
+                    <RoleBadge role={r} />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {CAPABILITY_GROUPS.map((group) => (
+                <Fragment key={group.label}>
+                  <tr className="border-t border-border/40 bg-surface/20">
+                    <td
+                      colSpan={5}
+                      className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                    >
+                      {group.label}
+                    </td>
+                  </tr>
+                  {group.capabilities.map((cap) => (
+                    <tr key={cap} className="border-t border-border/30">
+                      <td className="px-3 py-2">{CAPABILITY_LABELS[cap]}</td>
+                      {APP_ROLES.filter((r) => r !== "user").map((r) => (
+                        <td key={r} className="px-3 py-2 text-center">
+                          {ROLE_CAPABILITIES[r].includes(cap) ? (
+                            <Check className="mx-auto h-3.5 w-3.5 text-emerald-400" />
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {grantable.length === 0 ? (
+        <div className="mt-4 rounded-lg border border-border/60 bg-surface/30 p-3 text-xs text-muted-foreground">
+          You can view the staff list but not change it. Granting a role needs a super admin.
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_auto]">
+            <Input
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              placeholder="username, email, or user id"
+            />
+            <select
+              value={effectiveRole}
+              onChange={(e) => setRole(e.target.value as AppRole)}
+              className="h-10 rounded-md border border-border/60 bg-background px-3 text-sm"
+            >
+              {grantable.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
+            </select>
+            <Button
+              onClick={() => {
+                if (!target.trim()) return toast.error("Enter a username, email, or id");
+                grant.mutate();
+              }}
+              disabled={grant.isPending}
+            >
+              {grant.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Grant role"}
+            </Button>
+          </div>
+          {effectiveRole && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {ROLE_DESCRIPTIONS[effectiveRole as AppRole]}
+            </p>
+          )}
+        </>
+      )}
 
       <div className="mt-5 overflow-hidden rounded-lg border border-border/60">
         <table className="w-full text-xs">
           <thead className="bg-surface/50 uppercase text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left">Player</th>
-              <th className="px-3 py-2 text-left">Role</th>
-              <th className="px-3 py-2 text-left">Granted</th>
+              <th className="px-3 py-2 text-left">Roles</th>
+              <th className="px-3 py-2 text-left">Since</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr><td colSpan={4} className="px-3 py-4 text-muted-foreground">Loading…</td></tr>
-            ) : !staff?.length ? (
+            ) : !staff.length ? (
               <tr><td colSpan={4} className="px-3 py-4 text-muted-foreground">No staff yet.</td></tr>
             ) : (
               staff.map((s) => {
                 const isSelf = s.user_id === user?.id;
                 const name = s.profile?.display_name ?? s.profile?.username ?? s.user_id.slice(0, 8);
                 return (
-                  <tr key={`${s.user_id}-${s.role}`} className="border-t border-border/40">
+                  <tr key={s.user_id} className="border-t border-border/40">
                     <td className="px-3 py-2">
-                      <div className="font-medium">{name} {isSelf && <span className="text-[10px] text-muted-foreground">(you)</span>}</div>
-                      {s.profile?.username && <div className="text-[10px] text-muted-foreground">@{s.profile.username}</div>}
+                      <div className="font-medium">
+                        {name} {isSelf && <span className="text-[10px] text-muted-foreground">(you)</span>}
+                      </div>
+                      {s.profile?.username && (
+                        <div className="text-[10px] text-muted-foreground">@{s.profile.username}</div>
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant="outline" className={s.role === "admin" ? "border-primary/40 text-primary" : "border-border"}>
-                        {s.role}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {s.roles.map((r) => <RoleBadge key={r} role={r} />)}
+                      </div>
                     </td>
-                    <td className="px-3 py-2 text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</td>
-                    <td className="px-3 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={revoke.isPending || (s.role === "admin" && isSelf)}
-                        onClick={() => revoke.mutate({ userId: s.user_id, role: s.role })}
-                      >
-                        Revoke
-                      </Button>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {new Date(s.granted_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {s.roles
+                          .filter((r) => grantable.includes(r))
+                          .map((r) => (
+                            <Button
+                              key={r}
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-[11px]"
+                              disabled={revoke.isPending || isSelf}
+                              title={isSelf ? "You can't revoke your own role" : `Revoke ${ROLE_LABELS[r]}`}
+                              onClick={() => revoke.mutate({ userId: s.user_id, role: r })}
+                            >
+                              Revoke {ROLE_LABELS[r].toLowerCase()}
+                            </Button>
+                          ))}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -865,11 +1072,50 @@ function RolesCard() {
           </tbody>
         </table>
       </div>
+
+      <div className="mt-5">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <History className="h-3.5 w-3.5" /> Privilege changes
+        </div>
+        <div className="max-h-64 divide-y divide-border/40 overflow-auto rounded-lg border border-border/60">
+          {!audit?.length ? (
+            <div className="p-3 text-xs text-muted-foreground">No role changes recorded yet.</div>
+          ) : (
+            audit.map((a) => {
+              const who = (p: AuditRow["actor"]) =>
+                p?.display_name ?? (p?.username ? `@${p.username}` : null);
+              return (
+                <div key={a.id} className="flex items-start justify-between gap-3 px-3 py-2 text-xs">
+                  <div className="min-w-0">
+                    <span
+                      className={
+                        a.action === "grant"
+                          ? "font-medium text-emerald-400"
+                          : "font-medium text-amber-400"
+                      }
+                    >
+                      {a.action === "grant" ? "Granted" : "Revoked"}
+                    </span>{" "}
+                    <span className="font-mono">{a.role}</span>{" "}
+                    {a.action === "grant" ? "to" : "from"}{" "}
+                    <span className="font-medium">{who(a.target) ?? "unknown"}</span>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      by {who(a.actor) ?? "system"}
+                      {a.note ? ` · ${a.note}` : ""}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-[10px] text-muted-foreground">
+                    {new Date(a.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }
-
-
 
 function fmtUsd(cents: number | null | undefined) {
   return `$${(((cents ?? 0) as number) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

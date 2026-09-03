@@ -1,0 +1,31 @@
+-- ============================================================================
+-- Module 7 — Admin & Role System, part 1 of 2: the enum values ONLY.
+-- ============================================================================
+--
+-- ⚠️ RUN THIS FILE ON ITS OWN, AND LET IT COMMIT, BEFORE RUNNING
+--    20260903210001_role_capabilities_and_audit.sql
+--
+-- WHY IT IS SPLIT
+--
+-- From the Postgres manual, ALTER TYPE:
+--
+--   "If ALTER TYPE ... ADD VALUE is executed inside a transaction block, the
+--    new value cannot be used until after the transaction has been committed."
+--
+-- The Supabase / Lovable SQL editor sends a pasted script as one multi-statement
+-- query, which Postgres runs inside a single implicit transaction. So a script
+-- that adds 'super_admin' and then inserts a 'super_admin' row fails partway
+-- through — after the type change but before the data, which is the worst place
+-- to stop.
+--
+-- Reading the label back out of pg_enum does not get around it either: the
+-- restriction is enforced on the value's OID at runtime, not on literals in the
+-- source text.
+--
+-- Hence two files. This one is tiny on purpose.
+--
+-- Both statements are idempotent (IF NOT EXISTS, PG 12+), so re-running is safe.
+-- ============================================================================
+
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'super_admin';
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'financial_admin';

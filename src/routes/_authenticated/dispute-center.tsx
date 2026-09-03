@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { useRoles } from "@/hooks/use-roles";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,12 +28,11 @@ function DisputePage() {
   const resolveFn = useServerFn(adminResolveChallenge);
   const [resolving, setResolving] = useState<any>(null);
 
-  const { data: roles } = useQuery({
-    queryKey: ["roles", user?.id],
-    enabled: !!user,
-    queryFn: async () => (await supabase.from("user_roles").select("role").eq("user_id", user!.id)).data?.map((r) => r.role) ?? [],
-  });
-  const canModerate = !!roles?.includes("admin") || !!roles?.includes("moderator");
+  // The button below calls adminResolveChallenge, which releases escrow and so
+  // requires `moderation.disputes.approve`. This used to be `admin || moderator`
+  // — moderators were shown a button that failed server-side every time.
+  const { can } = useRoles();
+  const canModerate = can("moderation.disputes.approve");
 
   const { data: disputes } = useQuery({
     queryKey: ["my-disputes", user?.id],

@@ -16,6 +16,8 @@ import {
   LifeBuoy,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useRoles } from "@/hooks/use-roles";
+import { ROLE_LABELS, type Capability } from "@/lib/roles";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,12 +34,24 @@ const nav = [
   { to: "/profile", label: "Profile", icon: UserIcon },
 ] as const;
 
+/**
+ * Staff nav, keyed on capability rather than role.
+ *
+ * These were `role: "admin"` literals, which meant a financial_admin — the role
+ * whose entire job is Payouts — would not see the Payouts link, and a
+ * super_admin holding only that role would see no staff nav at all.
+ */
 const staff = [
-  { to: "/moderator", label: "Moderator", icon: ShieldCheck, role: "moderator" as const },
-  { to: "/admin", label: "Admin", icon: ShieldCheck, role: "admin" as const },
-  { to: "/payouts", label: "Payouts", icon: Banknote, role: "admin" as const },
-  { to: "/analytics", label: "Analytics", icon: BarChart3, role: "admin" as const },
-];
+  { to: "/moderator", label: "Moderator", icon: ShieldCheck, capability: "moderation.tickets" },
+  { to: "/admin", label: "Admin", icon: ShieldCheck, capability: "roles.view" },
+  { to: "/payouts", label: "Payouts", icon: Banknote, capability: "finance.payouts" },
+  { to: "/analytics", label: "Analytics", icon: BarChart3, capability: "platform.analytics" },
+] as const satisfies readonly {
+  to: string;
+  label: string;
+  icon: typeof ShieldCheck;
+  capability: Capability;
+}[];
 
 export function DashboardShell({
   children,
@@ -61,14 +75,11 @@ export function DashboardShell({
     },
   });
 
-  const { data: roles } = useQuery({
-    queryKey: ["roles", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user!.id);
-      return (data ?? []).map((r) => r.role);
-    },
-  });
+  const { can, roles } = useRoles();
+
+  const topStaffRole = (["super_admin", "admin", "financial_admin", "moderator"] as const).find(
+    (r) => roles.includes(r),
+  );
 
   async function handleSignOut() {
     await signOut();
@@ -105,13 +116,13 @@ export function DashboardShell({
                 );
               })}
 
-              {staff.some((s) => roles?.includes(s.role)) && (
+              {staff.some((s) => can(s.capability)) && (
                 <div className="mt-4 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Staff
                 </div>
               )}
               {staff
-                .filter((s) => roles?.includes(s.role))
+                .filter((s) => can(s.capability))
                 .map((n) => {
                   const active = path === n.to;
                   return (
@@ -139,6 +150,14 @@ export function DashboardShell({
                   <div className="truncate text-xs text-muted-foreground">
                     {profile?.rank_tier} · {profile?.xp ?? 0} XP
                   </div>
+                  {/* Staff act on other people's money and matches — knowing
+                      which hat you're wearing matters more than it does for a
+                      player, so the highest-ranking role is always visible. */}
+                  {topStaffRole && (
+                    <div className="mt-1 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-glow">
+                      {ROLE_LABELS[topStaffRole]}
+                    </div>
+                  )}
                 </div>
               </div>
               <Button

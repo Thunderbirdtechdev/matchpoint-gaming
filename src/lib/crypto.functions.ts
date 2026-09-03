@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireCapability } from "@/lib/authz";
 
 const EVM_RE = /^0x[a-fA-F0-9]{40}$/;
 // Bitcoin: legacy/p2sh (1.., 3..) or bech32 (bc1..)
@@ -71,12 +72,9 @@ export const listCryptoAddresses = createServerFn({ method: "GET" })
 export const getHotWalletStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: isAdmin, error: roleErr } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (roleErr) throw roleErr;
-    if (!isAdmin) throw new Error("Forbidden");
+    // The hot wallet holds spendable USDC. Reading its address and balances is
+    // treasury visibility, so it follows the finance lane rather than admin.
+    await requireCapability(context, "finance.view");
 
     const { getHotWalletInfo, getHotWalletBalances } = await import("./crypto.server");
     const info = getHotWalletInfo();

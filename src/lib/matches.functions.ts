@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { calculateChallengeFee, calculateTournamentFee, calculateFee } from "./fees";
+import { can, requireCapability } from "@/lib/authz";
 
 const toCents = (usd: number) => Math.round(Number(usd || 0) * 100);
 
@@ -193,11 +194,8 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
     if (!t) throw new Error("Tournament not found");
     if (t.status === "completed") throw new Error("Already settled");
 
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (t.host_id !== context.userId && !isAdmin)
+    const isStaff = await can(context, "moderation.tournaments.override");
+    if (t.host_id !== context.userId && !isStaff)
       throw new Error("Only the host or an admin can declare the winner");
 
     const places = data.winners.map((w) => w.place);
@@ -362,11 +360,8 @@ export const cancelTournament = createServerFn({ method: "POST" })
       .eq("id", data.tournament_id)
       .single();
     if (!t) throw new Error("Tournament not found");
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (t.host_id !== context.userId && !isAdmin) throw new Error("Only the host can cancel");
+    const isStaff = await can(context, "moderation.tournaments.override");
+    if (t.host_id !== context.userId && !isStaff) throw new Error("Only the host can cancel");
     if (t.status === "completed") throw new Error("Already completed");
 
     const { data: holds } = await supabaseAdmin
@@ -641,11 +636,7 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Admins only");
+    await requireCapability(context, "moderation.disputes.approve");
     const { data: ch } = await supabaseAdmin
       .from("challenges")
       .select("*")
@@ -746,17 +737,6 @@ async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
 // `settleChallenge` helper without exporting money-handling internals.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-async function hasStaffRole(admin: any, userId: string, roles: string[]): Promise<boolean> {
-  const { data } = await admin
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .in("role", roles);
-  return !!data?.length;
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
-
 /** Moderator records who they believe won. Moves no money. */
 export const recommendDisputeResolution = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -772,9 +752,7 @@ export const recommendDisputeResolution = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (!(await hasStaffRole(supabaseAdmin, context.userId, ["moderator", "admin"]))) {
-      throw new Error("Moderators only.");
-    }
+    await requireCapability(context, "moderation.disputes.review");
 
     const { data: dispute } = await supabaseAdmin
       .from("disputes")
@@ -816,9 +794,7 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (!(await hasStaffRole(supabaseAdmin, context.userId, ["admin"]))) {
-      throw new Error("Admins only — releasing escrow needs an admin.");
-    }
+    await requireCapability(context, "moderation.disputes.approve");
 
     const { data: dispute } = await supabaseAdmin
       .from("disputes")
@@ -869,9 +845,10 @@ export const rejectDisputeRecommendation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (!(await hasStaffRole(supabaseAdmin, context.userId, ["admin"]))) {
-      throw new Error("Admins only.");
-    }
+    // Sending a recommendation back is the mirror of approving it, so it takes
+    // the same capability — otherwise a moderator could bounce their own
+    // colleague's review and re-record it, defeating the two-person rule.
+    await requireCapability(context, "moderation.disputes.approve");
 
     const { error } = await supabaseAdmin
       .from("disputes")
@@ -893,8 +870,8 @@ export const getDisputeDetail = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const isModerator = await hasStaffRole(supabaseAdmin, context.userId, ["moderator", "admin"]);
-    const isAdmin = await hasStaffRole(supabaseAdmin, context.userId, ["admin"]);
+    const isModerator = await can(context, "moderation.disputes.review");
+    const isAdmin = await can(context, "moderation.disputes.approve");
     if (!isModerator) throw new Error("Moderators only.");
 
     const { data: dispute } = await supabaseAdmin

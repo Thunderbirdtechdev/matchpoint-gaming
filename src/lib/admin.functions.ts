@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireCapability, requireCanManageRole, grantableRolesFor, rolesOf } from "@/lib/authz";
+import { APP_ROLES, type AppRole } from "@/lib/roles";
 
 const CreditWalletSchema = z.object({
   target: z.string().trim().min(1), // user id (uuid) or email
@@ -10,17 +12,18 @@ const CreditWalletSchema = z.object({
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Admin-only: credit a test user's wallet (for sandbox payout testing). */
+/**
+ * Credit a user's wallet directly.
+ *
+ * Treasury operation, not an ops one: it mints spendable balance out of nothing
+ * and writes an `adjustment` ledger row. Gated on `finance.wallet_adjust`, which
+ * a plain admin does not hold.
+ */
 export const adminCreditWallet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => CreditWalletSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { data: isAdmin, error: roleErr } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (roleErr) throw roleErr;
-    if (!isAdmin) throw new Error("Forbidden");
+    await requireCapability(context, "finance.wallet_adjust");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -51,7 +54,7 @@ export const adminCreditWallet = createServerFn({ method: "POST" })
     return { ok: true, user_id: userId, balance_cents: newBalance };
   });
 
-const RoleEnum = z.enum(["admin", "moderator", "user"]);
+const RoleEnum = z.enum(APP_ROLES);
 
 async function resolveUserId(target: string): Promise<string> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -72,94 +75,256 @@ async function resolveUserId(target: string): Promise<string> {
   return match.id;
 }
 
-async function assertCallerIsAdmin(ctx: { supabase: any; userId: string }) {
-  const { data: isAdmin, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error) throw error;
-  if (!isAdmin) throw new Error("Forbidden");
-}
-
 const GrantRoleSchema = z.object({
   target: z.string().trim().min(1),
   role: RoleEnum,
+  note: z.string().trim().max(300).optional(),
 });
 
-/** Admin-only: grant a role to a user (by uuid, username, or email). */
+/** Append-only record of who changed whose privileges. Never blocks the change. */
+async function recordRoleChange(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  entry: {
+    target_user_id: string;
+    role: AppRole;
+    action: "grant" | "revoke";
+    actor_id: string;
+    note?: string;
+  },
+) {
+  const { error } = await admin.from("role_grants").insert(entry as never);
+  // A failed audit write must not silently pass. Surfaced to the caller so the
+  // change is visibly incomplete rather than quietly unlogged.
+  if (error) throw new Error(`Role change applied but the audit write failed: ${error.message}`);
+}
+
+/**
+ * Grant a role.
+ *
+ * Two rules do the real work here:
+ *
+ *  1. `requireCanManageRole` — an admin may grant `moderator` and nothing else.
+ *     Without it an admin could grant themselves `financial_admin` and walk
+ *     straight into the treasury, which would make the operations/treasury
+ *     split decorative.
+ *
+ *  2. The `super_admin ⇒ admin` invariant. Every RLS policy predating Module 7
+ *     tests `has_role(uid,'admin')` exactly, so a super_admin without the admin
+ *     row fails all of them — the most privileged account would be the one
+ *     locked out. See §6 of the Module 7 migration.
+ */
 export const adminGrantRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => GrantRoleSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertCallerIsAdmin(context);
+    await requireCanManageRole(context, data.role);
     const userId = await resolveUserId(data.target);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("user_roles")
-      .upsert({ user_id: userId, role: data.role }, { onConflict: "user_id,role" } as never);
+
+    const roles: AppRole[] = data.role === "super_admin" ? ["super_admin", "admin"] : [data.role];
+
+    const { error } = await supabaseAdmin.from("user_roles").upsert(
+      roles.map((role) => ({ user_id: userId, role })),
+      { onConflict: "user_id,role" } as never,
+    );
     if (error) throw error;
-    return { ok: true, user_id: userId, role: data.role };
+
+    for (const role of roles) {
+      await recordRoleChange(supabaseAdmin, {
+        target_user_id: userId,
+        role,
+        action: "grant",
+        actor_id: context.userId,
+        note: data.note,
+      });
+    }
+
+    return { ok: true, user_id: userId, roles };
   });
 
-/** Admin-only: revoke a role from a user. Cannot revoke your own admin. */
+/**
+ * Revoke a role.
+ *
+ * Three things are refused outright, all of them ways to lock the platform out
+ * of its own administration:
+ *   - dropping your own privileged role (self-lockout, and the usual way an
+ *     account gets stranded mid-session);
+ *   - removing the last super_admin, after which no privileged role could ever
+ *     be granted again by anyone;
+ *   - stripping `admin` from an account that still holds `super_admin`, which
+ *     would break the invariant above and fail every legacy RLS policy.
+ */
 export const adminRevokeRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => GrantRoleSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertCallerIsAdmin(context);
+    await requireCanManageRole(context, data.role);
     const userId = await resolveUserId(data.target);
-    if (data.role === "admin" && userId === context.userId) {
-      throw new Error("You can't revoke your own admin role.");
-    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    if (userId === context.userId && data.role !== "user") {
+      throw new Error(
+        `You can't revoke your own ${data.role} role. Ask another super admin to do it.`,
+      );
+    }
+
+    const targetRoles = await rolesOf(supabaseAdmin, userId);
+
+    if (data.role === "admin" && targetRoles.includes("super_admin")) {
+      throw new Error(
+        "This account is a super admin, which requires the admin role to function. Revoke super admin first.",
+      );
+    }
+
+    if (data.role === "super_admin") {
+      const { count } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_id", { count: "exact", head: true })
+        .eq("role", "super_admin");
+      if ((count ?? 0) <= 1) {
+        throw new Error(
+          "This is the last super admin. Grant super admin to someone else before revoking this one — otherwise no privileged role could ever be granted again.",
+        );
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from("user_roles")
       .delete()
       .eq("user_id", userId)
       .eq("role", data.role);
     if (error) throw error;
+
+    await recordRoleChange(supabaseAdmin, {
+      target_user_id: userId,
+      role: data.role,
+      action: "revoke",
+      actor_id: context.userId,
+      note: data.note,
+    });
+
     return { ok: true, user_id: userId, role: data.role };
   });
 
-/** Admin-only: list all users with admin or moderator role. */
+/** Every account holding a staff role, with the roles collapsed onto one row each. */
 export const adminListStaff = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertCallerIsAdmin(context);
+    await requireCapability(context, "roles.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const staffRoles = APP_ROLES.filter((r) => r !== "user");
     const { data: roleRows, error } = await supabaseAdmin
       .from("user_roles")
       .select("user_id, role, created_at")
-      .in("role", ["admin", "moderator"])
+      .in("role", staffRoles)
       .order("created_at", { ascending: false });
     if (error) throw error;
+
     const ids = Array.from(new Set((roleRows ?? []).map((r) => r.user_id)));
-    if (!ids.length) return [];
+    if (!ids.length) return { staff: [], grantable: await grantableRolesFor(context) };
+
     const { data: profs } = await supabaseAdmin
       .from("profiles")
       .select("id, username, display_name, avatar_url")
       .in("id", ids);
     const byId = new Map((profs ?? []).map((p) => [p.id, p]));
-    return (roleRows ?? []).map((r) => ({ ...r, profile: byId.get(r.user_id) ?? null }));
+
+    // One row per person, not per role — an account with three roles was
+    // previously three separate rows in the table, each offering its own
+    // Revoke button with no indication they were the same human.
+    type StaffProfile = {
+      id: string;
+      username: string | null;
+      display_name: string | null;
+      avatar_url: string | null;
+    };
+    const byUser = new Map<
+      string,
+      { user_id: string; roles: AppRole[]; granted_at: string; profile: StaffProfile | null }
+    >();
+    for (const r of roleRows ?? []) {
+      const existing = byUser.get(r.user_id);
+      if (existing) {
+        existing.roles.push(r.role as AppRole);
+        if (r.created_at < existing.granted_at) existing.granted_at = r.created_at;
+      } else {
+        byUser.set(r.user_id, {
+          user_id: r.user_id,
+          roles: [r.role as AppRole],
+          granted_at: r.created_at,
+          profile: (byId.get(r.user_id) as StaffProfile | undefined) ?? null,
+        });
+      }
+    }
+
+    const rank: Record<string, number> = {
+      super_admin: 0,
+      admin: 1,
+      financial_admin: 2,
+      moderator: 3,
+    };
+    const staff = [...byUser.values()]
+      .map((s) => ({ ...s, roles: s.roles.sort((a, b) => rank[a] - rank[b]) }))
+      .sort(
+        (a, b) => rank[a.roles[0]] - rank[b.roles[0]] || a.granted_at.localeCompare(b.granted_at),
+      );
+
+    return { staff, grantable: await grantableRolesFor(context) };
+  });
+
+/** The privilege-change audit trail. */
+export const adminListRoleAudit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ limit: z.number().int().min(1).max(200).default(50) }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    await requireCapability(context, "roles.view");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("role_grants")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (error) throw error;
+
+    type AuditRow = {
+      target_user_id: string;
+      actor_id: string | null;
+      role: string;
+      action: string;
+      note: string | null;
+      created_at: string;
+      id: string;
+    };
+    const auditRows = (rows ?? []) as AuditRow[];
+
+    const ids = Array.from(
+      new Set(auditRows.flatMap((r) => [r.target_user_id, r.actor_id].filter(Boolean) as string[])),
+    );
+    const { data: profs } = ids.length
+      ? await supabaseAdmin.from("profiles").select("id, username, display_name").in("id", ids)
+      : { data: [] };
+    const byId = new Map((profs ?? []).map((p) => [p.id, p]));
+
+    return auditRows.map((r) => ({
+      ...r,
+      target: byId.get(r.target_user_id) ?? null,
+      actor: r.actor_id ? (byId.get(r.actor_id) ?? null) : null,
+    }));
   });
 
 
 // ────────────────────── Company Wallet / Revenue ──────────────────────
 
-async function assertAdminAdmin(ctx: any) {
-  const { data: isAdmin, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error) throw error;
-  if (!isAdmin) throw new Error("Forbidden");
-}
-
 /** Admin-only: read the company wallet (running fee balance + lifetime totals). */
 export const getCompanyWallet = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("company_wallet")
@@ -175,7 +340,7 @@ export const listCompanyRevenue = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ limit: z.number().int().min(1).max(200).default(50) }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows, error } = await supabaseAdmin
       .from("platform_fees")
@@ -186,7 +351,7 @@ export const listCompanyRevenue = createServerFn({ method: "POST" })
     return rows ?? [];
   });
 
-/** Admin-only: record a sweep of company funds out to a bank/PayPal/etc. */
+/** Treasury: record a sweep of company funds out to a bank/PayPal/etc. */
 export const withdrawCompanyFunds = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
@@ -195,7 +360,7 @@ export const withdrawCompanyFunds = createServerFn({ method: "POST" })
     note: z.string().trim().max(500).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.treasury");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: wid, error } = await supabaseAdmin.rpc("company_wallet_withdraw", {
       _amount_cents: data.amount_cents,
@@ -211,7 +376,7 @@ export const withdrawCompanyFunds = createServerFn({ method: "POST" })
 export const listCompanyWithdrawals = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("company_withdrawals")
@@ -226,7 +391,7 @@ export const listCompanyWithdrawals = createServerFn({ method: "GET" })
 export const getRevenueSummary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin.rpc("admin_revenue_summary" as never);
     if (error) throw error;
@@ -240,7 +405,7 @@ export const getRevenueSummary = createServerFn({ method: "GET" })
 export const getRevenueBySource = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin.rpc("admin_revenue_by_source" as never);
     if (error) throw error;
@@ -251,7 +416,7 @@ export const getRevenueBySource = createServerFn({ method: "GET" })
 export const getPlatformTotals = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.view");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const [walletRes, challengesRes, tournamentsRes] = await Promise.all([
@@ -303,7 +468,7 @@ async function stripeFetch(path: string, init: { method?: string; body?: Record<
 export const getStripeBalance = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.view");
     const bal = await stripeFetch("/balance");
     const pick = (arr: any[]) =>
       (arr ?? []).map((b: any) => ({ amount: b.amount as number, currency: b.currency as string }));
@@ -331,7 +496,7 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
       .parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
-    await assertAdminAdmin(context);
+    await requireCapability(context, "finance.treasury");
     const currency = data.currency.toLowerCase();
 
     let amount = data.amount_cents ?? 0;
