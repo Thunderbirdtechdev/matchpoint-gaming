@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Skill-based gaming platform. Compete in Fortnite, NBA 2K, Madden & College Football 1v1 challenges and tournaments for real cash prizes.",
+          "Skill-based gaming platform. Compete in Fortnite, NBA 2K27, Madden, NCAA 27 & MLB The Show 27 1v1 challenges and tournaments for real cash prizes.",
       },
       { property: "og:title", content: "MatchPoint — Play. Compete. Win." },
       {
@@ -40,7 +40,6 @@ function HomePage() {
       window.scrollTo(0, 0);
     }
   }, []);
-
 
   return (
     <SiteShell>

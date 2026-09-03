@@ -44,7 +44,7 @@ export const Route = createFileRoute("/marketplace")({
       {
         name: "description",
         content:
-          "Browse live 1v1 challenges and open tournaments across Fortnite, NBA 2K, Madden and College Football 25. Filter by game, platform and stake, then play for real money.",
+          "Browse live 1v1 challenges and open tournaments across Fortnite, NBA 2K27, Madden, NCAA 27 and MLB The Show 27. Filter by game, platform and stake, then play for real money.",
       },
       { property: "og:title", content: "Marketplace — Find Your Next Match | MatchPoint" },
       {

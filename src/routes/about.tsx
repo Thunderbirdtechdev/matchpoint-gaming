@@ -38,7 +38,7 @@ const story = [
   {
     year: "2025",
     title: "The Launch",
-    text: "MatchPoint went live with Fortnite, NBA 2K, Madden NFL, and College Football 25. 1v1 challenges and tournaments — all skill-based, all legit.",
+    text: "MatchPoint went live with Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 27. 1v1 challenges and tournaments — all skill-based, all legit.",
   },
   {
     year: "2026",

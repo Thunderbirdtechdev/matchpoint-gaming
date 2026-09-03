@@ -11,9 +11,9 @@ import cardNcaa from "@/assets/card-ncaa.jpg";
 
 const slides = [
   { img: cardFortnite, label: "Fortnite", tagline: "Drop in. Dominate. Cash out." },
-  { img: cardNba2k, label: "NBA 2K", tagline: "Ball is life. Prizes are real." },
-  { img: cardMadden, label: "Madden NFL", tagline: "Your playbook. Your payday." },
-  { img: cardNcaa, label: "College Football", tagline: "Gameday glory awaits." },
+  { img: cardNba2k, label: "NBA 2K27", tagline: "Ball is life. Prizes are real." },
+  { img: cardMadden, label: "Madden NFL 27", tagline: "Your playbook. Your payday." },
+  { img: cardNcaa, label: "NCAA 27", tagline: "Gameday glory awaits." },
 ];
 
 const AUTOPLAY_MS = 3500;
@@ -135,8 +135,8 @@ export function CTA() {
               Ready to prove you&rsquo;re the best?
             </h2>
             <p className="mt-5 max-w-lg text-base text-primary-foreground/75 leading-relaxed">
-              Create your free account, fund your wallet, and start competing in Fortnite, NBA 2K,
-              Madden, and College Football today.
+              Create your free account, fund your wallet, and start competing in Fortnite, NBA 2K27,
+              Madden, and NCAA 27 today.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <InteractiveHoverButton

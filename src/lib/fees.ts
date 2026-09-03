@@ -1,15 +1,23 @@
 /** Minimum entry amount (USD) for any competition. */
 export const MIN_ENTRY_USD = 10;
 
-/** The 4 supported games for V1. */
-export const SUPPORTED_GAMES = ["fortnite", "nba2k", "madden", "ncaa"] as const;
+/**
+ * Supported games.
+ *
+ * Slugs are stable identifiers stored in the database (`challenges.game_slug`,
+ * `tournaments.game_slug`), so they deliberately do NOT carry a year — only the
+ * display labels do. That way next season's rename is a one-line label change
+ * and never a data migration.
+ */
+export const SUPPORTED_GAMES = ["fortnite", "nba2k", "madden", "ncaa", "mlbshow"] as const;
 export type SupportedGame = (typeof SUPPORTED_GAMES)[number];
 
 export const GAME_LABELS: Record<SupportedGame, string> = {
   fortnite: "Fortnite",
-  nba2k: "NBA 2K",
-  madden: "Madden NFL",
-  ncaa: "College Football 25",
+  nba2k: "NBA 2K27",
+  madden: "Madden NFL 27",
+  ncaa: "NCAA 27",
+  mlbshow: "MLB The Show 27",
 };
 
 /**
@@ -33,7 +41,7 @@ export type FeeTier = {
 };
 
 export const FEE_TIERS: ReadonlyArray<FeeTier> = [
-  { minPool: 0, maxPool: 25, rate: 0.10, label: "$1 – $25" },
+  { minPool: 0, maxPool: 25, rate: 0.1, label: "$1 – $25" },
   { minPool: 25.01, maxPool: 100, rate: 0.08, label: "$26 – $100" },
   { minPool: 100.01, maxPool: 500, rate: 0.06, label: "$101 – $500" },
   { minPool: 500.01, maxPool: Infinity, rate: 0.05, label: "$501+" },
@@ -77,7 +85,9 @@ export function calculateFee(pool: number): FeeBreakdown {
 
 /** Tournament: pool = entryFee * playerCount. */
 export function calculateTournamentFee(entryFee: number, playerCount: number): FeeBreakdown {
-  const pool = round2(Math.max(0, Number(entryFee) || 0) * Math.max(0, Math.floor(Number(playerCount) || 0)));
+  const pool = round2(
+    Math.max(0, Number(entryFee) || 0) * Math.max(0, Math.floor(Number(playerCount) || 0)),
+  );
   return calculateFee(pool);
 }
 
@@ -117,7 +127,13 @@ export const SAME_DAY_WITHDRAWAL_TIERS: ReadonlyArray<WithdrawalTier> = [
   { minCents: 5_001, maxCents: 10_000, flatFeeCents: 299, pctRate: null, label: "$51 – $100" },
   { minCents: 10_001, maxCents: 25_000, flatFeeCents: 499, pctRate: null, label: "$101 – $250" },
   { minCents: 25_001, maxCents: 50_000, flatFeeCents: 799, pctRate: null, label: "$251 – $500" },
-  { minCents: 50_001, maxCents: 100_000, flatFeeCents: 1_299, pctRate: null, label: "$501 – $1,000" },
+  {
+    minCents: 50_001,
+    maxCents: 100_000,
+    flatFeeCents: 1_299,
+    pctRate: null,
+    label: "$501 – $1,000",
+  },
   { minCents: 100_001, maxCents: Infinity, flatFeeCents: null, pctRate: 0.01, label: "$1,001+" },
 ];
 

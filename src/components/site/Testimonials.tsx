@@ -15,7 +15,7 @@ const testimonials = [
       "The dispute team is legit. Submitted my clip, got my W within hours. No more arguing in DMs.",
     name: "Maya T.",
     handle: "@mayaballs",
-    game: "NBA 2K",
+    game: "NBA 2K27",
     stars: 5,
   },
   {
@@ -23,7 +23,7 @@ const testimonials = [
       "Ran my first tournament last month — 64 players, zero issues. The bracket tools are unreal.",
     name: "Andre P.",
     handle: "@droppin30",
-    game: "Madden NFL",
+    game: "Madden NFL 27",
     stars: 5,
   },
 ];
@@ -89,8 +89,7 @@ function TestimonialCard({
       <div
         className="relative flex h-full flex-col rounded-[15px] bg-background/70 p-6 backdrop-blur transition-transform duration-300 ease-out will-change-transform group-hover:-translate-y-1"
         style={{
-          transform:
-            "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
+          transform: "rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))",
         }}
       >
         {/* Stars */}
@@ -115,9 +114,7 @@ function TestimonialCard({
         <figcaption className="mt-6 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border/20 pt-5">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">{t.name}</div>
-            <div className="truncate text-xs text-muted-foreground">
-              {t.handle}
-            </div>
+            <div className="truncate text-xs text-muted-foreground">{t.handle}</div>
           </div>
           <span className="shrink-0 rounded-md bg-primary/10 px-2.5 py-1 font-display text-[10px] tracking-[0.18em] uppercase text-primary">
             {t.game}
@@ -132,12 +129,9 @@ export function Testimonials() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
-  const onIntersect = useCallback(
-    (entries: IntersectionObserverEntry[]) => {
-      if (entries[0].isIntersecting) setVisible(true);
-    },
-    []
-  );
+  const onIntersect = useCallback((entries: IntersectionObserverEntry[]) => {
+    if (entries[0].isIntersecting) setVisible(true);
+  }, []);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -163,19 +157,13 @@ export function Testimonials() {
             Player stories
           </p>
           <h2 className="mt-3 font-display text-4xl tracking-wide sm:text-5xl md:text-6xl">
-            From players who actually{" "}
-            <span className="text-gradient-brand">win</span>
+            From players who actually <span className="text-gradient-brand">win</span>
           </h2>
         </div>
 
         <div className="mt-14 grid gap-6 md:grid-cols-3">
           {testimonials.map((t, i) => (
-            <TestimonialCard
-              key={t.handle}
-              t={t}
-              index={i}
-              visible={visible}
-            />
+            <TestimonialCard key={t.handle} t={t} index={i} visible={visible} />
           ))}
         </div>
       </div>

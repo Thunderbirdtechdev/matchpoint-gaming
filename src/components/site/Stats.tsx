@@ -21,9 +21,9 @@ import cardNcaa from "@/assets/card-ncaa.jpg";
 
 const tournaments = [
   { game: "Fortnite", title: "Fortnite Box Fight Showdown", img: cardFortnite },
-  { game: "NBA 2K", title: "NBA 2K Pro League", img: cardNba2k },
-  { game: "Madden NFL", title: "Madden Championship Series", img: cardMadden },
-  { game: "College Football", title: "CFB 25 Rivalry Cup", img: cardNcaa },
+  { game: "NBA 2K27", title: "NBA 2K27 Pro League", img: cardNba2k },
+  { game: "Madden NFL 27", title: "Madden Championship Series", img: cardMadden },
+  { game: "NCAA 27", title: "NCAA 27 Rivalry Cup", img: cardNcaa },
 ];
 
 const trustStrip = [

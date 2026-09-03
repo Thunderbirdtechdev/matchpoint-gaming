@@ -9,7 +9,11 @@ export const Route = createFileRoute("/games")({
   head: () => ({
     meta: [
       { title: "Supported Games — MatchPoint" },
-      { name: "description", content: "Compete in Fortnite, NBA 2K, Madden NFL and College Football 25 — with live 1v1 challenges and tournaments." },
+      {
+        name: "description",
+        content:
+          "Compete in Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 27 — with live 1v1 challenges and tournaments.",
+      },
       { property: "og:title", content: "Supported Games — MatchPoint" },
       { property: "og:description", content: "Browse all supported games on MatchPoint." },
       { property: "og:url", content: "https://matchpointgaming.org/games" },
@@ -20,8 +24,12 @@ export const Route = createFileRoute("/games")({
     <SiteShell>
       <PageHeader
         eyebrow="Games"
-        title={<>Four titles. Real <span className="text-gradient-brand">competition</span>.</>}
-        description="Fortnite, NBA 2K, Madden NFL, and College Football 25 — with live challenges and tournaments running 24/7."
+        title={
+          <>
+            Five titles. Real <span className="text-gradient-brand">competition</span>.
+          </>
+        }
+        description="Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 27 — with live challenges and tournaments running 24/7."
         image={{ src: gameNba, alt: "Competitive gaming action" }}
       />
       <Games />

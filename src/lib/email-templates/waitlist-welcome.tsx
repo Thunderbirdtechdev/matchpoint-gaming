@@ -1,14 +1,30 @@
-import React from 'react'
+import React from "react";
 import {
-  Body, Container, Head, Heading, Hr, Html, Preview, Section, Text,
-} from '@react-email/components'
-import type { TemplateEntry } from './registry'
+  Body,
+  Container,
+  Head,
+  Heading,
+  Hr,
+  Html,
+  Preview,
+  Section,
+  Text,
+} from "@react-email/components";
+import type { TemplateEntry } from "./registry";
 import {
-  brand, bodyWrapper, container, footer, h1, headerBar, headerTitle, main, text,
-} from './styles'
+  brand,
+  bodyWrapper,
+  container,
+  footer,
+  h1,
+  headerBar,
+  headerTitle,
+  main,
+  text,
+} from "./styles";
 
 interface Props {
-  email?: string
+  email?: string;
 }
 
 const Email = ({ email }: Props) => (
@@ -21,32 +37,33 @@ const Email = ({ email }: Props) => (
           <Heading style={headerTitle}>MATCHPOINT GAMING</Heading>
         </Section>
         <Section style={bodyWrapper}>
-          <Heading as="h1" style={h1}>You're on the list 🎮</Heading>
+          <Heading as="h1" style={h1}>
+            You're on the list 🎮
+          </Heading>
           <Text style={text}>
-            Thanks for joining the MatchPoint Gaming waitlist{email ? ` with ${email}` : ''}.
-            We're putting the finishing touches on the platform and you'll be one of the first
-            to know the moment we go live.
+            Thanks for joining the MatchPoint Gaming waitlist{email ? ` with ${email}` : ""}. We're
+            putting the finishing touches on the platform and you'll be one of the first to know the
+            moment we go live.
           </Text>
           <Text style={text}>
             What's coming: skill-based 1v1 challenges, cash tournaments, instant escrow, and
-            same-day payouts on top of Warzone, Fortnite, NBA 2K, Madden, Rocket League, and more.
+            same-day payouts on top of Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show
+            27.
           </Text>
-          <Text style={text}>
-            Sit tight — we'll email you the second early access opens.
-          </Text>
-          <Hr style={{ borderColor: brand.border, margin: '24px 0 12px' }} />
+          <Text style={text}>Sit tight — we'll email you the second early access opens.</Text>
+          <Hr style={{ borderColor: brand.border, margin: "24px 0 12px" }} />
           <Text style={footer}>MatchPoint Gaming · matchpointgaming.org</Text>
         </Section>
       </Container>
     </Body>
   </Html>
-)
+);
 
 export const template = {
   component: Email,
   subject: "You're on the MatchPoint waitlist",
-  displayName: 'Waitlist welcome',
-  previewData: { email: 'player@example.com' },
-} satisfies TemplateEntry
+  displayName: "Waitlist welcome",
+  previewData: { email: "player@example.com" },
+} satisfies TemplateEntry;
 
-export default Email
+export default Email;
