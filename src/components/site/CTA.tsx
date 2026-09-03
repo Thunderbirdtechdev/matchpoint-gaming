@@ -62,7 +62,7 @@ function CTASlideshow() {
                 <img
                   src={s.img}
                   alt={s.label}
-                  className="h-full w-full object-cover transition-transform duration-[4000ms] ease-out"
+                  className="h-full w-full object-cover object-[center_30%] transition-transform duration-[4000ms] ease-out"
                   style={{
                     transform: !transitioning ? "scale(1.08)" : "scale(1)",
                   }}

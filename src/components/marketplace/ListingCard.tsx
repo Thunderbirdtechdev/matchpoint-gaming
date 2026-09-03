@@ -58,7 +58,7 @@ export function ListingCard({
           loading="lazy"
           width={640}
           height={360}
-          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          className="h-full w-full object-cover object-[center_30%] transition-transform duration-500 ease-out group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
         <Status

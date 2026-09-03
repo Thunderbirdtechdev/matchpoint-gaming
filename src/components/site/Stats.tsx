@@ -45,7 +45,7 @@ function TournamentCard({ t }: { t: (typeof tournaments)[number] }) {
           <img
             src={t.img}
             alt={t.title}
-            className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            className="h-full w-full object-cover object-[center_30%] transition-transform duration-500 ease-out group-hover:scale-105"
             loading="lazy"
             width={640}
             height={360}

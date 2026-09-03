@@ -56,7 +56,7 @@ export function HeroSlideshow() {
                 <img
                   src={s.img}
                   alt={GAME_LABELS[s.game]}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover object-[center_30%]"
                   loading="eager"
                   width={1920}
                   height={1080}
