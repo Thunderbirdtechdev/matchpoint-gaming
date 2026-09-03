@@ -15,43 +15,73 @@ const PayoutPlaceSchema = z.object({
   amount_cents: z.number().int().min(0).optional(),
 });
 
-const CreateTournamentSchema = z.object({
-  title: z.string().trim().min(3).max(200),
-  description: z.string().trim().max(2000).optional().default(""),
-  game_slug: z.string().min(1),
-  platform: z.string().trim().min(1).max(100),
-  max_players: z.number().int().min(2).max(256),
-  entry_fee: z.number().min(0).max(5000)
-    .refine((v) => v === 0 || v >= 5, { message: "Entry fee must be $0 (free) or at least $5" }),
-  prize_pool: z.number().min(0).max(500_000).optional().default(0),
-  starts_at: z.string().refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid start date" }),
-  payout_type: z.enum(["winner_take_all", "fixed", "percentage"]).optional().default("winner_take_all"),
-  payout_structure: z.array(PayoutPlaceSchema).max(20).optional().default([]),
-}).superRefine((data, ctx) => {
-  const places = data.payout_structure.map((p) => p.place);
-  if (new Set(places).size !== places.length) {
-    ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Duplicate places in payout structure" });
-  }
-  if (data.payout_type === "percentage") {
-    if (!data.payout_structure.length) {
-      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Percentage payout requires at least one place" });
-      return;
+const CreateTournamentSchema = z
+  .object({
+    title: z.string().trim().min(3).max(200),
+    description: z.string().trim().max(2000).optional().default(""),
+    game_slug: z.string().min(1),
+    platform: z.string().trim().min(1).max(100),
+    max_players: z.number().int().min(2).max(256),
+    entry_fee: z
+      .number()
+      .min(0)
+      .max(5000)
+      .refine((v) => v === 0 || v >= 5, { message: "Entry fee must be $0 (free) or at least $5" }),
+    prize_pool: z.number().min(0).max(500_000).optional().default(0),
+    starts_at: z
+      .string()
+      .refine((v) => !Number.isNaN(Date.parse(v)), { message: "Invalid start date" }),
+    payout_type: z
+      .enum(["winner_take_all", "fixed", "percentage"])
+      .optional()
+      .default("winner_take_all"),
+    payout_structure: z.array(PayoutPlaceSchema).max(20).optional().default([]),
+  })
+  .superRefine((data, ctx) => {
+    const places = data.payout_structure.map((p) => p.place);
+    if (new Set(places).size !== places.length) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["payout_structure"],
+        message: "Duplicate places in payout structure",
+      });
     }
-    const total = data.payout_structure.reduce((s, p) => s + (p.percent ?? 0), 0);
-    if (Math.round(total) !== 100) {
-      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: `Payout percentages must add up to 100% (currently ${total}%)` });
+    if (data.payout_type === "percentage") {
+      if (!data.payout_structure.length) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payout_structure"],
+          message: "Percentage payout requires at least one place",
+        });
+        return;
+      }
+      const total = data.payout_structure.reduce((s, p) => s + (p.percent ?? 0), 0);
+      if (Math.round(total) !== 100) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payout_structure"],
+          message: `Payout percentages must add up to 100% (currently ${total}%)`,
+        });
+      }
     }
-  }
-  if (data.payout_type === "fixed") {
-    if (!data.payout_structure.length) {
-      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Fixed payout requires at least one place" });
-      return;
+    if (data.payout_type === "fixed") {
+      if (!data.payout_structure.length) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payout_structure"],
+          message: "Fixed payout requires at least one place",
+        });
+        return;
+      }
+      if (data.payout_structure.some((p) => p.amount_cents == null)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["payout_structure"],
+          message: "Every place needs a fixed dollar amount",
+        });
+      }
     }
-    if (data.payout_structure.some((p) => p.amount_cents == null)) {
-      ctx.addIssue({ code: "custom", path: ["payout_structure"], message: "Every place needs a fixed dollar amount" });
-    }
-  }
-});
+  });
 
 /** Create a tournament. Validates entry-fee floor, player caps, dates, and payout structure server-side. */
 export const createTournament = createServerFn({ method: "POST" })
@@ -88,9 +118,13 @@ export const joinTournament = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: t, error: tErr } = await supabaseAdmin
-      .from("tournaments").select("*").eq("id", data.tournament_id).single();
+      .from("tournaments")
+      .select("*")
+      .eq("id", data.tournament_id)
+      .single();
     if (tErr || !t) throw new Error("Tournament not found");
-    if (t.status !== "open" && t.status !== "upcoming") throw new Error("Tournament is not open for entry");
+    if (t.status !== "open" && t.status !== "upcoming")
+      throw new Error("Tournament is not open for entry");
 
     const { count } = await supabaseAdmin
       .from("tournament_entries")
@@ -100,7 +134,10 @@ export const joinTournament = createServerFn({ method: "POST" })
 
     const { data: existing } = await supabaseAdmin
       .from("tournament_entries")
-      .select("id").eq("tournament_id", t.id).eq("user_id", context.userId).maybeSingle();
+      .select("id")
+      .eq("tournament_id", t.id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
     if (existing) throw new Error("Already joined");
 
     const entryCents = toCents(Number(t.entry_fee));
@@ -117,7 +154,8 @@ export const joinTournament = createServerFn({ method: "POST" })
     }
 
     const { error: eErr } = await supabaseAdmin
-      .from("tournament_entries").insert({ tournament_id: t.id, user_id: context.userId });
+      .from("tournament_entries")
+      .insert({ tournament_id: t.id, user_id: context.userId });
     if (eErr) throw eErr;
 
     return { ok: true };
@@ -125,10 +163,15 @@ export const joinTournament = createServerFn({ method: "POST" })
 
 const DeclareWinnerSchema = z.object({
   tournament_id: z.string().uuid(),
-  winners: z.array(z.object({
-    user_id: z.string().uuid(),
-    place: z.number().int().min(1),
-  })).min(1).max(20),
+  winners: z
+    .array(
+      z.object({
+        user_id: z.string().uuid(),
+        place: z.number().int().min(1),
+      }),
+    )
+    .min(1)
+    .max(20),
 });
 
 /**
@@ -142,12 +185,20 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: t } = await supabaseAdmin.from("tournaments").select("*").eq("id", data.tournament_id).single();
+    const { data: t } = await supabaseAdmin
+      .from("tournaments")
+      .select("*")
+      .eq("id", data.tournament_id)
+      .single();
     if (!t) throw new Error("Tournament not found");
     if (t.status === "completed") throw new Error("Already settled");
 
-    const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
-    if (t.host_id !== context.userId && !isAdmin) throw new Error("Only the host or an admin can declare the winner");
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (t.host_id !== context.userId && !isAdmin)
+      throw new Error("Only the host or an admin can declare the winner");
 
     const places = data.winners.map((w) => w.place);
     if (new Set(places).size !== places.length) throw new Error("Duplicate places in winners list");
@@ -155,20 +206,28 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
     if (new Set(userIds).size !== userIds.length) throw new Error("Duplicate winners");
 
     const { data: entries } = await supabaseAdmin
-      .from("tournament_entries").select("user_id")
-      .eq("tournament_id", t.id).in("user_id", userIds);
+      .from("tournament_entries")
+      .select("user_id")
+      .eq("tournament_id", t.id)
+      .in("user_id", userIds);
     const participantIds = new Set((entries ?? []).map((e: { user_id: string }) => e.user_id));
     for (const w of data.winners) {
-      if (!participantIds.has(w.user_id)) throw new Error(`One of the selected winners is not a participant`);
+      if (!participantIds.has(w.user_id))
+        throw new Error(`One of the selected winners is not a participant`);
     }
 
     const { data: holds } = await supabaseAdmin
-      .from("escrow_holds").select("*")
-      .eq("tournament_id", t.id).eq("status", "held");
+      .from("escrow_holds")
+      .select("*")
+      .eq("tournament_id", t.id)
+      .eq("status", "held");
 
     let poolCents = 0;
     for (const h of holds ?? []) {
-      const amt = await supabaseAdmin.rpc("escrow_resolve", { _hold_id: h.id, _new_status: "released" });
+      const amt = await supabaseAdmin.rpc("escrow_resolve", {
+        _hold_id: h.id,
+        _new_status: "released",
+      });
       if (amt.error) throw new Error(amt.error.message);
       poolCents += Number(amt.data);
     }
@@ -178,19 +237,28 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
     const netCents = poolCents - feeCents;
 
     const tExtra = t as unknown as { payout_type?: string; payout_structure?: unknown };
-    const payoutType = (tExtra.payout_type ?? "winner_take_all") as "winner_take_all" | "fixed" | "percentage";
-    const structure = (tExtra.payout_structure ?? []) as Array<{ place: number; percent?: number; amount_cents?: number }>;
+    const payoutType = (tExtra.payout_type ?? "winner_take_all") as
+      | "winner_take_all"
+      | "fixed"
+      | "percentage";
+    const structure = (tExtra.payout_structure ?? []) as Array<{
+      place: number;
+      percent?: number;
+      amount_cents?: number;
+    }>;
 
     const placeAmounts = new Map<number, number>();
     if (payoutType === "winner_take_all") {
-      if (data.winners.length !== 1) throw new Error("Winner-take-all tournaments have exactly one winner");
+      if (data.winners.length !== 1)
+        throw new Error("Winner-take-all tournaments have exactly one winner");
       if (netCents > 0) placeAmounts.set(data.winners[0].place, netCents);
     } else if (payoutType === "percentage") {
       const sorted = [...data.winners].sort((a, b) => a.place - b.place);
       let allocated = 0;
       for (const w of sorted) {
         const entry = structure.find((s) => s.place === w.place);
-        if (!entry || entry.percent == null) throw new Error(`No payout percentage configured for place ${w.place}`);
+        if (!entry || entry.percent == null)
+          throw new Error(`No payout percentage configured for place ${w.place}`);
         const amt = Math.round(netCents * (entry.percent / 100));
         placeAmounts.set(w.place, amt);
         allocated += amt;
@@ -205,7 +273,8 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
       let totalFixed = 0;
       for (const w of data.winners) {
         const entry = structure.find((s) => s.place === w.place);
-        if (!entry || entry.amount_cents == null) throw new Error(`No fixed payout configured for place ${w.place}`);
+        if (!entry || entry.amount_cents == null)
+          throw new Error(`No fixed payout configured for place ${w.place}`);
         placeAmounts.set(w.place, entry.amount_cents);
         totalFixed += entry.amount_cents;
       }
@@ -226,7 +295,13 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
           _description: `Prize (place ${w.place}): ${t.title}`,
           _tournament_id: t.id,
           _challenge_id: undefined,
-          _metadata: { pool_cents: poolCents, fee_cents: feeCents, fee_rate: fee.rate, place: w.place, payout_type: payoutType },
+          _metadata: {
+            pool_cents: poolCents,
+            fee_cents: feeCents,
+            fee_rate: fee.rate,
+            place: w.place,
+            payout_type: payoutType,
+          },
         });
         if (error) throw new Error(error.message);
       }
@@ -261,16 +336,17 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
       });
     }
 
-    await supabaseAdmin.from("tournaments")
-      .update({ status: "completed" })
-      .eq("id", t.id);
+    await supabaseAdmin.from("tournaments").update({ status: "completed" }).eq("id", t.id);
 
     return {
       ok: true,
       pool_cents: poolCents,
       fee_cents: feeCents,
       net_cents: netCents,
-      payouts: Array.from(placeAmounts.entries()).map(([place, amount_cents]) => ({ place, amount_cents })),
+      payouts: Array.from(placeAmounts.entries()).map(([place, amount_cents]) => ({
+        place,
+        amount_cents,
+      })),
     };
   });
 
@@ -280,17 +356,30 @@ export const cancelTournament = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ tournament_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: t } = await supabaseAdmin.from("tournaments").select("*").eq("id", data.tournament_id).single();
+    const { data: t } = await supabaseAdmin
+      .from("tournaments")
+      .select("*")
+      .eq("id", data.tournament_id)
+      .single();
     if (!t) throw new Error("Tournament not found");
-    const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
     if (t.host_id !== context.userId && !isAdmin) throw new Error("Only the host can cancel");
     if (t.status === "completed") throw new Error("Already completed");
 
     const { data: holds } = await supabaseAdmin
-      .from("escrow_holds").select("*").eq("tournament_id", t.id).eq("status", "held");
+      .from("escrow_holds")
+      .select("*")
+      .eq("tournament_id", t.id)
+      .eq("status", "held");
 
     for (const h of holds ?? []) {
-      const r = await supabaseAdmin.rpc("escrow_resolve", { _hold_id: h.id, _new_status: "refunded" });
+      const r = await supabaseAdmin.rpc("escrow_resolve", {
+        _hold_id: h.id,
+        _new_status: "refunded",
+      });
       if (r.error) throw new Error(r.error.message);
       const c = await supabaseAdmin.rpc("wallet_credit", {
         _user_id: h.user_id,
@@ -315,25 +404,36 @@ export const cancelTournament = createServerFn({ method: "POST" })
 /** Create + escrow the creator's stake. */
 export const createChallenge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    game_slug: z.string().min(1),
-    platform: z.string().min(1),
-    entry_amount: z.number().min(0).max(5000)
-      .refine((v) => v === 0 || v >= 5, { message: "Entry must be $0 (free) or at least $5" }),
-    rules: z.string().max(2000).optional().default(""),
-  }).parse(d))
+  .inputValidator((d) =>
+    z
+      .object({
+        game_slug: z.string().min(1),
+        platform: z.string().min(1),
+        entry_amount: z
+          .number()
+          .min(0)
+          .max(5000)
+          .refine((v) => v === 0 || v >= 5, { message: "Entry must be $0 (free) or at least $5" }),
+        rules: z.string().max(2000).optional().default(""),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const entryCents = toCents(data.entry_amount);
 
-    const { data: ch, error } = await supabaseAdmin.from("challenges").insert({
-      creator_id: context.userId,
-      game_slug: data.game_slug,
-      platform: data.platform,
-      entry_amount: data.entry_amount,
-      rules: data.rules,
-      status: "open",
-    }).select().single();
+    const { data: ch, error } = await supabaseAdmin
+      .from("challenges")
+      .insert({
+        creator_id: context.userId,
+        game_slug: data.game_slug,
+        platform: data.platform,
+        entry_amount: data.entry_amount,
+        rules: data.rules,
+        status: "open",
+      })
+      .select()
+      .single();
     if (error || !ch) throw error ?? new Error("Failed to create challenge");
 
     if (entryCents > 0) {
@@ -358,7 +458,11 @@ export const acceptChallenge = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ challenge_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: ch } = await supabaseAdmin.from("challenges").select("*").eq("id", data.challenge_id).single();
+    const { data: ch } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", data.challenge_id)
+      .single();
     if (!ch) throw new Error("Challenge not found");
     if (ch.status !== "open") throw new Error("Challenge is no longer open");
     if (ch.creator_id === context.userId) throw new Error("Can't accept your own challenge");
@@ -390,16 +494,26 @@ export const cancelChallenge = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ challenge_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: ch } = await supabaseAdmin.from("challenges").select("*").eq("id", data.challenge_id).single();
+    const { data: ch } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", data.challenge_id)
+      .single();
     if (!ch) throw new Error("Challenge not found");
     if (ch.creator_id !== context.userId) throw new Error("Not your challenge");
     if (ch.status !== "open") throw new Error("Can only cancel open challenges");
 
     const { data: holds } = await supabaseAdmin
-      .from("escrow_holds").select("*").eq("challenge_id", ch.id).eq("status", "held");
+      .from("escrow_holds")
+      .select("*")
+      .eq("challenge_id", ch.id)
+      .eq("status", "held");
 
     for (const h of holds ?? []) {
-      const r = await supabaseAdmin.rpc("escrow_resolve", { _hold_id: h.id, _new_status: "refunded" });
+      const r = await supabaseAdmin.rpc("escrow_resolve", {
+        _hold_id: h.id,
+        _new_status: "refunded",
+      });
       if (r.error) throw new Error(r.error.message);
       const c = await supabaseAdmin.rpc("wallet_credit", {
         _user_id: h.user_id,
@@ -426,7 +540,11 @@ export const concedeChallenge = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ challenge_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: ch } = await supabaseAdmin.from("challenges").select("*").eq("id", data.challenge_id).single();
+    const { data: ch } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", data.challenge_id)
+      .single();
     if (!ch) throw new Error("Challenge not found");
     if (ch.status !== "active") throw new Error("Challenge is not active");
     if (ch.creator_id !== context.userId && ch.opponent_id !== context.userId)
@@ -446,20 +564,33 @@ export const concedeChallenge = createServerFn({ method: "POST" })
  */
 export const reportChallengeResult = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    challenge_id: z.string().uuid(),
-    reported_winner_id: z.string().uuid(),
-  }).parse(d))
+  .inputValidator((d) =>
+    z
+      .object({
+        challenge_id: z.string().uuid(),
+        reported_winner_id: z.string().uuid(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: chRow } = await supabaseAdmin.from("challenges").select("*").eq("id", data.challenge_id).single();
+    const { data: chRow } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", data.challenge_id)
+      .single();
     if (!chRow) throw new Error("Challenge not found");
     const ch = chRow as unknown as {
-      id: string; creator_id: string; opponent_id: string | null; status: string;
-      creator_reported_winner_id: string | null; opponent_reported_winner_id: string | null;
+      id: string;
+      creator_id: string;
+      opponent_id: string | null;
+      status: string;
+      creator_reported_winner_id: string | null;
+      opponent_reported_winner_id: string | null;
     };
     if (ch.status !== "active") throw new Error("Challenge is not active");
-    if (ch.creator_id !== context.userId && ch.opponent_id !== context.userId) throw new Error("Not a participant");
+    if (ch.creator_id !== context.userId && ch.opponent_id !== context.userId)
+      throw new Error("Not a participant");
     if (![ch.creator_id, ch.opponent_id].includes(data.reported_winner_id)) {
       throw new Error("Reported winner must be a participant");
     }
@@ -483,7 +614,10 @@ export const reportChallengeResult = createServerFn({ method: "POST" })
       return { status: "settled" as const, ...result };
     }
 
-    await supabaseAdmin.from("challenges").update({ status: "disputed" } as never).eq("id", ch.id);
+    await supabaseAdmin
+      .from("challenges")
+      .update({ status: "disputed" } as never)
+      .eq("id", ch.id);
     await supabaseAdmin.from("disputes").insert({
       challenge_id: ch.id,
       opened_by: context.userId,
@@ -496,16 +630,27 @@ export const reportChallengeResult = createServerFn({ method: "POST" })
 /** Admin resolves a disputed (or active) challenge by picking a winner. Also closes any linked dispute. */
 export const adminResolveChallenge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    challenge_id: z.string().uuid(),
-    winner_id: z.string().uuid(),
-    resolution_note: z.string().trim().max(500).optional(),
-  }).parse(d))
+  .inputValidator((d) =>
+    z
+      .object({
+        challenge_id: z.string().uuid(),
+        winner_id: z.string().uuid(),
+        resolution_note: z.string().trim().max(500).optional(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
+    const { data: isAdmin } = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
     if (!isAdmin) throw new Error("Admins only");
-    const { data: ch } = await supabaseAdmin.from("challenges").select("*").eq("id", data.challenge_id).single();
+    const { data: ch } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", data.challenge_id)
+      .single();
     if (!ch) throw new Error("Challenge not found");
     if (ch.status === "completed") throw new Error("Already settled");
     if (![ch.creator_id, ch.opponent_id].includes(data.winner_id))
@@ -513,7 +658,10 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
     const result = await settleChallenge(supabaseAdmin, ch, data.winner_id);
     await supabaseAdmin
       .from("disputes")
-      .update({ status: "resolved", resolution: data.resolution_note ?? `Resolved - winner: ${data.winner_id}` } as never)
+      .update({
+        status: "resolved",
+        resolution: data.resolution_note ?? `Resolved - winner: ${data.winner_id}`,
+      } as never)
       .eq("challenge_id", ch.id)
       .eq("status", "open");
     return result;
@@ -522,11 +670,17 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
 // shared payout core
 async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
   const { data: holds } = await supabaseAdmin
-    .from("escrow_holds").select("*").eq("challenge_id", ch.id).eq("status", "held");
+    .from("escrow_holds")
+    .select("*")
+    .eq("challenge_id", ch.id)
+    .eq("status", "held");
 
   let poolCents = 0;
   for (const h of holds ?? []) {
-    const r = await supabaseAdmin.rpc("escrow_resolve", { _hold_id: h.id, _new_status: "released" });
+    const r = await supabaseAdmin.rpc("escrow_resolve", {
+      _hold_id: h.id,
+      _new_status: "released",
+    });
     if (r.error) throw new Error(r.error.message);
     poolCents += Number(r.data);
   }
@@ -545,7 +699,12 @@ async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
       _description: `Challenge win: ${ch.game_slug}`,
       _tournament_id: undefined,
       _challenge_id: ch.id,
-      _metadata: { pool_cents: poolCents, fee_cents: feeCents, fee_rate: actual.rate, fee_preview: fee },
+      _metadata: {
+        pool_cents: poolCents,
+        fee_cents: feeCents,
+        fee_rate: actual.rate,
+        fee_preview: fee,
+      },
     });
     if (c.error) throw new Error(c.error.message);
   }
@@ -562,9 +721,216 @@ async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
     });
   }
 
-  await supabaseAdmin.from("challenges")
+  await supabaseAdmin
+    .from("challenges")
     .update({ status: "completed", winner_id: winnerId })
     .eq("id", ch.id);
 
-  return { ok: true, winner_id: winnerId, pool_cents: poolCents, fee_cents: feeCents, net_cents: netCents };
+  return {
+    ok: true,
+    winner_id: winnerId,
+    pool_cents: poolCents,
+    fee_cents: feeCents,
+    net_cents: netCents,
+  };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DISPUTE REVIEW — two-person rule
+//
+// Resolving a dispute releases escrow and is irreversible, so the decision and
+// the payout are deliberately split across two people: a moderator records a
+// recommended winner, an admin confirms it, and only then does money move.
+//
+// These live here rather than in their own module so they can reuse the private
+// `settleChallenge` helper without exporting money-handling internals.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+async function hasStaffRole(admin: any, userId: string, roles: string[]): Promise<boolean> {
+  const { data } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", roles);
+  return !!data?.length;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** Moderator records who they believe won. Moves no money. */
+export const recommendDisputeResolution = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        dispute_id: z.string().uuid(),
+        recommended_winner_id: z.string().uuid(),
+        review_note: z.string().trim().max(1000).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    if (!(await hasStaffRole(supabaseAdmin, context.userId, ["moderator", "admin"]))) {
+      throw new Error("Moderators only.");
+    }
+
+    const { data: dispute } = await supabaseAdmin
+      .from("disputes")
+      .select("id, challenge_id, status")
+      .eq("id", data.dispute_id)
+      .maybeSingle();
+    if (!dispute) throw new Error("Dispute not found.");
+    if (dispute.status === "resolved") throw new Error("That dispute is already resolved.");
+
+    const { data: ch } = await supabaseAdmin
+      .from("challenges")
+      .select("creator_id, opponent_id")
+      .eq("id", dispute.challenge_id!)
+      .maybeSingle();
+    if (!ch) throw new Error("Challenge not found.");
+    if (![ch.creator_id, ch.opponent_id].includes(data.recommended_winner_id)) {
+      throw new Error("The winner must be one of the two players.");
+    }
+
+    const { error } = await supabaseAdmin
+      .from("disputes")
+      .update({
+        recommended_winner_id: data.recommended_winner_id,
+        reviewed_by: context.userId,
+        reviewed_at: new Date().toISOString(),
+        review_note: data.review_note ?? null,
+        status: "awaiting_approval",
+      } as never)
+      .eq("id", data.dispute_id);
+    if (error) throw new Error(error.message);
+
+    return { ok: true as const };
+  });
+
+/** Admin confirms the recommendation. THIS is the step that releases escrow. */
+export const approveDisputeResolution = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ dispute_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    if (!(await hasStaffRole(supabaseAdmin, context.userId, ["admin"]))) {
+      throw new Error("Admins only — releasing escrow needs an admin.");
+    }
+
+    const { data: dispute } = await supabaseAdmin
+      .from("disputes")
+      .select("id, challenge_id, status, recommended_winner_id, reviewed_by")
+      .eq("id", data.dispute_id)
+      .maybeSingle();
+    if (!dispute) throw new Error("Dispute not found.");
+    if (dispute.status === "resolved") throw new Error("That dispute is already resolved.");
+    if (!dispute.recommended_winner_id) {
+      throw new Error("A moderator must recommend a winner before this can be approved.");
+    }
+    // The whole point of the split is that two different people sign off.
+    if (dispute.reviewed_by === context.userId) {
+      throw new Error("A different admin must approve a resolution you reviewed.");
+    }
+
+    const { data: ch } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", dispute.challenge_id!)
+      .single();
+    if (!ch) throw new Error("Challenge not found.");
+    if (ch.status === "settled") throw new Error("That match is already settled.");
+
+    const result = await settleChallenge(supabaseAdmin, ch, dispute.recommended_winner_id);
+
+    await supabaseAdmin
+      .from("disputes")
+      .update({
+        status: "resolved",
+        approved_by: context.userId,
+        approved_at: new Date().toISOString(),
+        resolution: `Resolved — winner ${dispute.recommended_winner_id}`,
+      } as never)
+      .eq("id", data.dispute_id);
+
+    return result;
+  });
+
+/** Admin sends a recommendation back for another look. Moves no money. */
+export const rejectDisputeRecommendation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({ dispute_id: z.string().uuid(), note: z.string().trim().max(1000).optional() })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    if (!(await hasStaffRole(supabaseAdmin, context.userId, ["admin"]))) {
+      throw new Error("Admins only.");
+    }
+
+    const { error } = await supabaseAdmin
+      .from("disputes")
+      .update({
+        status: "open",
+        recommended_winner_id: null,
+        review_note: data.note ?? null,
+      } as never)
+      .eq("id", data.dispute_id);
+    if (error) throw new Error(error.message);
+
+    return { ok: true as const };
+  });
+
+/** Full dispute context for the review queue, including signed evidence URLs. */
+export const getDisputeDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ dispute_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const isModerator = await hasStaffRole(supabaseAdmin, context.userId, ["moderator", "admin"]);
+    const isAdmin = await hasStaffRole(supabaseAdmin, context.userId, ["admin"]);
+    if (!isModerator) throw new Error("Moderators only.");
+
+    const { data: dispute } = await supabaseAdmin
+      .from("disputes")
+      .select("*")
+      .eq("id", data.dispute_id)
+      .maybeSingle();
+    if (!dispute) throw new Error("Dispute not found.");
+
+    const { data: challenge } = await supabaseAdmin
+      .from("challenges")
+      .select("*")
+      .eq("id", dispute.challenge_id!)
+      .maybeSingle();
+
+    const ids = [challenge?.creator_id, challenge?.opponent_id].filter(Boolean) as string[];
+    const { data: players } = await supabaseAdmin
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+
+    // Evidence lives in a private bucket, so hand back short-lived signed URLs.
+    const { data: evidenceRows } = await supabaseAdmin
+      .from("match_evidence")
+      .select("id, user_id, file_path, kind, note, created_at")
+      .eq("challenge_id", dispute.challenge_id!)
+      .order("created_at", { ascending: true });
+
+    const evidence = await Promise.all(
+      (evidenceRows ?? []).map(async (e) => {
+        const { data: signed } = await supabaseAdmin.storage
+          .from("match-evidence")
+          .createSignedUrl(e.file_path, 300);
+        return { ...e, url: signed?.signedUrl ?? null };
+      }),
+    );
+
+    return { dispute, challenge, players: players ?? [], evidence, isAdmin };
+  });

@@ -31,6 +31,7 @@ import { Route as PlayerUsernameRouteImport } from './routes/player.$username'
 import { Route as MatchIdRouteImport } from './routes/match.$id'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
+import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPayoutsRouteImport } from './routes/_authenticated/payouts'
 import { Route as AuthenticatedMyTournamentsRouteImport } from './routes/_authenticated/my-tournaments'
@@ -159,6 +160,11 @@ const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
   path: '/wallet',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -282,6 +288,7 @@ export interface FileRoutesByFullPath {
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/payouts': typeof AuthenticatedPayoutsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/support': typeof AuthenticatedSupportRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/match/$id': typeof MatchIdRoute
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/payouts': typeof AuthenticatedPayoutsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/support': typeof AuthenticatedSupportRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/match/$id': typeof MatchIdRoute
@@ -366,6 +374,7 @@ export interface FileRoutesById {
   '/_authenticated/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/_authenticated/payouts': typeof AuthenticatedPayoutsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/match/$id': typeof MatchIdRoute
@@ -409,6 +418,7 @@ export interface FileRouteTypes {
     | '/my-tournaments'
     | '/payouts'
     | '/profile'
+    | '/support'
     | '/wallet'
     | '/email/unsubscribe'
     | '/match/$id'
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/my-tournaments'
     | '/payouts'
     | '/profile'
+    | '/support'
     | '/wallet'
     | '/email/unsubscribe'
     | '/match/$id'
@@ -492,6 +503,7 @@ export interface FileRouteTypes {
     | '/_authenticated/my-tournaments'
     | '/_authenticated/payouts'
     | '/_authenticated/profile'
+    | '/_authenticated/support'
     | '/_authenticated/wallet'
     | '/email/unsubscribe'
     | '/match/$id'
@@ -695,6 +707,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWalletRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/support': {
+      id: '/_authenticated/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof AuthenticatedSupportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -835,6 +854,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMyTournamentsRoute: typeof AuthenticatedMyTournamentsRoute
   AuthenticatedPayoutsRoute: typeof AuthenticatedPayoutsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
 }
 
@@ -849,6 +869,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMyTournamentsRoute: AuthenticatedMyTournamentsRoute,
   AuthenticatedPayoutsRoute: AuthenticatedPayoutsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedSupportRoute: AuthenticatedSupportRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
 }
 

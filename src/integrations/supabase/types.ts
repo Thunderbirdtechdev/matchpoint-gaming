@@ -222,33 +222,51 @@ export type Database = {
       }
       disputes: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           challenge_id: string | null
           created_at: string
           evidence_url: string | null
           id: string
           opened_by: string
           reason: string
+          recommended_winner_id: string | null
           resolution: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           challenge_id?: string | null
           created_at?: string
           evidence_url?: string | null
           id?: string
           opened_by: string
           reason: string
+          recommended_winner_id?: string | null
           resolution?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           challenge_id?: string | null
           created_at?: string
           evidence_url?: string | null
           id?: string
           opened_by?: string
           reason?: string
+          recommended_winner_id?: string | null
           resolution?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
         }
         Relationships: [
@@ -950,6 +968,82 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      // Added by hand for migration 20260903180000_support_and_dispute_review.
+      support_tickets: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          challenge_id: string | null
+          created_at: string
+          id: string
+          priority: string
+          resolved_at: string | null
+          status: string
+          subject: string
+          tournament_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string
+          challenge_id?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          tournament_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          challenge_id?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          tournament_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          attachment_path: string | null
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          is_staff: boolean
+          ticket_id: string
+        }
+        Insert: {
+          attachment_path?: string | null
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          is_staff?: boolean
+          ticket_id: string
+        }
+        Update: {
+          attachment_path?: string | null
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          is_staff?: boolean
+          ticket_id?: string
         }
         Relationships: []
       }
