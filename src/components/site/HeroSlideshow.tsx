@@ -7,12 +7,15 @@ import slideFortnite from "@/assets/slide-fortnite.jpg";
 import slideNba2k from "@/assets/slide-nba2k.jpg";
 import slideMadden from "@/assets/slide-madden.jpg";
 import slideNcaa from "@/assets/slide-ncaa.png";
+// TODO: 3:4 portrait standing in for a 16:10 slide — crops. Needs real MLB art.
+import slideMlb from "@/assets/game-mlb.jpg";
 
 const slides: { game: SupportedGame; img: string; tagline: string }[] = [
   { game: "fortnite", img: slideFortnite, tagline: "Build. Fight. Dominate." },
   { game: "nba2k", img: slideNba2k, tagline: "Hit the court. Take the crown." },
   { game: "madden", img: slideMadden, tagline: "Call the plays. Win the game." },
   { game: "ncaa", img: slideNcaa, tagline: "Friday nights. Real stakes." },
+  { game: "mlbshow", img: slideMlb, tagline: "Step up. Go yard. Get paid." },
 ];
 
 const AUTOPLAY_MS = 4500;
@@ -30,7 +33,9 @@ export function HeroSlideshow() {
     if (!emblaApi) return;
     emblaApi.on("select", onSelect);
     onSelect();
-    return () => { emblaApi.off("select", onSelect); };
+    return () => {
+      emblaApi.off("select", onSelect);
+    };
   }, [emblaApi, onSelect]);
 
   // Autoplay
@@ -97,7 +102,6 @@ export function HeroSlideshow() {
           </button>
         ))}
       </div>
-
     </div>
   );
 }

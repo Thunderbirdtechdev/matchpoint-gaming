@@ -18,12 +18,15 @@ import cardFortnite from "@/assets/card-fortnite.jpg";
 import cardNba2k from "@/assets/card-nba2k.jpg";
 import cardMadden from "@/assets/card-madden.jpg";
 import cardNcaa from "@/assets/card-ncaa.jpg";
+// TODO: 3:4 portrait in a 16:9 card slot — crops. Needs real MLB art.
+import cardMlb from "@/assets/game-mlb.jpg";
 
 const tournaments = [
   { game: "Fortnite", title: "Fortnite Box Fight Showdown", img: cardFortnite },
   { game: "NBA 2K27", title: "NBA 2K27 Pro League", img: cardNba2k },
-  { game: "Madden NFL 27", title: "Madden Championship Series", img: cardMadden },
+  { game: "Madden NFL 27", title: "Madden NFL 27 Championship Series", img: cardMadden },
   { game: "NCAA 27", title: "NCAA 27 Rivalry Cup", img: cardNcaa },
+  { game: "MLB The Show 27", title: "MLB The Show 27 Diamond Series", img: cardMlb },
 ];
 
 const trustStrip = [
