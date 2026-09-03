@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
@@ -41,17 +40,6 @@ function LoginPage() {
     navigate({ to: "/dashboard" });
   }
 
-  async function handleGoogle() {
-    setLoading(true);
-    const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/dashboard" });
-    if (res.error) {
-      setLoading(false);
-      return toast.error(res.error.message ?? "Google sign-in failed");
-    }
-    if (res.redirected) return;
-    navigate({ to: "/dashboard" });
-  }
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
       <BackgroundPattern />
@@ -68,14 +56,7 @@ function LoginPage() {
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in to keep competing.</p>
 
-          <Button onClick={handleGoogle} disabled={loading} variant="outline" className="mt-6 w-full">
-            Continue with Google
-          </Button>
-          <div className="my-5 flex items-center gap-3 text-xs uppercase text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />or<div className="h-px flex-1 bg-border" />
-          </div>
-
-          <form onSubmit={handleEmail} className="space-y-5">
+          <form onSubmit={handleEmail} className="mt-6 space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
