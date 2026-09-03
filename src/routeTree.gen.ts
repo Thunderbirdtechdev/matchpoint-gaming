@@ -36,6 +36,7 @@ import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPayoutsRouteImport } from './routes/_authenticated/payouts'
 import { Route as AuthenticatedMyTournamentsRouteImport } from './routes/_authenticated/my-tournaments'
 import { Route as AuthenticatedModeratorRouteImport } from './routes/_authenticated/moderator'
+import { Route as AuthenticatedFinanceRouteImport } from './routes/_authenticated/finance'
 import { Route as AuthenticatedDisputeCenterRouteImport } from './routes/_authenticated/dispute-center'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
@@ -186,6 +187,11 @@ const AuthenticatedModeratorRoute = AuthenticatedModeratorRouteImport.update({
   path: '/moderator',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFinanceRoute = AuthenticatedFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDisputeCenterRoute =
   AuthenticatedDisputeCenterRouteImport.update({
     id: '/dispute-center',
@@ -284,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/community': typeof AuthenticatedCommunityRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dispute-center': typeof AuthenticatedDisputeCenterRoute
+  '/finance': typeof AuthenticatedFinanceRoute
   '/moderator': typeof AuthenticatedModeratorRoute
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/payouts': typeof AuthenticatedPayoutsRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByTo {
   '/community': typeof AuthenticatedCommunityRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/dispute-center': typeof AuthenticatedDisputeCenterRoute
+  '/finance': typeof AuthenticatedFinanceRoute
   '/moderator': typeof AuthenticatedModeratorRoute
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/payouts': typeof AuthenticatedPayoutsRoute
@@ -370,6 +378,7 @@ export interface FileRoutesById {
   '/_authenticated/community': typeof AuthenticatedCommunityRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/dispute-center': typeof AuthenticatedDisputeCenterRoute
+  '/_authenticated/finance': typeof AuthenticatedFinanceRoute
   '/_authenticated/moderator': typeof AuthenticatedModeratorRoute
   '/_authenticated/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/_authenticated/payouts': typeof AuthenticatedPayoutsRoute
@@ -414,6 +423,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/dashboard'
     | '/dispute-center'
+    | '/finance'
     | '/moderator'
     | '/my-tournaments'
     | '/payouts'
@@ -456,6 +466,7 @@ export interface FileRouteTypes {
     | '/community'
     | '/dashboard'
     | '/dispute-center'
+    | '/finance'
     | '/moderator'
     | '/my-tournaments'
     | '/payouts'
@@ -499,6 +510,7 @@ export interface FileRouteTypes {
     | '/_authenticated/community'
     | '/_authenticated/dashboard'
     | '/_authenticated/dispute-center'
+    | '/_authenticated/finance'
     | '/_authenticated/moderator'
     | '/_authenticated/my-tournaments'
     | '/_authenticated/payouts'
@@ -742,6 +754,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModeratorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/finance': {
+      id: '/_authenticated/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AuthenticatedFinanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dispute-center': {
       id: '/_authenticated/dispute-center'
       path: '/dispute-center'
@@ -850,6 +869,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCommunityRoute: typeof AuthenticatedCommunityRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDisputeCenterRoute: typeof AuthenticatedDisputeCenterRoute
+  AuthenticatedFinanceRoute: typeof AuthenticatedFinanceRoute
   AuthenticatedModeratorRoute: typeof AuthenticatedModeratorRoute
   AuthenticatedMyTournamentsRoute: typeof AuthenticatedMyTournamentsRoute
   AuthenticatedPayoutsRoute: typeof AuthenticatedPayoutsRoute
@@ -865,6 +885,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCommunityRoute: AuthenticatedCommunityRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDisputeCenterRoute: AuthenticatedDisputeCenterRoute,
+  AuthenticatedFinanceRoute: AuthenticatedFinanceRoute,
   AuthenticatedModeratorRoute: AuthenticatedModeratorRoute,
   AuthenticatedMyTournamentsRoute: AuthenticatedMyTournamentsRoute,
   AuthenticatedPayoutsRoute: AuthenticatedPayoutsRoute,

@@ -1485,6 +1485,40 @@ export type Database = {
         }
         Returns: number
       }
+      admin_platform_liabilities: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          player_balance_cents: number
+          escrow_held_cents: number
+          pending_payout_cents: number
+          company_balance_cents: number
+          funded_wallet_count: number
+          open_escrow_count: number
+          pending_payout_count: number
+        }[]
+      }
+      admin_revenue_by_source_range: {
+        Args: {
+          _from: string
+          _to: string
+        }
+        Returns: {
+          source: string
+          total_cents: number
+          event_count: number
+        }[]
+      }
+      admin_revenue_daily: {
+        Args: {
+          _from: string
+          _to: string
+        }
+        Returns: {
+          day: string
+          total_cents: number
+          event_count: number
+        }[]
+      }
       has_capability: {
         Args: {
           _capability: string
