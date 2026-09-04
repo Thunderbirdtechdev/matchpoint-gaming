@@ -246,7 +246,15 @@ export function DashboardShell({
               </Link>
             </div>
           </header>
-          <div className="p-4 sm:p-8">{children}</div>
+          {/*
+           * Module 11. The bottom padding adds the iOS home-indicator inset on
+           * top of the normal spacing, so the last card on a page does not sit
+           * underneath it on a notched phone. `env()` resolves to 0 everywhere
+           * that has no inset, so this costs desktop nothing.
+           */}
+          <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8 sm:pb-[calc(2rem+env(safe-area-inset-bottom))]">
+            {children}
+          </div>
         </div>
       </div>
     </div>
