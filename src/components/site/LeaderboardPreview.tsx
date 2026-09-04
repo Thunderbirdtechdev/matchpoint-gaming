@@ -32,7 +32,7 @@ function useTopPlayers() {
         handle: p.display_name || (p.username ? `@${p.username}` : "Anonymous"),
         game: p.favorite_game
           ? (GAME_LABELS[p.favorite_game as SupportedGame] ?? p.favorite_game)
-          : "—",
+          : "-",
         wins: p.wins ?? 0,
         earnings: `$${Number(p.earnings ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
       }));
@@ -308,7 +308,7 @@ export function LeaderboardPreview() {
                     <p className="text-sm text-muted-foreground">
                       {loadingTop
                         ? "Loading the leaderboard…"
-                        : "No settled matches yet — the first winners will show up here."}
+                        : "No settled matches yet. The first winners will show up here."}
                     </p>
                   </div>
                 ) : (
@@ -349,7 +349,7 @@ export function LeaderboardPreview() {
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="h-3.5 w-3.5 text-primary" />
                     <span className="font-display text-[10px] tracking-[0.2em] uppercase text-muted-foreground">
-                      Platform Prize Pool — Last 6 Months
+                      Platform Prize Pool (Last 6 Months)
                     </span>
                   </div>
                   <AreaChart visible={visible} />

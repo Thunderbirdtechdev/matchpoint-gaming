@@ -43,7 +43,7 @@ import { LedgerPanel } from "@/components/wallet/LedgerPanel";
 type SearchParams = { deposit?: string; connect?: string };
 
 export const Route = createFileRoute("/_authenticated/wallet")({
-  head: () => ({ meta: [{ title: "Wallet — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Wallet | MatchPoint" }] }),
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
     deposit: typeof s.deposit === "string" ? s.deposit : undefined,
     connect: typeof s.connect === "string" ? s.connect : undefined,
@@ -83,7 +83,7 @@ function WalletPage() {
 
   useEffect(() => {
     if (search.deposit === "success") {
-      toast.success("Deposit received — your balance will update shortly.");
+      toast.success("Deposit received. Your balance will update shortly.");
       const id = setInterval(() => qc.invalidateQueries({ queryKey: ["wallet"] }), 2000);
       const stop = setTimeout(() => clearInterval(id), 12000);
       return () => {
@@ -96,11 +96,11 @@ function WalletPage() {
 
   useEffect(() => {
     if (search.connect === "return") {
-      toast.success("Payout account setup received — checking status…");
+      toast.success("Payout account setup received, checking status…");
       qc.invalidateQueries({ queryKey: ["wallet"] });
     }
     if (search.connect === "refresh") {
-      toast.message("Payout setup link expired — start again below.");
+      toast.message("Payout setup link expired, start again below.");
     }
   }, [search.connect, qc]);
 
@@ -125,8 +125,8 @@ function WalletPage() {
     onSuccess: (res) => {
       toast.success(
         speed === "same_day"
-          ? "Same-day cash out sent — typically arrives in 30 minutes to 5 hours."
-          : "Standard cash out sent — typically arrives in 2–5 business days.",
+          ? "Same-day cash out sent, typically arrives in 30 minutes to 5 hours."
+          : "Standard cash out sent, typically arrives in 2–5 business days.",
       );
       if (res.fee_warning) {
         toast.warning(`Cash out sent, but the platform fee wasn't recorded: ${res.fee_warning}`);
@@ -141,7 +141,7 @@ function WalletPage() {
     mutationFn: async () => redeemPromo({ data: { code: promoCode.trim() } }),
     onSuccess: (res) => {
       toast.success(
-        `Promo applied — $${(res.credited_cents / 100).toFixed(2)} added to your wallet.`,
+        `Promo applied, $${(res.credited_cents / 100).toFixed(2)} added to your wallet.`,
       );
       setPromoCode("");
       qc.invalidateQueries({ queryKey: ["wallet"] });
@@ -219,8 +219,8 @@ function WalletPage() {
         {!payoutsEnabled ? (
           <>
             <p className="mt-2 text-xs text-muted-foreground">
-              Connect a bank account to cash out — a quick, secure setup through Stripe (the same
-              processor you deposit with). Once connected, withdrawals are automatic — no approval
+              Connect a bank account to cash out, a quick, secure setup through Stripe (the same
+              processor you deposit with). Once connected, withdrawals are automatic, no approval
               needed.
             </p>
             <Button
@@ -238,7 +238,7 @@ function WalletPage() {
               )}
             </Button>
             <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5" /> Handled securely by Stripe — MatchPoint never
+              <ShieldCheck className="h-3.5 w-3.5" /> Handled securely by Stripe, MatchPoint never
               sees your bank details.
             </div>
           </>
@@ -380,7 +380,7 @@ function WalletPage() {
           {referralInfo?.username ? (
             <>
               <p className="mt-2 text-xs text-muted-foreground">
-                Share your link — you both get a bonus once they make their first deposit.
+                Share your link. You both get a bonus once they make their first deposit.
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <code className="flex-1 truncate rounded-md bg-black/20 px-2 py-2 text-xs">

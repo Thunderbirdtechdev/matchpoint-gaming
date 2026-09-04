@@ -46,7 +46,7 @@ const Email = ({ roleLabel, roleDescription, grantedBy, requiresMfa }: Props) =>
     ) : null}
 
     <Text style={{ ...text, fontSize: 12, color: brand.textLight }}>
-      If you weren't expecting this, your account may be compromised — change your password and
+      If you weren't expecting this, your account may be compromised. Change your password and
       contact a super admin straight away.
     </Text>
   </EmailShell>

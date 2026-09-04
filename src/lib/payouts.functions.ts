@@ -421,7 +421,7 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
       amount_cents: req.amount_cents,
       balance_after_cents: refunded,
       currency: wallet.currency,
-      description: `Payout rejected — refund${data.admin_note ? `: ${data.admin_note}` : ""}`,
+      description: `Payout rejected, refund${data.admin_note ? `: ${data.admin_note}` : ""}`,
       metadata: { payout_request_id: req.id, rejected_by: context.userId },
     } as never);
 

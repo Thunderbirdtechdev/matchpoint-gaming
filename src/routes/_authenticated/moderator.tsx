@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/moderator")({
-  head: () => ({ meta: [{ title: "Moderator — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Moderator | MatchPoint" }] }),
   component: ModeratorPage,
 });
 
@@ -204,7 +204,7 @@ function DisputeReview({ disputeId, onBack }: { disputeId: string; onBack: () =>
 
   const nameOf = (id: string | null) => {
     const p = players.find((x) => x.id === id);
-    return p?.display_name || p?.username || (id ? `${id.slice(0, 8)}…` : "—");
+    return p?.display_name || p?.username || (id ? `${id.slice(0, 8)}…` : "-");
   };
 
   return (
@@ -291,7 +291,7 @@ function DisputeReview({ disputeId, onBack }: { disputeId: string; onBack: () =>
             {!awaiting ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Record who you believe won. This moves no money — an admin confirms it separately,
+                  Record who you believe won. This moves no money, an admin confirms it separately,
                   and only that step releases escrow.
                 </p>
                 <Textarea
@@ -306,7 +306,7 @@ function DisputeReview({ disputeId, onBack }: { disputeId: string; onBack: () =>
                       key={p.id}
                       disabled={busy}
                       onClick={() =>
-                        run("Recommendation recorded — awaiting admin approval.", () =>
+                        run("Recommendation recorded, awaiting admin approval.", () =>
                           recommendFn({
                             data: {
                               dispute_id: disputeId,
@@ -336,7 +336,7 @@ function DisputeReview({ disputeId, onBack }: { disputeId: string; onBack: () =>
                     <Button
                       disabled={busy}
                       onClick={() =>
-                        run("Approved — escrow released to the winner.", () =>
+                        run("Approved, escrow released to the winner.", () =>
                           approveFn({ data: { dispute_id: disputeId } }),
                         )
                       }
@@ -370,7 +370,7 @@ function DisputeReview({ disputeId, onBack }: { disputeId: string; onBack: () =>
 
         {settled && (
           <div className="rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-400">
-            Resolved — {d.resolution}
+            Resolved, {d.resolution}
           </div>
         )}
       </div>

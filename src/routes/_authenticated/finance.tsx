@@ -31,7 +31,7 @@ import {
 import { toCsv, csvAmount, csvDate, downloadCsv, type CsvColumn } from "@/lib/csv";
 
 export const Route = createFileRoute("/_authenticated/finance")({
-  head: () => ({ meta: [{ title: "Finance — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Finance | MatchPoint" }] }),
   component: FinancePage,
 });
 
@@ -200,8 +200,8 @@ function FinancePage() {
                     <code className="rounded bg-black/30 px-1">
                       20260904120000_finance_dashboard_reporting.sql
                     </code>{" "}
-                    in the Lovable SQL editor. Nothing below is accurate until it has run — treat
-                    any zero on this page as unknown, not as zero.
+                    in the Lovable SQL editor. Nothing below is accurate until it has run, treat any
+                    zero on this page as unknown, not as zero.
                   </>
                 ) : (
                   <>
@@ -386,7 +386,7 @@ function FinancePage() {
           <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
             Amounts are plain decimals so spreadsheets read them as numbers. Cells beginning with a
             formula character are prefixed with a tab, which stops Excel executing text a player
-            chose — a display name or payout handle can otherwise run on open.
+            chose, a display name or payout handle can otherwise run on open.
           </p>
         </div>
       </div>

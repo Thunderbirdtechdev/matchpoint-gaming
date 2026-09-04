@@ -58,18 +58,18 @@ const COPY: Record<
     title: () => "Tournament over",
     preview: "Your tournament run has ended.",
     intro:
-      "Your run in this tournament has ended. Thanks for playing — there's always the next one.",
+      "Your run in this tournament has ended. Thanks for playing. There's always the next one.",
     tone: brand.text,
     cta: "Find another tournament",
   },
   canceled: {
-    title: () => "Tournament canceled — you've been refunded",
+    title: () => "Tournament canceled and refunded",
     preview: "The tournament was canceled and your entry fee is back in your wallet.",
     // Refund first. The question this email has to answer before any other is
     // "where is my money", and burying that under an apology invites a support
     // ticket for something that has already been handled.
     intro:
-      "This tournament was canceled. Your entry fee has been returned to your wallet in full — you don't need to do anything.",
+      "This tournament was canceled. Your entry fee has been returned to your wallet in full. You don't need to do anything.",
     tone: "#f59e0b",
     cta: "View your wallet",
   },

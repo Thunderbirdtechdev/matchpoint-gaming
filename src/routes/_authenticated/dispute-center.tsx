@@ -16,7 +16,7 @@ import { ShieldAlert, Plus, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dispute-center")({
-  head: () => ({ meta: [{ title: "Dispute Center — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Dispute Center | MatchPoint" }] }),
   component: DisputePage,
 });
 
@@ -45,7 +45,7 @@ function DisputePage() {
     if (!resolving) return;
     try {
       const r = await resolveFn({ data: { challenge_id: resolving.challenge.id, winner_id: winnerId } });
-      toast.success(`Resolved — $${(r.net_cents / 100).toFixed(2)} paid out.`);
+      toast.success(`Resolved, $${(r.net_cents / 100).toFixed(2)} paid out.`);
       setResolving(null);
       qc.invalidateQueries({ queryKey: ["my-disputes"] });
     } catch (e: any) { toast.error(e?.message ?? "Failed"); }
@@ -98,7 +98,7 @@ function DisputePage() {
             </div>
             {(d as any).challenge && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Lock className="h-3 w-3" /> Funds locked — {(d as any).challenge.game_slug} · ${Number((d as any).challenge.entry_amount).toFixed(2)} entry
+                <Lock className="h-3 w-3" /> Funds locked, {(d as any).challenge.game_slug} · ${Number((d as any).challenge.entry_amount).toFixed(2)} entry
               </div>
             )}
             {d.resolution && <p className="mt-2 text-xs text-muted-foreground">Resolution: {d.resolution}</p>}
@@ -113,7 +113,7 @@ function DisputePage() {
 
       <Dialog open={!!resolving} onOpenChange={(o) => { if (!o) setResolving(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Resolve dispute — pick the winner</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Resolve dispute. Pick the winner</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground">{resolving?.reason}</p>
           <div className="mt-2 grid grid-cols-1 gap-2">
             <Button onClick={() => resolve(resolving?.challenge?.creator_id)} className="bg-gradient-brand text-primary-foreground">

@@ -41,7 +41,7 @@ const KIND_EXPLAINER: Record<string, string> = {
   rapid_cashout:
     "Money deposited and withdrawn inside a day. The shape of laundering, and of a stolen card being cashed out before the chargeback lands.",
   shared_payout_handle:
-    "Several accounts paying out to one destination. Usually multi-accounting — one person running several players.",
+    "Several accounts paying out to one destination. Usually multi-accounting, one person running several players.",
   repeat_disputes:
     "One player opening disputes repeatedly. Either they are being cheated, or they are working the dispute process.",
   collusion_pair:
@@ -79,8 +79,8 @@ export function FlagQueue({ canManage }: { canManage: boolean }) {
     onSuccess: (r) => {
       toast.success(
         r.recorded === 0
-          ? "Scan complete — nothing suspicious found."
-          : `Scan complete — ${r.recorded} finding${r.recorded === 1 ? "" : "s"} recorded.`,
+          ? "Scan complete, nothing suspicious found."
+          : `Scan complete, ${r.recorded} finding${r.recorded === 1 ? "" : "s"} recorded.`,
       );
       if (r.failures.length) {
         toast.error(`${r.failures.length} finding(s) could not be recorded. Check the server log.`);
@@ -113,7 +113,7 @@ export function FlagQueue({ canManage }: { canManage: boolean }) {
             <ShieldAlert className="h-4 w-4" /> Suspicious activity
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Detectors run when someone asks them to — there is no scheduler in this stack, and a
+            Detectors run when someone asks them to. There is no scheduler in this stack, and a
             queue that implied continuous monitoring would be lying about what it does.
           </p>
         </div>
@@ -168,7 +168,7 @@ export function FlagQueue({ canManage }: { canManage: boolean }) {
             {/* Explicit about which of the two it is. "No findings" next to a
                 scan that has never run is the same words meaning something
                 completely different. */}
-            Either the detectors found nothing, or the scan has not been run yet — the audit log
+            Either the detectors found nothing, or the scan has not been run yet, the audit log
             below records every run.
           </p>
         </div>

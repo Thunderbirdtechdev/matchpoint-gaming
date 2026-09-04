@@ -181,7 +181,7 @@ async function sendViaLovable(payload: EmailPayload): Promise<void> {
     throw new EmailTransportError(
       "lovable",
       403,
-      "Neither RESEND_API_KEY nor LOVABLE_API_KEY is set — no email transport is configured.",
+      "Neither RESEND_API_KEY nor LOVABLE_API_KEY is set, no email transport is configured.",
     );
   }
 

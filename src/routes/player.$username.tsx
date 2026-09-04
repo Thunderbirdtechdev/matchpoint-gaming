@@ -16,7 +16,7 @@ import { GAME_LABELS, type SupportedGame } from "@/lib/fees";
 export const Route = createFileRoute("/player/$username")({
   head: ({ params }) => ({
     meta: [
-      { title: `@${params.username} — MatchPoint` },
+      { title: `@${params.username}, MatchPoint` },
       {
         name: "description",
         content: `See @${params.username}'s record, earnings and rank on MatchPoint.`,
@@ -173,12 +173,12 @@ function PlayerProfilePage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Record"
-            value={played > 0 ? `${wins}-${losses}` : "—"}
+            value={played > 0 ? `${wins}-${losses}` : "-"}
             sub="Wins–losses"
           />
           <StatCard
             label="Win rate"
-            value={played > 0 ? `${winRate}%` : "—"}
+            value={played > 0 ? `${winRate}%` : "-"}
             sub={`${played} matches`}
           />
           <StatCard

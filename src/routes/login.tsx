@@ -12,7 +12,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in — MatchPoint" },
+      { title: "Sign in | MatchPoint" },
       { name: "description", content: "Sign in to your MatchPoint account to play, compete and track winnings." },
     ],
   }),

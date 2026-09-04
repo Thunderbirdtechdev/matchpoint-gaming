@@ -21,7 +21,7 @@ import { SecuritySettingsPanel } from "@/components/security/SecuritySettingsPan
 import { useRoles } from "@/hooks/use-roles";
 
 export const Route = createFileRoute("/_authenticated/security")({
-  head: () => ({ meta: [{ title: "Security — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Security | MatchPoint" }] }),
   component: SecurityPage,
 });
 

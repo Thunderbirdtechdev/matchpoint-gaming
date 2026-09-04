@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 
 export const Route = createFileRoute("/_authenticated/community")({
-  head: () => ({ meta: [{ title: "Community — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Community | MatchPoint" }] }),
   component: CommunityPage,
 });
 
@@ -33,7 +33,7 @@ function CommunityPage() {
                 <td className="px-4 py-3 font-bold">{i + 1}</td>
                 <td className="px-4 py-3">
                   <div className="font-medium">{p.display_name ?? p.username ?? "Player"}</div>
-                  <div className="text-xs text-muted-foreground">@{p.username ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">@{p.username ?? "-"}</div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{p.rank_tier}</td>
                 <td className="px-4 py-3 text-right font-semibold">{p.xp}</td>

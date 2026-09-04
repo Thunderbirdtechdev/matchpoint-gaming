@@ -249,7 +249,7 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
         .eq("role", "super_admin");
       if ((count ?? 0) <= 1) {
         throw new Error(
-          "This is the last super admin. Grant super admin to someone else before revoking this one — otherwise no privileged role could ever be granted again.",
+          "This is the last super admin. Grant super admin to someone else before revoking this one, otherwise no privileged role could ever be granted again.",
         );
       }
     }

@@ -35,7 +35,7 @@ import { toast } from "sonner";
 import { calculateChallengeFee, SUPPORTED_GAMES, GAME_LABELS, MIN_ENTRY_USD } from "@/lib/fees";
 
 export const Route = createFileRoute("/_authenticated/challenges")({
-  head: () => ({ meta: [{ title: "Challenges — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Challenges | MatchPoint" }] }),
   component: ChallengesPage,
 });
 
@@ -124,8 +124,8 @@ function ChallengesPage() {
       });
       toast.success(
         invite
-          ? `Challenge sent to ${invite} — stake held in escrow. Only they can accept it.`
-          : "Challenge posted — stake held in escrow",
+          ? `Challenge sent to ${invite}, stake held in escrow. Only they can accept it.`
+          : "Challenge posted, stake held in escrow",
       );
       setOpen(false);
       invalidateAll();
@@ -137,7 +137,7 @@ function ChallengesPage() {
   async function acceptChallenge(id: string) {
     try {
       await acceptFn({ data: { challenge_id: id } });
-      toast.success("Challenge accepted — your stake is in escrow. GL!");
+      toast.success("Challenge accepted. Your stake is in escrow. GL!");
       invalidateAll();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
@@ -158,7 +158,7 @@ function ChallengesPage() {
   async function cancel(id: string) {
     try {
       await cancelFn({ data: { challenge_id: id } });
-      toast.success("Cancelled — stake refunded");
+      toast.success("Cancelled, stake refunded");
       invalidateAll();
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
@@ -172,12 +172,12 @@ function ChallengesPage() {
         data: { challenge_id: reportFor.id, reported_winner_id: reportedWinnerId },
       });
       if (r.status === "waiting") {
-        toast.success("Result recorded — waiting for your opponent to confirm.");
+        toast.success("Result recorded, waiting for your opponent to confirm.");
       } else if (r.status === "settled") {
-        toast.success(`Match settled — $${(r.net_cents / 100).toFixed(2)} paid out.`);
+        toast.success(`Match settled, $${(r.net_cents / 100).toFixed(2)} paid out.`);
       } else if (r.status === "disputed") {
         toast.warning(
-          "You and your opponent reported different winners. Funds are locked — our fair play team will review.",
+          "You and your opponent reported different winners. Funds are locked, our fair play team will review.",
         );
       }
       setReportFor(null);
@@ -301,7 +301,7 @@ function ChallengesPage() {
                   />
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
                     Only they can accept, and it won't appear in the marketplace. Your stake is held
-                    in escrow while you wait — cancel any time to get it back.
+                    in escrow while you wait, cancel any time to get it back.
                   </p>
                 </div>
               )}
@@ -456,7 +456,7 @@ function ChallengesPage() {
                 {c.status === "disputed" &&
                   (c.creator_id === user?.id || c.opponent_id === user?.id) && (
                     <span className="text-xs font-medium text-amber-500">
-                      Under review by fair play team — funds locked
+                      Under review by fair play team, funds locked
                     </span>
                   )}
               </div>

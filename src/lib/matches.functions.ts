@@ -519,7 +519,7 @@ export const createChallenge = createServerFn({ method: "POST" })
         // not something the person creating a challenge can act on.
         if (findErr.code === "PGRST202" || /find_user_by_login/.test(findErr.message)) {
           throw new Error(
-            "Invites aren't enabled yet — run 20260905120000_challenge_invites.sql in the Lovable SQL editor. You can still post this challenge to the marketplace.",
+            "Invites aren't enabled yet. Run 20260905120000_challenge_invites.sql in the Lovable SQL editor. You can still post this challenge to the marketplace.",
           );
         }
         throw new Error(findErr.message);
@@ -1168,7 +1168,7 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
         status: "resolved",
         approved_by: context.userId,
         approved_at: new Date().toISOString(),
-        resolution: `Resolved — winner ${dispute.recommended_winner_id}`,
+        resolution: `Resolved, winner ${dispute.recommended_winner_id}`,
       } as never)
       .eq("id", data.dispute_id);
 

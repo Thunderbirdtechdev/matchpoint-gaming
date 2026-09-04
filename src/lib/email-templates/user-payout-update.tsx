@@ -41,7 +41,7 @@ const COPY: Record<UserPayoutStatus, { title: string; preview: string; intro: st
   paid: {
     title: 'Payout sent',
     preview: 'Your payout has been sent.',
-    intro: 'Good news — your payout has been sent. It should arrive shortly.',
+    intro: 'Good news. Your payout has been sent. It should arrive shortly.',
     tone: '#16a34a',
   },
   rejected: {
@@ -106,7 +106,7 @@ const Email = ({
               </Row>
               <Hr style={{ borderColor: brand.border, margin: '6px 0 10px' }} />
               <Text style={{ ...text, margin: '4px 0', fontSize: 13 }}>
-                <strong>Method:</strong> {methodLabel}{handle ? ` — ${handle}` : ''}
+                <strong>Method:</strong> {methodLabel}{handle ? `, ${handle}` : ''}
               </Text>
               <Text style={{ ...text, margin: '4px 0', fontSize: 13 }}>
                 <strong>Speed:</strong> {speedLabel}

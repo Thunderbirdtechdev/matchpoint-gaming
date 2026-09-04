@@ -63,8 +63,7 @@ const Email = ({ ticketSubject, staffName, replyPreview, ticketId, status }: Pro
       ) : null}
     </DetailCard>
     <Text style={{ ...text, fontSize: 12, color: brand.textLight }}>
-      Replying to this email won't reach us — use the link above so your message stays on the
-      ticket.
+      Replying to this email won't reach us. Use the link above so your message stays on the ticket.
     </Text>
   </EmailShell>
 );
@@ -78,7 +77,7 @@ export const template = {
     ticketSubject: "Deposit didn't show up",
     staffName: "Jordan",
     replyPreview:
-      "Thanks for flagging this — I can see the payment landed and I've credited your wallet manually.",
+      "Thanks for flagging this. I can see the payment landed and I've credited your wallet manually.",
     status: "pending",
     ticketId: "00000000-0000-0000-0000-000000000000",
   },

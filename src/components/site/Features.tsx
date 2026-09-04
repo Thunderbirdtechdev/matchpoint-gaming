@@ -26,7 +26,7 @@ const features = [
   {
     icon: WalletIcon,
     title: "Secure Wallet",
-    desc: "Deposit via card, track every transaction, and cash out to your bank — powered by Stripe.",
+    desc: "Deposit via card, track every transaction, and cash out to your bank, powered by Stripe.",
   },
   {
     icon: LockIcon,
@@ -51,7 +51,7 @@ const features = [
   {
     icon: ReceiptTextIcon,
     title: "Transparent Fees",
-    desc: "Clear fee tiers based on entry amount. No hidden charges — you always see what you'll win.",
+    desc: "Clear fee tiers based on entry amount. No hidden charges. You always see what you'll win.",
   },
 ];
 

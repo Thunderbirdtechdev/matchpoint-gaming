@@ -38,10 +38,10 @@ export const Route = createFileRoute("/match/$id")({
    */
   head: ({ params }) => ({
     meta: [
-      { title: "Match — MatchPoint" },
+      { title: "Match | MatchPoint" },
       {
         name: "description",
-        content: "Follow this 1v1 match on MatchPoint — stake, players and result.",
+        content: "Follow this 1v1 match on MatchPoint, stake, players and result.",
       },
       { property: "og:title", content: "A match on MatchPoint" },
       { property: "og:url", content: `https://matchpointgaming.org/match/${params.id}` },
@@ -194,9 +194,9 @@ function MatchLobby() {
     setBusy(true);
     try {
       const r = await reportFn({ data: { challenge_id: id, reported_winner_id: winnerId } });
-      if (r.status === "waiting") toast.success("Recorded — waiting for your opponent to confirm.");
+      if (r.status === "waiting") toast.success("Recorded, waiting for your opponent to confirm.");
       else if (r.status === "settled")
-        toast.success(`Settled — $${(r.net_cents / 100).toFixed(2)} paid out.`);
+        toast.success(`Settled, $${(r.net_cents / 100).toFixed(2)} paid out.`);
       else if (r.status === "disputed")
         toast.warning("You reported different winners. Funds are locked for review.");
       qc.invalidateQueries({ queryKey: ["challenge", id] });
@@ -306,7 +306,7 @@ function MatchLobby() {
             <Button
               disabled={busy}
               onClick={() =>
-                run("Accepted — your stake is in escrow. GL!", () =>
+                run("Accepted. Your stake is in escrow. GL!", () =>
                   acceptFn({ data: { challenge_id: id } }),
                 )
               }
@@ -322,7 +322,7 @@ function MatchLobby() {
               disabled={busy}
               variant="outline"
               onClick={() =>
-                run("Cancelled — stake refunded.", () => cancelFn({ data: { challenge_id: id } }))
+                run("Cancelled, stake refunded.", () => cancelFn({ data: { challenge_id: id } }))
               }
               className="mt-4"
             >

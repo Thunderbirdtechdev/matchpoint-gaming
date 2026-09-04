@@ -46,7 +46,7 @@ function Seat({
   decided: boolean;
   onPick?: () => void;
 }) {
-  const label = name || username || (id ? "Player" : "—");
+  const label = name || username || (id ? "Player" : "-");
   const initials = (name || username || "?").slice(0, 2).toUpperCase();
 
   const body = (

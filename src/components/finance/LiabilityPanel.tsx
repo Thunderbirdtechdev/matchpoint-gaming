@@ -154,7 +154,7 @@ export function LiabilityPanel({
             Settled funds held
           </div>
           <div className="mt-1 text-2xl font-semibold tabular-nums text-primary">
-            {data.stripe_error ? "—" : usd(data.stripe_available_cents)}
+            {data.stripe_error ? "-" : usd(data.stripe_available_cents)}
           </div>
           <div className="text-[11px] text-muted-foreground">
             {data.stripe_error
@@ -180,7 +180,7 @@ export function LiabilityPanel({
               data.stripe_error ? "" : shortfall >= 0 ? "text-emerald-400" : "text-red-400"
             }`}
           >
-            {data.stripe_error ? "—" : usd(Math.abs(shortfall))}
+            {data.stripe_error ? "-" : usd(Math.abs(shortfall))}
           </div>
           <div className="text-[11px] text-muted-foreground">Held minus owed</div>
         </div>
@@ -189,15 +189,15 @@ export function LiabilityPanel({
       {data.stripe_error ? (
         <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100/90">
           <span className="font-medium text-amber-200">Coverage could not be calculated.</span>{" "}
-          Obligations above are accurate — they come from the database — but the Stripe balance
-          could not be read: {data.stripe_error}
+          Obligations above are accurate. They come from the database, but the Stripe balance could
+          not be read: {data.stripe_error}
         </div>
       ) : (
         <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
           Coverage counts <strong>settled</strong> Stripe funds only; pending Stripe money is real
           but cannot be paid out today. It also excludes anything already swept to the bank, so a
           shortfall here means &ldquo;not covered <em>in Stripe</em>&rdquo; rather than
-          &ldquo;insolvent&rdquo; — check the bank before acting on it. Company fee revenue (
+          &ldquo;insolvent&rdquo;. Check the bank before acting on it. Company fee revenue (
           {usd(data.company_balance_cents)}) is an asset, not an obligation, and is excluded from
           the total owed.
         </p>

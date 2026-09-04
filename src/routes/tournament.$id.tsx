@@ -29,7 +29,7 @@ export const Route = createFileRoute("/tournament/$id")({
   /* Module 11 — see the note on match.$id; same gap, same fix. */
   head: ({ params }) => ({
     meta: [
-      { title: "Tournament — MatchPoint" },
+      { title: "Tournament | MatchPoint" },
       {
         name: "description",
         content: "Bracket, entrants and prize pool for this MatchPoint tournament.",
@@ -169,7 +169,7 @@ function TournamentLobby() {
     setPendingMatchId(matchId);
     try {
       const res = await reportFn({ data: { match_id: matchId, winner_id: winnerId } });
-      toast.success(res.is_final ? "Final settled — we have a champion." : "Result recorded.");
+      toast.success(res.is_final ? "Final settled. We have a champion." : "Result recorded.");
       qc.invalidateQueries({ queryKey: ["tournament-bracket", id] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not report result");
@@ -225,7 +225,7 @@ function TournamentLobby() {
                   disabled={busy || !user}
                   onClick={() =>
                     user
-                      ? run("You're in — entry held in escrow.", () =>
+                      ? run("You're in, entry held in escrow.", () =>
                           joinFn({ data: { tournament_id: id } }),
                         )
                       : undefined

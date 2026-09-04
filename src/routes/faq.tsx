@@ -38,11 +38,11 @@ const faqs = [
 export const Route = createFileRoute("/faq")({
   head: () => ({
     meta: [
-      { title: "FAQ — MatchPoint" },
+      { title: "FAQ | MatchPoint" },
       {
         name: "description",
         content:
-          "Answers to the most common questions about MatchPoint — payouts, disputes, supported games and more.",
+          "Answers to the most common questions about MatchPoint, payouts, disputes, supported games and more.",
       },
       { property: "og:title", content: "MatchPoint FAQ" },
       { property: "og:description", content: "Common questions, answered." },

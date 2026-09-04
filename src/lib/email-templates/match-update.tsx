@@ -47,13 +47,13 @@ const COPY: Record<
     title: "You've been challenged",
     preview: "Someone has challenged you to a match.",
     intro:
-      "A player has sent you a private challenge — it isn't on the marketplace, so nobody else can take it. Your stake is only debited if you accept.",
+      "A player has sent you a private challenge. It isn't on the marketplace, so nobody else can take it. Your stake is only debited if you accept.",
     tone: brand.primary,
     cta: "View the challenge",
   },
   accepted: {
     title: "Your challenge was accepted",
-    preview: "Someone accepted your challenge — time to play.",
+    preview: "Someone accepted your challenge. Time to play.",
     intro:
       "Your challenge has been accepted and the stake is now held in escrow for both players. Arrange the match and report the result when you're done.",
     tone: brand.primary,
@@ -61,7 +61,7 @@ const COPY: Record<
   },
   settled_won: {
     title: "You won",
-    preview: "You won your match — your winnings are in your wallet.",
+    preview: "You won your match. Your winnings are in your wallet.",
     intro: "Nice one. The match is settled and your winnings have landed in your wallet.",
     tone: "#16a34a",
     cta: "View your wallet",
@@ -80,7 +80,7 @@ const COPY: Record<
     title: "A dispute was opened on your match",
     preview: "Your match is under review.",
     intro:
-      "The two reported results didn't match, so this one has gone to our review team. The stake stays in escrow until it's resolved — nobody has been paid.",
+      "The two reported results didn't match, so this one has gone to our review team. The stake stays in escrow until it's resolved. Nobody has been paid.",
     tone: "#f59e0b",
     cta: "View the dispute",
   },

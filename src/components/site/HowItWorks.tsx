@@ -13,7 +13,7 @@ const steps = [
   {
     icon: UserPlusIcon,
     title: "Sign Up",
-    desc: "Create your account in under a minute — completely free.",
+    desc: "Create your account in under a minute, completely free.",
   },
   {
     icon: ShieldCheckIcon,

@@ -13,7 +13,7 @@ import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/payouts")({
-  head: () => ({ meta: [{ title: "Payouts — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Payouts | MatchPoint" }] }),
   component: PayoutsPage,
 });
 
@@ -150,7 +150,7 @@ function PayoutsManager() {
                 </div>
               ) : (
                 <>
-                  <StatRow label={`Awaiting action — ${speedLabel}`} value={String(pending.length)} sub={speedHint} />
+                  <StatRow label={`Awaiting action, ${speedLabel}`} value={String(pending.length)} sub={speedHint} />
                   <PayoutSection title="Awaiting action" count={pending.length} rows={pending} actionable emptyHint="You're all caught up." onChanged={() => qc.invalidateQueries({ queryKey: ["admin-payouts"] })} />
                   <PayoutSection title="Recent history" count={history.length} rows={history} actionable={false} emptyHint="No completed payouts yet." onChanged={() => qc.invalidateQueries({ queryKey: ["admin-payouts"] })} />
                 </>

@@ -44,10 +44,10 @@ function ContactChannel({ c }: { c: (typeof contactChannels)[number] }) {
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — MatchPoint" },
+      { title: "Contact | MatchPoint" },
       {
         name: "description",
-        content: "Get in touch with the MatchPoint team — partnerships, support, press.",
+        content: "Get in touch with the MatchPoint team about partnerships, support or press.",
       },
       { property: "og:title", content: "Contact MatchPoint" },
       { property: "og:description", content: "We reply to every message within one business day." },
@@ -68,7 +68,7 @@ function ContactPage() {
             Let's <span className="text-gradient-brand">talk</span>
           </>
         }
-        description="Partnerships, press, support — we reply to every message within one business day."
+        description="Partnerships, press, support. We reply to every message within one business day."
       />
 
       <section className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2">

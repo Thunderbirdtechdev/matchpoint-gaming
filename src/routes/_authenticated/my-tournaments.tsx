@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { calculateTournamentFee, SUPPORTED_GAMES, GAME_LABELS, MIN_ENTRY_USD } from "@/lib/fees";
 
 export const Route = createFileRoute("/_authenticated/my-tournaments")({
-  head: () => ({ meta: [{ title: "Tournaments — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Tournaments | MatchPoint" }] }),
   component: MyTournamentsPage,
 });
 
@@ -107,7 +107,7 @@ function MyTournamentsPage() {
   async function joinTournament(id: string) {
     try {
       await joinSF({ data: { tournament_id: id } });
-      toast.success("Joined — entry held in escrow");
+      toast.success("Joined, entry held in escrow");
       invalidateAll();
     } catch (e: any) { toast.error(e?.message ?? "Failed"); }
   }
@@ -156,7 +156,7 @@ function MyTournamentsPage() {
     if (!confirm("Cancel tournament and refund all entries?")) return;
     try {
       const r = await cancelSF({ data: { tournament_id: id } });
-      toast.success(`Cancelled — refunded ${r.refunded} player(s)`);
+      toast.success(`Cancelled, refunded ${r.refunded} player(s)`);
       invalidateAll();
     } catch (e: any) { toast.error(e?.message ?? "Failed"); }
   }

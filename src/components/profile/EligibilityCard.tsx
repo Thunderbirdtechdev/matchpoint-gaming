@@ -49,7 +49,7 @@ export function EligibilityCard({ userId }: { userId: string }) {
     try {
       const res = await confirmFn({ data: { date_of_birth: dob, country } });
       if (res.eligible) {
-        toast.success("Eligibility confirmed — you're clear to compete.");
+        toast.success("Eligibility confirmed, you're clear to compete.");
         qc.invalidateQueries({ queryKey: ["verification", userId] });
       } else {
         toast.error(res.reason);

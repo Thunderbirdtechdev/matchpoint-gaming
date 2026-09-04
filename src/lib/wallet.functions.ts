@@ -254,7 +254,7 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
         const msg = err instanceof Error ? err.message : String(err);
         if (/signed up for Connect/i.test(msg)) {
           throw new Error(
-            "Bank payouts aren't available yet — Stripe Connect isn't enabled on this platform. Use the PayPal cash-out below, or contact support.",
+            "Bank payouts aren't available yet, Stripe Connect isn't enabled on this platform. Use the PayPal cash-out below, or contact support.",
           );
         }
         throw new Error(`Couldn't start payout onboarding: ${msg}`);

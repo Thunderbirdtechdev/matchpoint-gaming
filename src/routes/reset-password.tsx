@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reset-password")({
-  head: () => ({ meta: [{ title: "Set a new password — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Set a new password | MatchPoint" }] }),
   component: ResetPage,
 });
 

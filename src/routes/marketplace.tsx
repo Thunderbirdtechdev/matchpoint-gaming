@@ -40,13 +40,13 @@ import headerImg from "@/assets/hero-bg.jpg";
 export const Route = createFileRoute("/marketplace")({
   head: () => ({
     meta: [
-      { title: "Marketplace — Find Your Next Match | MatchPoint" },
+      { title: "Marketplace, Find Your Next Match | MatchPoint" },
       {
         name: "description",
         content:
           "Browse live 1v1 challenges and open tournaments across Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. Filter by game, platform and stake, then play for real money.",
       },
-      { property: "og:title", content: "Marketplace — Find Your Next Match | MatchPoint" },
+      { property: "og:title", content: "Marketplace, Find Your Next Match | MatchPoint" },
       {
         property: "og:description",
         content: "Live 1v1 challenges and open tournaments with real cash prizes.",
@@ -261,10 +261,10 @@ function MarketplacePage() {
     try {
       if (l.kind === "challenge") {
         await acceptFn({ data: { challenge_id: l.id } });
-        toast.success("Challenge accepted — your stake is in escrow. GL!");
+        toast.success("Challenge accepted. Your stake is in escrow. GL!");
       } else {
         await joinFn({ data: { tournament_id: l.id } });
-        toast.success("You're in — your entry is held in escrow.");
+        toast.success("You're in. Your entry is held in escrow.");
       }
       qc.invalidateQueries({ queryKey: ["marketplace"] });
     } catch (e) {
@@ -283,7 +283,7 @@ function MarketplacePage() {
             Find your next <span className="text-gradient-brand">match</span>.
           </>
         }
-        description="Every open 1v1 challenge and tournament on MatchPoint, in one place. Filter by game, platform and stake — then put your skills where your money is."
+        description="Every open 1v1 challenge and tournament on MatchPoint, in one place. Filter by game, platform and stake, then put your skills where your money is."
         image={{ src: headerImg, alt: "MatchPoint competitive arena" }}
       />
 
@@ -425,7 +425,7 @@ function MarketplacePage() {
                 ? "Try widening your stake range or clearing a game filter."
                 : tab === "challenge"
                   ? "Be the first to post a challenge and let someone come to you."
-                  : "No tournaments are open for entry yet — check back soon."}
+                  : "No tournaments are open for entry yet. Check back soon."}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               {hasFilters && (

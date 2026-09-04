@@ -29,7 +29,7 @@ export function AvatarUpload({
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast.error("That image is over 2MB — pick a smaller one.");
+      toast.error("That image is over 2MB. Pick a smaller one.");
       return;
     }
 

@@ -41,7 +41,7 @@ import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts
 import { adminCreatePromoCode, adminListPromoCodes, adminTogglePromoCode } from "@/lib/promo.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Admin | MatchPoint" }] }),
   component: AdminPage,
 });
 
@@ -328,7 +328,7 @@ function HotWalletCard() {
     <div className="rounded-2xl border border-border/60 bg-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Wallet className="h-4 w-4" /> Payout hot wallet — USDC on Base
+          <Wallet className="h-4 w-4" /> Payout hot wallet, USDC on Base
         </div>
         <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
@@ -353,14 +353,14 @@ function HotWalletCard() {
             <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
               <div className="text-xs uppercase text-muted-foreground">USDC balance</div>
               <div className="mt-1 text-2xl font-semibold">
-                {data.usdc != null ? `$${data.usdc.toFixed(2)}` : "—"}
+                {data.usdc != null ? `$${data.usdc.toFixed(2)}` : "-"}
               </div>
               <div className="text-xs text-muted-foreground">Available for payouts</div>
             </div>
             <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
               <div className="text-xs uppercase text-muted-foreground">ETH (gas)</div>
               <div className="mt-1 text-2xl font-semibold">
-                {data.eth != null ? data.eth.toFixed(5) : "—"}
+                {data.eth != null ? data.eth.toFixed(5) : "-"}
               </div>
               <div className="text-xs text-muted-foreground">
                 Needed for every send. Keep ~0.001+ ETH.
@@ -434,7 +434,7 @@ function HotWalletCard() {
                             {p.tx_hash.slice(0, 8)}…
                           </a>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </td>
                     </tr>
@@ -934,7 +934,7 @@ function RolesCard() {
       </div>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        Roles attach to a normal player account — no separate login. Operations and finance are
+        Roles attach to a normal player account, no separate login. Operations and finance are
         separate lanes: an admin runs the platform but cannot move money, and a financial admin
         moves money but sees no disputes or tickets.
       </p>
@@ -991,7 +991,7 @@ function RolesCard() {
                           {ROLE_CAPABILITIES[r].includes(cap) ? (
                             <Check className="mx-auto h-3.5 w-3.5 text-emerald-400" />
                           ) : (
-                            <span className="text-muted-foreground/30">—</span>
+                            <span className="text-muted-foreground/30">-</span>
                           )}
                         </td>
                       ))}
@@ -1459,7 +1459,7 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
             <AlertDialogTitle>Confirm bank payout</AlertDialogTitle>
             <AlertDialogDescription>
               You're about to move real funds from your Stripe balance to your linked business bank account.
-              {live === false ? " (Test mode — no real money will move.)" : ""}
+              {live === false ? " (Test mode, no real money will move.)" : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
 

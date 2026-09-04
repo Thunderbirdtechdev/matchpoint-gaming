@@ -204,7 +204,7 @@ export function TwoFactorCard() {
       ) : (
         <div className="mt-4 rounded-xl border border-border/50 bg-surface/40 p-5">
           <p className="text-sm text-muted-foreground">
-            Not set up. You'll need an authenticator app — Google Authenticator, 1Password, Authy or
+            Not set up. You'll need an authenticator app, Google Authenticator, 1Password, Authy or
             similar.
           </p>
           <Button

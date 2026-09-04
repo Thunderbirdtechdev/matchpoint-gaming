@@ -15,13 +15,13 @@ import { CTA } from "@/components/site/CTA";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "MatchPoint — Play. Compete. Win." },
+      { title: "MatchPoint, Play. Compete. Win." },
       {
         name: "description",
         content:
           "Skill-based gaming platform. Compete in Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 & MLB The Show 26 1v1 challenges and tournaments for real cash prizes.",
       },
-      { property: "og:title", content: "MatchPoint — Play. Compete. Win." },
+      { property: "og:title", content: "MatchPoint, Play. Compete. Win." },
       {
         property: "og:description",
         content: "Challenge players, enter tournaments, and prove your skills on MatchPoint.",

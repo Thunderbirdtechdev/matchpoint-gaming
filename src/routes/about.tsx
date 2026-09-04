@@ -21,7 +21,7 @@ import { useEffect, useRef, useState, useCallback, type MouseEvent } from "react
 
 const mission = {
   title: "Our Mission",
-  text: "To build the fairest, fastest, and most rewarding competitive gaming platform on the planet — where every player has a real shot at winning.",
+  text: "To build the fairest, fastest, and most rewarding competitive gaming platform on the planet, where every player has a real shot at winning.",
 };
 
 const story = [
@@ -33,12 +33,12 @@ const story = [
   {
     year: "2024",
     title: "The Build",
-    text: "A small team of competitive gamers and engineers started building MatchPoint — a platform with Stripe-powered payouts, human-reviewed disputes, and real accountability.",
+    text: "A small team of competitive gamers and engineers started building MatchPoint, a platform with Stripe-powered payouts, human-reviewed disputes, and real accountability.",
   },
   {
     year: "2025",
     title: "The Launch",
-    text: "MatchPoint went live with Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. 1v1 challenges and tournaments — all skill-based, all legit.",
+    text: "MatchPoint went live with Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. 1v1 challenges and tournaments. All skill-based, all legit.",
   },
   {
     year: "2026",
@@ -56,7 +56,7 @@ const values = [
   {
     icon: ZapIcon,
     title: "Instant Everything",
-    desc: "Sub-second matchmaking, real-time leaderboard updates, and same-day payouts. Speed isn't a feature — it's the standard.",
+    desc: "Sub-second matchmaking, real-time leaderboard updates, and same-day payouts. Speed isn't a feature, it's the standard.",
   },
   {
     icon: BanknoteIcon,
@@ -76,7 +76,7 @@ const values = [
   {
     icon: HeadsetIcon,
     title: "24/7 Support",
-    desc: "Real humans answering real questions. Dispute resolution, account help, payout issues — we've got your back around the clock.",
+    desc: "Real humans answering real questions. Dispute resolution, account help, payout issues. We've got your back around the clock.",
   },
 ];
 
@@ -179,11 +179,11 @@ function ValueCard({ v, i, visible }: { v: (typeof values)[number]; i: number; v
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About — MatchPoint" },
+      { title: "About | MatchPoint" },
       {
         name: "description",
         content:
-          "MatchPoint is the home of skill-based competitive gaming — built by players, for players.",
+          "MatchPoint is the home of skill-based competitive gaming, built by players, for players.",
       },
       { property: "og:title", content: "About MatchPoint" },
       { property: "og:description", content: "The home of skill-based competitive gaming." },
@@ -401,7 +401,7 @@ function AboutPage() {
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
               We're a small, focused team of gamers, engineers, and community builders. No investors
-              pulling strings — just people who care about competitive gaming.
+              pulling strings, just people who care about competitive gaming.
             </p>
           </div>
 

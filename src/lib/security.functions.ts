@@ -398,7 +398,7 @@ export const runSecurityScan = createServerFn({ method: "POST" })
     const { recordAudit } = await import("@/lib/audit.server");
     await recordAudit(context.userId, {
       action: "security.scan_run",
-      summary: `Ran the suspicious-activity scan — ${recorded} finding(s) recorded`,
+      summary: `Ran the suspicious-activity scan, ${recorded} finding(s) recorded`,
       metadata: { recorded, failures: failures.length, high: highSeverity.length },
     });
 

@@ -75,7 +75,7 @@ export function AuthShell({
 
             <p className="mt-5 max-w-md text-sm leading-relaxed text-muted-foreground">
               Challenge anyone to a 1v1 in Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 or MLB The
-              Show 26 — then put your skills where your money is.
+              Show 26, then put your skills where your money is.
             </p>
 
             <ul className="mt-10 space-y-5">

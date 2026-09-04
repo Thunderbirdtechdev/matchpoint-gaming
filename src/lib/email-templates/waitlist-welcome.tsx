@@ -50,7 +50,7 @@ const Email = ({ email }: Props) => (
             same-day payouts on top of Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show
             26.
           </Text>
-          <Text style={text}>Sit tight — we'll email you the second early access opens.</Text>
+          <Text style={text}>Sit tight. We'll email you the second early access opens.</Text>
           <Hr style={{ borderColor: brand.border, margin: "24px 0 12px" }} />
           <Text style={footer}>MatchPoint Gaming · matchpointgaming.org</Text>
         </Section>

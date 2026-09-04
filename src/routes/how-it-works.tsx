@@ -8,7 +8,7 @@ export const Route = createFileRoute("/how-it-works")({
   head: () => ({
     meta: [
       { title: "How MatchPoint Works" },
-      { name: "description", content: "Sign up, join a challenge or tournament, play, submit results and get paid — in five steps." },
+      { name: "description", content: "Sign up, join a challenge or tournament, play, submit results and get paid, in five steps." },
       { property: "og:title", content: "How MatchPoint Works" },
       { property: "og:description", content: "From signup to payout in 5 steps." },
       { property: "og:url", content: "https://matchpointgaming.org/how-it-works" },

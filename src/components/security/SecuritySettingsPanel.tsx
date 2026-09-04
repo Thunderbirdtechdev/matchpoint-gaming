@@ -27,7 +27,7 @@ const COPY: Record<Key, { title: string; on: string; off: string; caution?: stri
     on: "Deposits, stakes and cash-outs are refused for accounts that record a sanctioned country or a date of birth under 18.",
     off: "Sanctioned-country and under-age accounts can move money freely.",
     caution:
-      "Only bites an account whose country or date of birth is actually on file — an account that has never completed onboarding is unaffected either way.",
+      "Only bites an account whose country or date of birth is actually on file, an account that has never completed onboarding is unaffected either way.",
   },
   require_eligibility_confirmed: {
     title: "Require confirmed eligibility before any money movement",
@@ -41,7 +41,7 @@ const COPY: Record<Key, { title: string; on: string; off: string; caution?: stri
     on: "Stripe sweeps, company withdrawals, wallet adjustments and privileged role grants need a second factor on the current session.",
     off: "Treasury actions need only a password session.",
     caution:
-      "Staff must enrol a second factor first (Profile → Security). Switching this on beforehand removes the treasury controls from everyone at once — including you.",
+      "Staff must enrol a second factor first (Profile → Security). Switching this on beforehand removes the treasury controls from everyone at once, including you.",
   },
 };
 
@@ -58,7 +58,7 @@ export function SecuritySettingsPanel({ canEdit }: { canEdit: boolean }) {
   const saveM = useMutation({
     mutationFn: (v: { key: Key; value: boolean }) => write({ data: v }),
     onSuccess: (_r, v) => {
-      toast.success(`${COPY[v.key].title} — ${v.value ? "on" : "off"}`);
+      toast.success(`${COPY[v.key].title}, ${v.value ? "on" : "off"}`);
       qc.invalidateQueries({ queryKey: ["security-settings"] });
       qc.invalidateQueries({ queryKey: ["audit-log"] });
     },
@@ -73,7 +73,7 @@ export function SecuritySettingsPanel({ canEdit }: { canEdit: boolean }) {
       <p className="mt-0.5 text-xs text-muted-foreground">
         {canEdit
           ? "Every change here is recorded in the audit log below, with your name on it."
-          : "Read-only — changing these needs the super admin role."}
+          : "Read-only, changing these needs the super admin role."}
       </p>
 
       {settingsQ.isPending ? (

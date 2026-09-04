@@ -35,7 +35,7 @@ const RangeSchema = z
     // gap-fills one row per day, so an unbounded range would let a caller
     // request a series of arbitrary length.
     (r) => (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 <= 1100,
-    { message: "Range is too long — 3 years maximum." },
+    { message: "Range is too long, 3 years maximum." },
   );
 
 export type RevenueDayRow = { day: string; total_cents: number; event_count: number };

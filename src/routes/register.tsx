@@ -16,7 +16,7 @@ type SearchParams = { ref?: string };
 export const Route = createFileRoute("/register")({
   head: () => ({
     meta: [
-      { title: "Create your account — MatchPoint" },
+      { title: "Create your account | MatchPoint" },
       { name: "description", content: "Create a free MatchPoint account to challenge players, enter tournaments and earn rewards." },
     ],
   }),

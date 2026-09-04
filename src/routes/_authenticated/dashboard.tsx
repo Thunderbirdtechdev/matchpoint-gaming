@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Dashboard | MatchPoint" }] }),
   component: DashboardPage,
 });
 

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/support")({
-  head: () => ({ meta: [{ title: "Support — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Support | MatchPoint" }] }),
   component: SupportPage,
 });
 
@@ -169,7 +169,7 @@ function NewTicketForm({ userId, onDone }: { userId: string; onDone: (id: string
           attachment_path,
         },
       });
-      toast.success("Ticket opened — we'll reply here.");
+      toast.success("Ticket opened, we'll reply here.");
       onDone(res.ticket_id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not open the ticket");

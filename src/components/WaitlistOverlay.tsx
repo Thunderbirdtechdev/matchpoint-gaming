@@ -113,7 +113,7 @@ export function WaitlistOverlay() {
         <p className="mt-3 max-w-xl text-sm text-white/70 sm:text-base">
           The skill-based competitive gaming platform where players go head-to-head
           for real prize pools. Tournaments, 1v1 challenges, fair-play escrow, and
-          instant payouts — all in one arena.
+          instant payouts. All in one arena.
         </p>
 
         {/* Features */}
@@ -134,7 +134,7 @@ export function WaitlistOverlay() {
               <p className="text-base font-semibold text-white">You're on the list.</p>
               <p className="text-xs text-white/60">
                 We'll email you the moment we're cleared for take-off. Keep an eye on your
-                inbox — early signups get priority access and entry-fee credits.
+                inbox, early signups get priority access and entry-fee credits.
               </p>
             </div>
           ) : (

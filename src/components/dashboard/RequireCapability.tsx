@@ -101,7 +101,7 @@ export function RequireCapability({
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Granted by</span>
             <span className="font-medium">
-              {granting.map((r) => ROLE_LABELS[r]).join(", ") || "—"}
+              {granting.map((r) => ROLE_LABELS[r]).join(", ") || "-"}
             </span>
           </div>
         </div>

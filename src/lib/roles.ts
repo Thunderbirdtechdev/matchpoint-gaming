@@ -107,9 +107,9 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
   super_admin:
     "Both lanes, plus the only role that can appoint another privileged role. Keep this list short.",
   admin:
-    "Platform operations — disputes, tickets, promo codes, moderators. Can see revenue but cannot move money.",
+    "Platform operations, disputes, tickets, promo codes, moderators. Can see revenue but cannot move money.",
   financial_admin:
-    "The treasury lane — payouts, bank sweeps, wallet adjustments. No dispute or support access.",
+    "The treasury lane, payouts, bank sweeps, wallet adjustments. No dispute or support access.",
   moderator: "Front-line review of disputes and support tickets. Cannot approve a payout.",
   user: "No staff tooling.",
 };

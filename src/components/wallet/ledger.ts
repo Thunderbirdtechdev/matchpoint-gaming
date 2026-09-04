@@ -39,7 +39,7 @@ export const TYPE_HINTS: Record<LedgerType, string> = {
   entry_fee: "Paid to enter a competition",
   prize_payout: "Winnings credited to your wallet",
   platform_fee: "MatchPoint's cut, taken when a match settles",
-  refund: "Returned to you — cancelled or refunded",
+  refund: "Returned to you, cancelled or refunded",
   escrow_hold: "Locked while your match is live",
   escrow_release: "Unlocked when the match resolved",
   adjustment: "Manual correction by our team",

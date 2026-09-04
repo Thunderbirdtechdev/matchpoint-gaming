@@ -6,7 +6,7 @@ import { useRoles } from "@/hooks/use-roles";
 import { Users, Swords, Trophy, ShieldAlert } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
-  head: () => ({ meta: [{ title: "Analytics — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Analytics | MatchPoint" }] }),
   component: AnalyticsPage,
 });
 

@@ -22,7 +22,7 @@ const Email = ({
 }: Props) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Deposit confirmed — {amountFormatted} added to your wallet</Preview>
+    <Preview>Deposit confirmed: {amountFormatted} added to your wallet</Preview>
     <Body style={main}>
       <Container style={container}>
         <Section style={headerBar}>

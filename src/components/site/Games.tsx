@@ -55,7 +55,7 @@ export function Games() {
             Five games. Real competition.
           </h2>
           <p className="mt-4 max-w-xl text-muted-foreground">
-            We're launching with the titles that matter most — with 1v1 challenges and tournaments
+            We're launching with the titles that matter most, and 1v1 challenges and tournaments are
             running around the clock.
           </p>
         </div>

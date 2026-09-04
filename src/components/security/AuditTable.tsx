@@ -168,7 +168,7 @@ export function AuditTable() {
             {/* Named specifically, because "relation does not exist" is the one
                 failure here with an obvious fix. */}
             {(logQ.error as Error).message.includes("audit_log")
-              ? "The audit tables are not installed yet — run 20260904210000_security_audit_and_compliance.sql in the Lovable SQL editor."
+              ? "The audit tables are not installed yet. Run 20260904210000_security_audit_and_compliance.sql in the Lovable SQL editor."
               : `Could not load the log. ${(logQ.error as Error).message}`}
           </p>
         </div>

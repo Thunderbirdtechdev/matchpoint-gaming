@@ -20,7 +20,7 @@ const testimonials = [
   },
   {
     quote:
-      "Ran my first tournament last month — 64 players, zero issues. The bracket tools are unreal.",
+      "Ran my first tournament last month, 64 players, zero issues. The bracket tools are unreal.",
     name: "Andre P.",
     handle: "@droppin30",
     game: "Madden NFL 27",

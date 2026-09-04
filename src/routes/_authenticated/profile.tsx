@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/_authenticated/profile")({
-  head: () => ({ meta: [{ title: "Your profile — MatchPoint" }] }),
+  head: () => ({ meta: [{ title: "Your profile | MatchPoint" }] }),
   component: ProfilePage,
 });
 
@@ -196,7 +196,7 @@ function ProfilePage() {
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Record" value={`${wins}-${losses}`} />
-          <Stat label="Win rate" value={played > 0 ? `${winRate}%` : "—"} />
+          <Stat label="Win rate" value={played > 0 ? `${winRate}%` : "-"} />
           <Stat label="Earnings" value={`$${Number(stats?.earnings ?? 0).toFixed(2)}`} />
           <Stat label="Wallet" value={`$${((wallet?.balance_cents ?? 0) / 100).toFixed(2)}`} />
         </div>
