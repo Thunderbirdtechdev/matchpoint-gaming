@@ -3,12 +3,31 @@ import useEmblaCarousel from "embla-carousel-react";
 import { GAME_LABELS, type SupportedGame } from "@/lib/fees";
 import { InductionBadge } from "@/components/ui/induction-badge";
 
+/*
+ * ⚠️ DO NOT re-add a byte-identical copy of an image under a second filename.
+ *
+ * Vite content-hashes assets, so two files with identical bytes collapse to ONE
+ * emitted file — but the SSR build can still resolve an import to the OTHER
+ * filename, which was never written. The result is a 404 on first paint that
+ * "fixes itself" when you navigate away and back, because the client bundle
+ * uses the name that does exist. That is exactly what happened to the NCAA
+ * card: `card-ncaa.jpg` was byte-identical to `game-madden.jpg`, Vite emitted
+ * only `game-madden-Beo2pbJs.jpg`, and the server-rendered HTML asked for
+ * `card-ncaa-Beo2pbJs.jpg` → 404.
+ *
+ * One image, one file, imported wherever it is needed.
+ */
 import slideFortnite from "@/assets/slide-fortnite.jpg";
-import slideNba2k from "@/assets/slide-nba2k.jpg";
 import slideMadden from "@/assets/slide-madden.jpg";
-import slideNcaa from "@/assets/slide-ncaa.png";
+// slide-nba2k.jpg was byte-identical to card-nba2k.jpg; slide-mlb.jpg to
+// card-mlbshow.jpg. The duplicates are gone and these are the canonical files.
+import slideNba2k from "@/assets/card-nba2k.jpg";
 // Official 'MLB The Show 26' cover (client-supplied), composited to 16:9 — see scripts/build-mlb-art.py.
-import slideMlb from "@/assets/slide-mlb.jpg";
+import slideMlb from "@/assets/card-mlbshow.jpg";
+// ⚠️ NCAA has no artwork of its own — this is the Madden image, and always was.
+// slide-ncaa.png was a byte-identical copy of it. Replace this import when the
+// client supplies real NCAA 27 cover art.
+import slideNcaa from "@/assets/game-madden.jpg";
 
 const slides: { game: SupportedGame; img: string; tagline: string }[] = [
   { game: "fortnite", img: slideFortnite, tagline: "Build. Fight. Dominate." },
