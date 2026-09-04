@@ -114,6 +114,21 @@
   --img-scrim: linear-gradient(to top, var(--background) 0%, oklch(0.13 0.032 285 / 0.6) 42%, transparent 78%);
   --img-scrim-side: linear-gradient(to right, oklch(0.13 0.032 285 / 0.4), transparent);
 
+  /* A different job from --img-scrim, and deliberately NOT theme-aware.
+     --img-scrim fades art into the card so a caption sitting BELOW it reads.
+     This one sits UNDER a caption printed ON the art, which means it has to
+     carry white text — so it is dark in both themes. Following the theme here
+     is what produced a white wash under dark text in light mode: unreadable,
+     and it bleached the cover at the same time. Legibility over artwork is not
+     a theme decision. */
+  --img-caption-scrim: linear-gradient(
+    to top,
+    oklch(0.11 0.025 285 / 0.94) 0%,
+    oklch(0.11 0.025 285 / 0.78) 26%,
+    oklch(0.11 0.025 285 / 0.34) 52%,
+    transparent 76%
+  );
+
   /* IconTile — a solid raised chip, not a translucent wash. */
   --tile-from: oklch(0.27 0.062 285);
   --tile-to: oklch(0.195 0.048 285);
@@ -229,6 +244,7 @@
      opaque enough for the caption to read. */
   --img-scrim: linear-gradient(to top, oklch(0.985 0.004 285 / 0.96) 0%, oklch(0.985 0.004 285 / 0.55) 26%, transparent 58%);
   --img-scrim-side: linear-gradient(to right, oklch(0.985 0.004 285 / 0.18), transparent);
+  /* --img-caption-scrim is intentionally NOT overridden here. See :root. */
 
   /* The tile keeps its raised-chip shape, inverted: a light face with the
      highlight on top and a real (not white) hairline ring. Left dark, these
@@ -337,6 +353,10 @@
    a tighter, faster fade than dark. */
 @utility img-scrim {
   background-image: var(--img-scrim);
+}
+
+@utility img-caption-scrim {
+  background-image: var(--img-caption-scrim);
 }
 
 @utility img-scrim-side {

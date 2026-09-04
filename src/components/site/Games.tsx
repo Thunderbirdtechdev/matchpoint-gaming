@@ -66,7 +66,13 @@ export function Games() {
               key={g.slug}
               className="group relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-card shadow-card transition-all duration-500 hover:-translate-y-1 hover:shadow-elevated"
             >
-              <div className="relative aspect-[3/4] overflow-hidden">
+              {/*
+                4/5 matches the generated tile exactly (game-*.jpg is 800x1000).
+                At 3/4 the browser cropped a second time on top of the crop the
+                build script had already made, which is what chopped the "27"
+                off the wordmarks.
+              */}
+              <div className="relative aspect-[4/5] overflow-hidden">
                 <img
                   src={g.img}
                   alt={g.name}
@@ -75,15 +81,22 @@ export function Games() {
                   height={800}
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute inset-0 img-scrim" />
+                {/* Dark in both themes — this caption is printed ON the art. */}
+                <div className="absolute inset-0 img-caption-scrim" />
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 p-5">
+              {/*
+                White text, fixed, not theme foreground. The caption sits over
+                cover art, so its contrast has to come from the scrim behind it
+                rather than from the page — in light mode the theme foreground
+                went dark over a white wash and became unreadable.
+              */}
+              <div className="absolute inset-x-0 bottom-0 p-5 text-white">
                 <h3 className="font-display text-xl font-bold uppercase tracking-wider">
                   {g.name}
                 </h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{g.modes}</p>
-                <p className="mt-2 text-[11px] text-muted-foreground/70">{g.platforms}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-white/80">{g.modes}</p>
+                <p className="mt-2 text-[11px] text-white/60">{g.platforms}</p>
               </div>
 
               <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100">
