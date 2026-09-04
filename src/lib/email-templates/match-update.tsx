@@ -18,6 +18,7 @@ import { Amount, Detail, DetailCard, EmailShell, Row, SITE, brand, text } from "
 import { Text } from "@react-email/components";
 
 export type MatchStatus =
+  | "invited"
   | "accepted"
   | "settled_won"
   | "settled_lost"
@@ -42,6 +43,14 @@ const COPY: Record<
   MatchStatus,
   { title: string; preview: string; intro: string; tone: string; cta: string }
 > = {
+  invited: {
+    title: "You've been challenged",
+    preview: "Someone has challenged you to a match.",
+    intro:
+      "A player has sent you a private challenge — it isn't on the marketplace, so nobody else can take it. Your stake is only debited if you accept.",
+    tone: brand.primary,
+    cta: "View the challenge",
+  },
   accepted: {
     title: "Your challenge was accepted",
     preview: "Someone accepted your challenge — time to play.",

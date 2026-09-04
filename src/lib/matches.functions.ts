@@ -488,12 +488,53 @@ export const createChallenge = createServerFn({ method: "POST" })
           .max(5000)
           .refine((v) => v === 0 || v >= 5, { message: "Entry must be $0 (free) or at least $5" }),
         rules: z.string().max(2000).optional().default(""),
+        /*
+         * Optional. A username or account email. When present the challenge is
+         * private to that player: hidden from the marketplace, and only they
+         * can accept it. Absent, nothing changes — it goes to the marketplace
+         * exactly as before.
+         */
+        invite: z.string().trim().max(320).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const entryCents = toCents(data.entry_amount);
+
+    /*
+     * Resolve the invite BEFORE any money moves. If the name is wrong we want
+     * to fail with "no such player" and leave the wallet untouched, not debit
+     * the stake into escrow against a challenge nobody can ever accept.
+     */
+    let invitedUserId: string | null = null;
+    if (data.invite) {
+      const { data: found, error: findErr } = await supabaseAdmin.rpc(
+        "find_user_by_login" as never,
+        { _login: data.invite } as never,
+      );
+      if (findErr) {
+        // PGRST202 = the function does not exist, i.e. the migration has not
+        // been run. Named explicitly because "could not find the function" is
+        // not something the person creating a challenge can act on.
+        if (findErr.code === "PGRST202" || /find_user_by_login/.test(findErr.message)) {
+          throw new Error(
+            "Invites aren't enabled yet — run 20260905120000_challenge_invites.sql in the Lovable SQL editor. You can still post this challenge to the marketplace.",
+          );
+        }
+        throw new Error(findErr.message);
+      }
+      invitedUserId = (found as string | null) ?? null;
+
+      if (!invitedUserId) {
+        throw new Error(
+          `No player found for "${data.invite}". Check the username or the email they signed up with.`,
+        );
+      }
+      if (invitedUserId === context.userId) {
+        throw new Error("You can't challenge yourself.");
+      }
+    }
 
     // Module 9 compliance gate — money at stake only. A free match is not a
     // money movement, and blocking one would punish an ineligible account for
@@ -512,6 +553,7 @@ export const createChallenge = createServerFn({ method: "POST" })
         entry_amount: data.entry_amount,
         rules: data.rules,
         status: "open",
+        invited_user_id: invitedUserId,
       })
       .select()
       .single();
@@ -530,7 +572,33 @@ export const createChallenge = createServerFn({ method: "POST" })
         throw new Error(r.error.message);
       }
     }
-    return { ok: true, challenge_id: ch.id };
+    // Tell the invited player. Without this the invite only exists if they
+    // happen to open the app and look — which for a private challenge aimed at
+    // one specific person is close to not having sent it.
+    if (invitedUserId) {
+      try {
+        const { notifyUser, displayNameFor, usd, notifyKey } =
+          await import("@/lib/email/notify.server");
+        await notifyUser(
+          invitedUserId,
+          "match-update",
+          {
+            status: "invited",
+            opponent: await displayNameFor(supabaseAdmin, context.userId),
+            game: data.game_slug,
+            platform: data.platform,
+            stakeFormatted: usd(entryCents),
+            challengeId: ch.id,
+            note: data.rules || null,
+          },
+          notifyKey("match-invited", ch.id),
+        );
+      } catch (e) {
+        console.error("[NOTIFY-FAILED] challenge invite", e);
+      }
+    }
+
+    return { ok: true, challenge_id: ch.id, invited_user_id: invitedUserId };
   });
 
 /** Opponent accepts an open challenge: debit + escrow their stake, mark active. */
@@ -547,6 +615,16 @@ export const acceptChallenge = createServerFn({ method: "POST" })
     if (!ch) throw new Error("Challenge not found");
     if (ch.status !== "open") throw new Error("Challenge is no longer open");
     if (ch.creator_id === context.userId) throw new Error("Can't accept your own challenge");
+
+    /*
+     * The privacy of an invited challenge is enforced HERE, not by hiding it.
+     * `challenges` is public-read by design, so the marketplace filter only
+     * keeps these out of sight — anyone who knows the id could still POST an
+     * accept. This is the check that actually holds.
+     */
+    if (ch.invited_user_id && ch.invited_user_id !== context.userId) {
+      throw new Error("This challenge was sent to a specific player.");
+    }
 
     const entryCents = toCents(Number(ch.entry_amount));
 

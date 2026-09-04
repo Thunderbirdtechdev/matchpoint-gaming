@@ -22,6 +22,7 @@ export type Database = {
           entry_amount: number
           game_slug: string
           id: string
+          invited_user_id: string | null
           opponent_id: string | null
           opponent_reported_winner_id: string | null
           platform: string
@@ -38,6 +39,7 @@ export type Database = {
           entry_amount?: number
           game_slug: string
           id?: string
+          invited_user_id?: string | null
           opponent_id?: string | null
           opponent_reported_winner_id?: string | null
           platform: string
@@ -54,6 +56,7 @@ export type Database = {
           entry_amount?: number
           game_slug?: string
           id?: string
+          invited_user_id?: string | null
           opponent_id?: string | null
           opponent_reported_winner_id?: string | null
           platform?: string
@@ -1648,6 +1651,13 @@ export type Database = {
           magnitude: number
           detail: Json
         }[]
+      }
+      // Added by hand for migration 20260905120000_challenge_invites.
+      find_user_by_login: {
+        Args: {
+          _login: string
+        }
+        Returns: string | null
       }
       admin_mfa_status: {
         Args: {

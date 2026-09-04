@@ -66,6 +66,9 @@ function DashboardPage() {
           .from("challenges")
           .select("*")
           .eq("status", "open")
+          // Same reasoning as the marketplace: a private challenge belongs to
+          // one player and is not "open" to this list.
+          .is("invited_user_id", null)
           .order("created_at", { ascending: false })
           .limit(5)
       ).data ?? [],

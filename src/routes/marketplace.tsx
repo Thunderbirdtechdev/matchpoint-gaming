@@ -115,6 +115,10 @@ function MarketplacePage() {
         .from("challenges")
         .select("*")
         .eq("status", "open")
+        // Private challenges are addressed to one player and must not appear
+        // here. The real enforcement is in acceptChallenge; this keeps them
+        // out of sight.
+        .is("invited_user_id", null)
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
