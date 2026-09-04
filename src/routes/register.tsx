@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { Trophy, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
+import { AuthShell } from "@/components/site/AuthShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { linkReferral } from "@/lib/promo.functions";
@@ -68,44 +68,65 @@ function RegisterPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
-      <BackgroundPattern />
-      <div className="absolute -top-32 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-secondary/20 blur-3xl" />
-      <div className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12 sm:px-6">
-        <Link to="/" className="mx-auto flex items-center gap-2">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-brand glow-primary">
-            <Trophy className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-xl font-bold">Match<span className="text-gradient-brand">Point</span></span>
-        </Link>
-
-        <div className="mt-10 rounded-2xl border border-border/60 bg-gradient-card p-8 shadow-elevated">
-          <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Free forever. No credit card required.</p>
-
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" required minLength={3} maxLength={32} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="ProGamer123" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" />
-            </div>
-            <Button type="submit" disabled={loading} className="w-full bg-gradient-brand text-primary-foreground hover:opacity-90">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Already have an account? <Link to="/login" className="font-semibold text-foreground hover:text-primary">Sign in</Link>
-          </p>
+    <AuthShell
+      title="Create your account"
+      subtitle="Free forever. No credit card required."
+      footer={
+        <span className="text-muted-foreground">
+          Already have an account?{" "}
+          <Link to="/login" className="font-semibold text-foreground hover:text-primary">
+            Sign in
+          </Link>
+        </span>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            required
+            minLength={3}
+            maxLength={32}
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="ProGamer123"
+          />
         </div>
-      </div>
-    </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 6 characters"
+          />
+        </div>
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-gradient-brand text-primary-foreground hover:opacity-90"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

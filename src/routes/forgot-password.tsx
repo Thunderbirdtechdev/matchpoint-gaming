@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Trophy, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
+import { AuthShell } from "@/components/site/AuthShell";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -29,30 +29,36 @@ function ForgotPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
-      <BackgroundPattern />
-      <div className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12 sm:px-6">
-        <Link to="/" className="mx-auto flex items-center gap-2">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-brand"><Trophy className="h-5 w-5 text-primary-foreground" /></div>
-          <span className="text-xl font-bold">Match<span className="text-gradient-brand">Point</span></span>
+    <AuthShell
+      title="Reset your password"
+      subtitle="We'll send you a link to choose a new one."
+      footer={
+        <Link to="/login" className="text-muted-foreground hover:text-foreground">
+          Back to sign in
         </Link>
-        <div className="mt-10 rounded-2xl border border-border/60 bg-gradient-card p-8 shadow-elevated">
-          <h1 className="text-2xl font-bold">Reset your password</h1>
-          <p className="mt-1 text-sm text-muted-foreground">We'll send you a link to choose a new one.</p>
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <Button type="submit" disabled={loading} className="w-full bg-gradient-brand text-primary-foreground">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            <Link to="/login" className="hover:text-foreground">Back to sign in</Link>
-          </p>
+      }
+    >
+      <form onSubmit={submit} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+          />
         </div>
-      </div>
-    </div>
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-gradient-brand text-primary-foreground hover:opacity-90"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send reset link"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

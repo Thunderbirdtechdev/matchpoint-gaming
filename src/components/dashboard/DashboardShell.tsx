@@ -25,6 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
 import { toast } from "sonner";
 
@@ -105,10 +106,10 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col p-5">
-      <Link to="/" className="flex items-center gap-2" onClick={onNavigate}>
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand glow-primary">
-          <Trophy className="h-5 w-5 text-primary-foreground" />
-        </div>
+      {/* The real crest, not the trophy stand-in that used to live here — a
+          signed-in player was seeing different branding from the marketing site. */}
+      <Link to="/" className="flex items-center gap-2.5" onClick={onNavigate}>
+        <BrandMark size={36} />
         <span className="text-lg font-bold">
           Match<span className="text-gradient-brand">Point</span>
         </span>

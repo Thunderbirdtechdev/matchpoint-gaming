@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Trophy } from "lucide-react";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const socials = [
@@ -132,8 +132,8 @@ export function Footer() {
             <Link to="/" className="group inline-flex items-center gap-3">
               <div className="relative">
                 <div className="absolute -inset-1.5 rounded-xl bg-gradient-brand opacity-0 blur-md transition-opacity duration-400 group-hover:opacity-50" />
-                <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-gradient-brand transition-shadow duration-400 group-hover:shadow-[0_0_20px_oklch(0.51_0.23_277_/_0.4)]">
-                  <Trophy className="h-5 w-5 text-primary-foreground" />
+                <div className="relative grid h-10 w-10 place-items-center transition-transform duration-400 group-hover:scale-105">
+                  <BrandMark size={40} />
                 </div>
               </div>
               <span className="text-xl font-bold tracking-tight">

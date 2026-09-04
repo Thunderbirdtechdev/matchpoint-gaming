@@ -1,13 +1,17 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu, X, LayoutDashboard } from "lucide-react";
 import { motion } from "framer-motion";
-import logo from "@/assets/logo.png";
+import { BrandMark } from "@/components/ui/brand-mark";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 
 const links = [
+  // The logo already links home, but that is a convention people have to know.
+  // An explicit Home entry is what a visitor scans for, and the client asked
+  // for it directly.
+  { to: "/", label: "Home" },
   { to: "/games", label: "Games" },
   { to: "/how-it-works", label: "How it works" },
   { to: "/marketplace", label: "Marketplace" },
@@ -28,13 +32,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <img
-            src={logo}
-            alt="MatchPoint Gaming"
-            className="h-9 w-9 rounded-lg object-contain transition-transform group-hover:scale-105"
-            width={36}
-            height={36}
-          />
+          <BrandMark size={36} className="transition-transform group-hover:scale-105" />
           <span className="font-display text-lg font-extrabold uppercase tracking-[0.12em]">
             Match<span className="text-gradient-brand">Point</span>
           </span>
