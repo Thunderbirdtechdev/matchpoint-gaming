@@ -45,7 +45,7 @@ export function BrandLockup({
   textClassName?: string;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
+    <span className={cn("inline-flex items-center gap-1.5", className)}>
       <BrandMark size={size} />
       <span className={cn("text-xl font-bold", textClassName)}>
         Match<span className="text-gradient-brand">Point</span>

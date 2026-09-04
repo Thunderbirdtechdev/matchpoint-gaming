@@ -3,9 +3,11 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Games } from "@/components/site/Games";
 import { CTA } from "@/components/site/CTA";
-// The /games page header art. Uses the NBA 2K27 cover tile, which replaced
-// the old game-nba.jpg when the client supplied official covers.
-import gameNba from "@/assets/game-nba2k.jpg";
+// PageHeader renders a 4:3 LANDSCAPE banner, so it needs the 16:9 card art.
+// Pointing it at game-nba2k.jpg (the 4:5 portrait grid tile) forced a portrait
+// image into a landscape frame, which is what zoomed it to a face filling the
+// whole banner.
+import gameNba from "@/assets/card-nba2k.jpg";
 
 export const Route = createFileRoute("/games")({
   head: () => ({

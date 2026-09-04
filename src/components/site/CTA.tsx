@@ -147,10 +147,17 @@ export function CTA() {
                 asChild
                 text="Create Account"
                 icon={<ArrowRight className="h-4 w-4" />}
-                // On the brand band a bg-primary fill is invisible, and so is a
-                // fill that matches the button's own face. Dark face, white fill.
+                /*
+                 * The fill is white in BOTH themes (primary-foreground), so the
+                 * label riding over it must be dark in both. `text-background`
+                 * was not: near-black in dark, near-white in light — white on
+                 * white, and the label vanished on hover.
+                 *
+                 * `text-primary` is the same brand indigo in both themes, so a
+                 * white pill with an indigo label reads the same either way.
+                 */
                 fillClassName="bg-primary-foreground"
-                fillTextClassName="text-background"
+                fillTextClassName="text-primary"
                 className="h-13 border-transparent bg-background px-8 font-display text-base tracking-[0.12em] text-foreground"
               >
                 <Link to="/register" />
@@ -160,7 +167,7 @@ export function CTA() {
                 text="Browse Games"
                 icon={<ArrowRight className="h-4 w-4" />}
                 fillClassName="bg-primary-foreground"
-                fillTextClassName="text-background"
+                fillTextClassName="text-primary"
                 className="h-13 border-primary-foreground/40 bg-transparent px-8 font-display text-base tracking-[0.12em] text-primary-foreground"
               >
                 <Link to="/games" />

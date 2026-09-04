@@ -108,7 +108,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col p-5">
       {/* The real crest, not the trophy stand-in that used to live here — a
           signed-in player was seeing different branding from the marketing site. */}
-      <Link to="/" className="flex items-center gap-2.5" onClick={onNavigate}>
+      <Link to="/" className="flex items-center gap-1.5" onClick={onNavigate}>
         <BrandMark size={36} />
         <span className="text-lg font-bold">
           Match<span className="text-gradient-brand">Point</span>

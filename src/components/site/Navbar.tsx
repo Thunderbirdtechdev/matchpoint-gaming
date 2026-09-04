@@ -25,13 +25,20 @@ export function Navbar() {
   const { user } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const activeLink = links.find((l) => pathname.startsWith(l.to))?.to ?? null;
+  /*
+   * "/" has to match EXACTLY. Every pathname starts with "/", so the moment
+   * Home was added as the first entry a plain `startsWith` matched it on every
+   * page and Home stayed lit everywhere. The other entries still use
+   * startsWith so nested routes keep their parent highlighted.
+   */
+  const activeLink =
+    links.find((l) => (l.to === "/" ? pathname === "/" : pathname.startsWith(l.to)))?.to ?? null;
   const highlight = hovered ?? activeLink;
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2.5 group">
+        <Link to="/" className="flex items-center gap-1.5 group">
           <BrandMark size={36} className="transition-transform group-hover:scale-105" />
           <span className="font-display text-lg font-extrabold uppercase tracking-[0.12em]">
             Match<span className="text-gradient-brand">Point</span>
