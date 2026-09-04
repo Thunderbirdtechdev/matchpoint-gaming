@@ -3,7 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import fortnite from "@/assets/game-fortnite.jpg";
 import madden from "@/assets/game-madden.jpg";
-import nba from "@/assets/game-nba.jpg";
+import ncaa from "@/assets/game-ncaa.jpg";
+import nba from "@/assets/game-nba2k.jpg";
 import mlb from "@/assets/game-mlb.jpg";
 
 const games = [
@@ -31,7 +32,7 @@ const games = [
   {
     slug: "ncaa",
     name: "NCAA 27",
-    img: madden,
+    img: ncaa,
     modes: "1v1 Head-to-Head, Online Dynasty",
     platforms: "PlayStation, Xbox",
   },

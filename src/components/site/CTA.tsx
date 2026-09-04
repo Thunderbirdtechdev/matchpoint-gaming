@@ -7,10 +7,9 @@ import useEmblaCarousel from "embla-carousel-react";
 import cardFortnite from "@/assets/card-fortnite.jpg";
 import cardNba2k from "@/assets/card-nba2k.jpg";
 import cardMadden from "@/assets/card-madden.jpg";
-// ⚠️ NCAA has no artwork of its own — this IS the Madden image, byte for byte.
-// `card-ncaa.jpg` was a duplicate of it and caused a 404 on first paint (see
-// the note in HeroSlideshow.tsx). Point this at real NCAA art when it exists.
-import cardNcaa from "@/assets/game-madden.jpg";
+// NCAA finally has its own cover: EA Sports College Football 27, client-supplied.
+// Until now this pointed at the Madden image because there was nothing else.
+import cardNcaa from "@/assets/card-ncaa.jpg";
 import cardMlb from "@/assets/card-mlbshow.jpg";
 
 const slides = [

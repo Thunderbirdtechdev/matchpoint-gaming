@@ -18,16 +18,14 @@ import { InductionBadge } from "@/components/ui/induction-badge";
  * One image, one file, imported wherever it is needed.
  */
 import slideFortnite from "@/assets/slide-fortnite.jpg";
-import slideMadden from "@/assets/slide-madden.jpg";
-// slide-nba2k.jpg was byte-identical to card-nba2k.jpg; slide-mlb.jpg to
-// card-mlbshow.jpg. The duplicates are gone and these are the canonical files.
+// Every game except Fortnite now uses its official cover, composited to 16:9 —
+// see scripts/build-game-art.py (and build-mlb-art.py for MLB). There is one
+// file per image and the slideshow shares it with the cards, deliberately:
+// a second byte-identical copy under another name is what caused the 404.
+import slideMadden from "@/assets/card-madden.jpg";
 import slideNba2k from "@/assets/card-nba2k.jpg";
-// Official 'MLB The Show 26' cover (client-supplied), composited to 16:9 — see scripts/build-mlb-art.py.
+import slideNcaa from "@/assets/card-ncaa.jpg";
 import slideMlb from "@/assets/card-mlbshow.jpg";
-// ⚠️ NCAA has no artwork of its own — this is the Madden image, and always was.
-// slide-ncaa.png was a byte-identical copy of it. Replace this import when the
-// client supplies real NCAA 27 cover art.
-import slideNcaa from "@/assets/game-madden.jpg";
 
 const slides: { game: SupportedGame; img: string; tagline: string }[] = [
   { game: "fortnite", img: slideFortnite, tagline: "Build. Fight. Dominate." },

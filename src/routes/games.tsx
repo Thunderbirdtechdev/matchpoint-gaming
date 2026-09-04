@@ -3,7 +3,9 @@ import { SiteShell } from "@/components/site/SiteShell";
 import { PageHeader } from "@/components/site/PageHeader";
 import { Games } from "@/components/site/Games";
 import { CTA } from "@/components/site/CTA";
-import gameNba from "@/assets/game-nba.jpg";
+// The /games page header art. Uses the NBA 2K27 cover tile, which replaced
+// the old game-nba.jpg when the client supplied official covers.
+import gameNba from "@/assets/game-nba2k.jpg";
 
 export const Route = createFileRoute("/games")({
   head: () => ({
