@@ -89,7 +89,7 @@ export const replyToTicket = createServerFn({ method: "POST" })
 
     const { data: ticket } = await supabaseAdmin
       .from("support_tickets")
-      .select("id, user_id, status")
+      .select("id, user_id, status, subject")
       .eq("id", data.ticket_id)
       .maybeSingle();
     if (!ticket) throw new Error("Ticket not found.");
@@ -118,6 +118,41 @@ export const replyToTicket = createServerFn({ method: "POST" })
       .from("support_tickets")
       .update({ status: staff ? "pending" : "open", updated_at: new Date().toISOString() })
       .eq("id", data.ticket_id);
+
+    /*
+     * Module 10, closing Module 6's "no email when staff reply".
+     *
+     * Only STAFF replies are mailed, and only to the ticket owner. Mailing
+     * staff on a player reply would need a recipient list this function has no
+     * business owning — the queue on /moderator is where that belongs — and
+     * mailing the player their own reply back is pure noise.
+     *
+     * The idempotency key includes a timestamp rather than just the ticket id,
+     * because unlike a settlement a ticket gets many replies and they must not
+     * collapse onto one another.
+     */
+    if (staff) {
+      try {
+        const { notifyUser, displayNameFor, notifyKey } = await import("@/lib/email/notify.server");
+        await notifyUser(
+          ticket.user_id,
+          "support-reply",
+          {
+            ticketSubject: (ticket as { subject?: string }).subject ?? null,
+            staffName: await displayNameFor(supabaseAdmin, context.userId),
+            // Truncated on purpose — the email is a nudge to come back and
+            // read the thread, not a mirror of it. See support-reply.tsx.
+            replyPreview:
+              data.body.length > 300 ? `${data.body.slice(0, 300).trimEnd()}…` : data.body,
+            ticketId: ticket.id,
+            status: "pending",
+          },
+          notifyKey("support-reply", ticket.id, Date.now()),
+        );
+      } catch (e) {
+        console.error("[NOTIFY-FAILED] support reply", e);
+      }
+    }
 
     return { ok: true as const };
   });

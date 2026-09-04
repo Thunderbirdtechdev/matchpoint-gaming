@@ -371,16 +371,19 @@ export const runSecurityScan = createServerFn({ method: "POST" })
 
     let recorded = 0;
     const failures: string[] = [];
+    const highSeverity: string[] = [];
     for (const c of found) {
       const meta = FLAG_META[c.kind];
       if (!meta) continue;
+      const severity = meta.severity(c.detail, c.magnitude);
+      if (severity === "high") highSeverity.push(meta.title(c.detail));
       const { error: upsertErr } = await supabaseAdmin.rpc(
         "security_record_flag" as never,
         {
           _kind: c.kind,
           _dedupe_key: c.dedupe_key,
           _subject_user_id: c.subject_user_id,
-          _severity: meta.severity(c.detail, c.magnitude),
+          _severity: severity,
           _title: meta.title(c.detail),
           _detail: c.detail,
           _magnitude: c.magnitude,
@@ -390,14 +393,45 @@ export const runSecurityScan = createServerFn({ method: "POST" })
       else recorded += 1;
     }
 
+    const scanned_at = new Date().toISOString();
+
     const { recordAudit } = await import("@/lib/audit.server");
     await recordAudit(context.userId, {
       action: "security.scan_run",
       summary: `Ran the suspicious-activity scan — ${recorded} finding(s) recorded`,
-      metadata: { recorded, failures: failures.length },
+      metadata: { recorded, failures: failures.length, high: highSeverity.length },
     });
 
-    return { scanned_at: new Date().toISOString(), recorded, failures };
+    /*
+     * Module 10. Module 9 shipped this queue with no way to learn about it
+     * except by opening the page, which meant a staff account crediting its own
+     * wallet could sit unread indefinitely.
+     *
+     * HIGH SEVERITY ONLY. Mailing medium and low findings would teach people to
+     * filter these away, and an alert that gets filtered is worse than no alert
+     * at all: it leaves everyone believing somebody is watching.
+     *
+     * Recipients resolve by CAPABILITY, not a hardcoded list, so a role added
+     * later starts receiving these without anyone remembering to come back here.
+     */
+    let alerted = 0;
+    if (highSeverity.length) {
+      const { notifyStaffWithCapability, notifyKey } = await import("@/lib/email/notify.server");
+      alerted = await notifyStaffWithCapability(
+        "security.flags.manage",
+        "security-alert",
+        {
+          findingTitle: highSeverity[0],
+          totalHigh: highSeverity.length,
+          scannedAt: new Date(scanned_at).toUTCString(),
+        },
+        // Keyed to the hour, so re-running the scan a minute later does not
+        // re-alert for findings nobody has had a chance to look at yet.
+        notifyKey("security-alert", scanned_at.slice(0, 13), highSeverity.length),
+      );
+    }
+
+    return { scanned_at, recorded, failures, high: highSeverity.length, alerted };
   });
 
 /**

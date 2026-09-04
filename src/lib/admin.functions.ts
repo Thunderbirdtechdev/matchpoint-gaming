@@ -173,6 +173,38 @@ export const adminGrantRole = createServerFn({ method: "POST" })
       metadata: { roles, note: data.note ?? null },
     });
 
+    /*
+     * Module 10, closing Module 7's "no email when someone is granted a staff
+     * role".
+     *
+     * This is a security notification as much as a welcome: if the recipient
+     * did not expect it, they need to hear about it through a channel an
+     * attacker who just escalated their account does not control. The template
+     * says as much.
+     *
+     * `data.role` rather than `roles` — granting super_admin also grants admin
+     * to satisfy the Module 7 invariant, and naming both would describe an
+     * implementation detail rather than the decision that was made.
+     */
+    try {
+      const { notifyUser, displayNameFor, notifyKey } = await import("@/lib/email/notify.server");
+      const { ROLE_LABELS, ROLE_DESCRIPTIONS } = await import("@/lib/roles");
+      await notifyUser(
+        userId,
+        "role-granted",
+        {
+          roleLabel: ROLE_LABELS[data.role],
+          roleDescription: ROLE_DESCRIPTIONS[data.role],
+          grantedBy: await displayNameFor(supabaseAdmin, context.userId),
+          // Only the roles that can actually move money get pushed toward 2FA.
+          requiresMfa: data.role === "super_admin" || data.role === "financial_admin",
+        },
+        notifyKey("role-granted", userId, data.role),
+      );
+    } catch (e) {
+      console.error("[NOTIFY-FAILED] role granted", e);
+    }
+
     return { ok: true, user_id: userId, roles };
   });
 

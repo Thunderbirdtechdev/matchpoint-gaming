@@ -167,6 +167,25 @@ export const joinTournament = createServerFn({ method: "POST" })
       .insert({ tournament_id: t.id, user_id: context.userId });
     if (eErr) throw eErr;
 
+    try {
+      const { notifyUser, usd, notifyKey } = await import("@/lib/email/notify.server");
+      await notifyUser(
+        context.userId,
+        "tournament-update",
+        {
+          status: "joined",
+          tournamentName: t.title,
+          game: t.game_slug,
+          entryFormatted: usd(entryCents),
+          startsAt: t.starts_at ? new Date(t.starts_at).toUTCString() : null,
+          tournamentId: t.id,
+        },
+        notifyKey("tournament-joined", t.id, context.userId),
+      );
+    } catch (e) {
+      console.error("[NOTIFY-FAILED] tournament joined", e);
+    }
+
     return { ok: true };
   });
 
@@ -344,6 +363,32 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
 
     await supabaseAdmin.from("tournaments").update({ status: "completed" }).eq("id", t.id);
 
+    // Module 10. Only the players who actually got paid are mailed here.
+    // Mailing every entrant "the tournament ended" would be a notification
+    // about someone else's win, and the players who lost already know.
+    try {
+      const { notifyUser, usd, notifyKey } = await import("@/lib/email/notify.server");
+      for (const w of data.winners) {
+        const amt = placeAmounts.get(w.place) ?? 0;
+        if (amt <= 0) continue;
+        await notifyUser(
+          w.user_id,
+          "tournament-update",
+          {
+            status: "placed",
+            tournamentName: t.title,
+            game: t.game_slug,
+            place: w.place,
+            amountFormatted: usd(amt),
+            tournamentId: t.id,
+          },
+          notifyKey("tournament-placed", t.id, w.user_id),
+        );
+      }
+    } catch (e) {
+      console.error("[NOTIFY-FAILED] tournament payout", e);
+    }
+
     return {
       ok: true,
       pool_cents: poolCents,
@@ -397,6 +442,31 @@ export const cancelTournament = createServerFn({ method: "POST" })
     }
 
     await supabaseAdmin.from("tournaments").update({ status: "cancelled" }).eq("id", t.id);
+
+    // Module 10. This is the one tournament email that genuinely has to go out.
+    // A player who paid to enter something that then disappeared will assume
+    // the worst, and the refund has already happened above — the email exists
+    // to say so before they open a ticket about it.
+    try {
+      const { notifyUser, usd, notifyKey } = await import("@/lib/email/notify.server");
+      for (const h of holds ?? []) {
+        await notifyUser(
+          h.user_id,
+          "tournament-update",
+          {
+            status: "canceled",
+            tournamentName: t.title,
+            game: t.game_slug,
+            amountFormatted: usd(Number(h.amount_cents ?? 0)),
+            tournamentId: t.id,
+          },
+          notifyKey("tournament-canceled", t.id, h.user_id),
+        );
+      }
+    } catch (e) {
+      console.error("[NOTIFY-FAILED] tournament cancelled", e);
+    }
+
     return { ok: true, refunded: holds?.length ?? 0 };
   });
 
@@ -505,6 +575,29 @@ export const acceptChallenge = createServerFn({ method: "POST" })
       .eq("id", ch.id);
     if (uErr) throw uErr;
 
+    // Module 10. Only the creator is mailed — the accepter is looking at the
+    // screen that just told them it worked, and an email confirming an action
+    // someone took two seconds ago is noise.
+    try {
+      const { notifyUser, displayNameFor, usd, notifyKey } =
+        await import("@/lib/email/notify.server");
+      await notifyUser(
+        ch.creator_id,
+        "match-update",
+        {
+          status: "accepted",
+          opponent: await displayNameFor(supabaseAdmin, context.userId),
+          game: ch.game_slug,
+          platform: ch.platform,
+          stakeFormatted: usd(entryCents),
+          challengeId: ch.id,
+        },
+        notifyKey("match-accepted", ch.id),
+      );
+    } catch (e) {
+      console.error("[NOTIFY-FAILED] challenge accepted", e);
+    }
+
     return { ok: true };
   });
 
@@ -573,7 +666,7 @@ export const concedeChallenge = createServerFn({ method: "POST" })
     const winnerId = ch.creator_id === context.userId ? ch.opponent_id : ch.creator_id;
     if (!winnerId) throw new Error("No opponent");
 
-    return settleChallenge(supabaseAdmin, ch, winnerId);
+    return settleChallenge(supabaseAdmin, ch, winnerId, "conceded");
   });
 
 /**
@@ -607,6 +700,11 @@ export const reportChallengeResult = createServerFn({ method: "POST" })
       status: string;
       creator_reported_winner_id: string | null;
       opponent_reported_winner_id: string | null;
+      // Module 10 reads these for the dispute email. The select is already
+      // `*`; only this local narrowing had to widen.
+      entry_amount: number;
+      game_slug: string;
+      platform: string;
     };
     if (ch.status !== "active") throw new Error("Challenge is not active");
     if (ch.creator_id !== context.userId && ch.opponent_id !== context.userId)
@@ -644,6 +742,37 @@ export const reportChallengeResult = createServerFn({ method: "POST" })
       reason: "Players reported different match winners",
       status: "open",
     } as never);
+
+    // Module 10. BOTH players are told, including the one who did not trigger
+    // the mismatch. Their stake is frozen either way, and finding that out by
+    // noticing a missing balance is how a dispute becomes a support ticket.
+    try {
+      const { notifyUser, displayNameFor, usd, notifyKey } =
+        await import("@/lib/email/notify.server");
+      const stake = usd(toCents(Number(ch.entry_amount)));
+      for (const [uid, otherId] of [
+        [ch.creator_id, ch.opponent_id],
+        [ch.opponent_id, ch.creator_id],
+      ] as [string, string][]) {
+        if (!uid) continue;
+        await notifyUser(
+          uid,
+          "match-update",
+          {
+            status: "disputed",
+            opponent: otherId ? await displayNameFor(supabaseAdmin, otherId) : null,
+            game: ch.game_slug,
+            platform: ch.platform,
+            stakeFormatted: stake,
+            challengeId: ch.id,
+          },
+          notifyKey("match-disputed", ch.id, uid),
+        );
+      }
+    } catch (e) {
+      console.error("[NOTIFY-FAILED] match disputed", e);
+    }
+
     return { ok: true, status: "disputed" as const };
   });
 
@@ -671,7 +800,7 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
     if (ch.status === "completed") throw new Error("Already settled");
     if (![ch.creator_id, ch.opponent_id].includes(data.winner_id))
       throw new Error("Winner must be a participant");
-    const result = await settleChallenge(supabaseAdmin, ch, data.winner_id);
+    const result = await settleChallenge(supabaseAdmin, ch, data.winner_id, "override");
     await supabaseAdmin
       .from("disputes")
       .update({
@@ -704,8 +833,23 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
     return result;
   });
 
+/** How a match came to be settled. Shown to the players as a note. */
+type SettledVia = "reported" | "conceded" | "dispute" | "override";
+
+const SETTLED_NOTE: Record<SettledVia, string | null> = {
+  reported: null, // both players agreed; nothing to explain
+  conceded: "Your opponent conceded the match.",
+  dispute: "Settled by our review team after a dispute.",
+  override: "Settled directly by our review team.",
+};
+
 // shared payout core
-async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
+async function settleChallenge(
+  supabaseAdmin: any,
+  ch: any,
+  winnerId: string,
+  settledVia: SettledVia = "reported",
+) {
   const { data: holds } = await supabaseAdmin
     .from("escrow_holds")
     .select("*")
@@ -762,6 +906,61 @@ async function settleChallenge(supabaseAdmin: any, ch: any, winnerId: string) {
     .from("challenges")
     .update({ status: "completed", winner_id: winnerId })
     .eq("id", ch.id);
+
+  /*
+   * Module 10. Every settlement path funnels through here — both players
+   * agreeing, a concession, a dispute approval and the admin override — so
+   * hooking this one function is what makes "you won / match settled" arrive
+   * reliably instead of on three of the four routes.
+   *
+   * After the money has moved, and unable to throw: see notify.server.ts.
+   */
+  const loserId = ch.creator_id === winnerId ? ch.opponent_id : ch.creator_id;
+  try {
+    const { notifyUser, displayNameFor, usd, notifyKey } =
+      await import("@/lib/email/notify.server");
+    const [winnerName, loserName] = await Promise.all([
+      displayNameFor(supabaseAdmin, winnerId),
+      loserId ? displayNameFor(supabaseAdmin, loserId) : Promise.resolve(null),
+    ]);
+    const note = SETTLED_NOTE[settledVia];
+    const stake = usd(Math.round(Number(ch.entry_amount ?? 0) * 100));
+
+    await notifyUser(
+      winnerId,
+      "match-update",
+      {
+        status: "settled_won",
+        opponent: loserName,
+        game: ch.game_slug,
+        platform: ch.platform,
+        stakeFormatted: stake,
+        payoutFormatted: usd(netCents),
+        challengeId: ch.id,
+        note,
+      },
+      notifyKey("match-settled", ch.id, winnerId),
+    );
+
+    if (loserId) {
+      await notifyUser(
+        loserId,
+        "match-update",
+        {
+          status: "settled_lost",
+          opponent: winnerName,
+          game: ch.game_slug,
+          platform: ch.platform,
+          stakeFormatted: stake,
+          challengeId: ch.id,
+          note,
+        },
+        notifyKey("match-settled", ch.id, loserId),
+      );
+    }
+  } catch (e) {
+    console.error("[NOTIFY-FAILED] match settlement", e);
+  }
 
   return {
     ok: true,
@@ -878,7 +1077,12 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
     if (!ch) throw new Error("Challenge not found.");
     if (ch.status === "settled") throw new Error("That match is already settled.");
 
-    const result = await settleChallenge(supabaseAdmin, ch, dispute.recommended_winner_id);
+    const result = await settleChallenge(
+      supabaseAdmin,
+      ch,
+      dispute.recommended_winner_id,
+      "dispute",
+    );
 
     await supabaseAdmin
       .from("disputes")

@@ -1,6 +1,6 @@
-import { sendLovableEmail } from '@lovable.dev/email-js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createFileRoute } from '@tanstack/react-router'
+import { sendEmail, activeProvider } from '@/lib/email/transport.server'
 
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
@@ -64,11 +64,15 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env.LOVABLE_API_KEY
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-        if (!apiKey || !supabaseUrl || !supabaseServiceKey) {
+        // 12.7: the transport is chosen inside transport.server.ts, so this
+        // guard no longer demands LOVABLE_API_KEY specifically — a project
+        // running on Resend has no reason to hold one. Having neither key is
+        // still a failure, but it surfaces per-message as a 403 to the DLQ
+        // rather than as a blanket 500 that hides which messages were affected.
+        if (!supabaseUrl || !supabaseServiceKey) {
           console.error('Missing required environment variables')
           return Response.json(
             { error: 'Server configuration error' },
@@ -221,30 +225,22 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
             }
 
             try {
-              await sendLovableEmail(
-                {
-                  run_id: payload.run_id,
-                  to: payload.to,
-                  from: payload.from,
-                  sender_domain: payload.sender_domain,
-                  subject: payload.subject,
-                  html: payload.html,
-                  text: payload.text,
-                  purpose: payload.purpose,
-                  label: payload.label,
-                  idempotency_key: payload.idempotency_key,
-                  unsubscribe_token: payload.unsubscribe_token,
-                  message_id: payload.message_id,
-                },
-                { apiKey, sendUrl: process.env.LOVABLE_SEND_URL }
-              )
+              // 12.7: Resend when RESEND_API_KEY is set, the original transport
+              // otherwise. Everything around this line — the queue read, the
+              // duplicate check, the retry ladder, the DLQ, the rate-limit
+              // cooldown — is provider-agnostic and did not change.
+              const { provider } = await sendEmail(payload)
 
-              // Log success
+              // Log success. `provider` is recorded so a deliverability problem
+              // after the cutover can be tied to the transport that sent it;
+              // without it, "did this go out through Resend or not?" is
+              // unanswerable for exactly the messages you most need to ask about.
               await supabase.from('email_send_log').insert({
                 message_id: payload.message_id,
                 template_name: payload.label || queue,
                 recipient_email: payload.to,
                 status: 'sent',
+                metadata: { provider },
               })
 
               // Delete from queue
@@ -319,7 +315,9 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
           }
         }
 
-        return Response.json({ processed: totalProcessed })
+        // `provider` in the response is how you confirm a cutover took without
+        // waiting for an email to arrive: hit this route and read it back.
+        return Response.json({ processed: totalProcessed, provider: activeProvider() })
       },
     },
   },
