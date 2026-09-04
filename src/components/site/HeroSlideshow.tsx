@@ -85,7 +85,21 @@ export function HeroSlideshow() {
 
               {/* Slide content */}
               <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7">
-                <InductionBadge className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-primary-glow backdrop-blur-sm">
+                {/*
+                  SOLID fill, not a tint. This badge sits on cover art, and a
+                  translucent wash of its own hue (`bg-primary/15` with
+                  `text-primary-glow`) has no contrast of its own — it borrows
+                  whatever is behind it. That read fine over dark art and became
+                  unreadable the moment the page went light.
+
+                  Every other on-image badge in the project already learned this
+                  and uses a solid Status variant; this one was missed. See the
+                  overlay-variant note in components/ui/status.tsx.
+
+                  The InductionBadge arcs trace the perimeter and glow outward,
+                  so they survive a solid centre.
+                */}
+                <InductionBadge className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-primary-foreground shadow-[0_2px_10px_oklch(0.51_0.23_277_/_0.35)]">
                   Live on MatchPoint
                 </InductionBadge>
                 <h3 className="mt-3 font-display text-3xl tracking-wide sm:text-4xl">
