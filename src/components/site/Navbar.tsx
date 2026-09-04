@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import logo from "@/assets/logo.png";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
 import { useAuth } from "@/hooks/use-auth";
 
 const links = [
@@ -68,6 +69,9 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* 12.8 — sits before the auth buttons so its position does not jump
+              when a visitor signs in. */}
+          <AnimatedThemeToggle />
           {user ? (
             <Button
               asChild

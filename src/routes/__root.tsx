@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/hooks/use-auth";
+import { THEME_INIT_SCRIPT } from "@/hooks/use-theme";
 import { Toaster } from "sonner";
 
 
@@ -130,8 +131,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    /*
+     * 12.8 — `class="dark"` is the server's guess, and it is deliberately the
+     * brand default rather than an empty string: if JavaScript is disabled or
+     * fails, the page stays dark and fully styled instead of falling back to
+     * unthemed :root.
+     */
+    <html lang="en" className="dark" style={{ colorScheme: "dark" }}>
       <head>
+        {/*
+         * Runs before the browser paints, and before React exists, so a
+         * light-mode visitor never sees a frame of dark.
+         *
+         * It must stay in <head> and stay synchronous. Moved into <body>, or
+         * given `defer`, the browser paints the server's dark guess first and
+         * the correction becomes a visible flash on every single page load —
+         * the exact thing this script exists to prevent.
+         */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>

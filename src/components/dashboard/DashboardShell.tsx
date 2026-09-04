@@ -25,6 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { AnimatedThemeToggle } from "@/components/ui/animated-theme-toggle";
 import { toast } from "sonner";
 
 const nav = [
@@ -238,12 +239,19 @@ export function DashboardShell({
                   {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
                 </div>
               </div>
-              <Link
-                to="/games"
-                className="hidden shrink-0 items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm text-muted-foreground hover:text-foreground sm:inline-flex"
-              >
-                <Gamepad2 className="h-4 w-4" /> Browse games
-              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                {/* 12.8 — the client asked for light mode on the marketing site
+                    AND inside the platform, so the toggle lives in both shells.
+                    Visible at every width: a player who prefers light should not
+                    have to open a drawer to get it. */}
+                <AnimatedThemeToggle />
+                <Link
+                  to="/games"
+                  className="hidden items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm text-muted-foreground hover:text-foreground sm:inline-flex"
+                >
+                  <Gamepad2 className="h-4 w-4" /> Browse games
+                </Link>
+              </div>
             </div>
           </header>
           {/*

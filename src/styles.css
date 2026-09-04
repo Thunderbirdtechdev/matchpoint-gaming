@@ -99,12 +99,108 @@
   --shadow-elevated: 0 25px 60px -20px oklch(0 0 0 / 0.75), 0 0 0 1px oklch(1 0 0 / 0.07) inset;
 
   --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Overlay tint for the `scanlines` utility. Light overrides it. */
+  --scanline: oklch(1 0 0 / 0.03);
+
+  /* Full-bleed page backdrop behind the hero, page headers and auth screens.
+     Was hardcoded as #000 -> #63e inside the component, which is why light
+     mode showed dark-on-dark text there until it became a token. */
+  --gradient-page: radial-gradient(125% 125% at 50% 10%, oklch(0 0 0) 40%, oklch(0.51 0.23 277) 100%);
 }
 
 .dark {
-  /* Same tokens — app is dark-first */
+  /* Same tokens — app is dark-first and :root already holds them. This class
+     exists so it is actually PRESENT on <html>, which is what makes Tailwind's
+     `dark:` variant (declared at the top of this file) able to match. */
   --background: oklch(0.13 0.032 285);
   --foreground: oklch(0.97 0.008 275);
+  color-scheme: dark;
+}
+
+/* ============================================================
+   LIGHT MODE (client request 12.8)
+   ============================================================
+   Dark stays in :root, and light is an override on .light. That ordering is
+   deliberate:
+
+     - the default is unchanged, so every existing screen renders exactly as
+       it did before this block existed;
+     - a mistake in here cannot affect a dark-mode user;
+     - if JavaScript never runs, the page falls back to dark rather than to a
+       half-styled light.
+
+   The brand hues do not move. Primary stays the same indigo, gold stays gold —
+   only the neutrals invert and the depth cues (glows, shadows, gradients) get
+   rebuilt, because a glow that reads as light spilling onto a dark surface just
+   looks like smudged dirt on a white one.
+   ============================================================ */
+.light {
+  color-scheme: light;
+
+  --background: oklch(0.985 0.004 285);
+  --foreground: oklch(0.21 0.042 285);
+
+  --surface: oklch(0.965 0.008 285);
+  --surface-elevated: oklch(1 0 0);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.042 285);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.042 285);
+
+  /* Unchanged — the brand indigo carries white text at this lightness on
+     either ground, so buttons look identical in both themes. */
+  --primary: oklch(0.51 0.23 277);
+  --primary-foreground: oklch(0.99 0 0);
+  /* Darkened from the dark-mode 0.66. That value is a glow meant to sit on
+     near-black; as TEXT on white (the staff role badge uses it) it fails
+     contrast badly. */
+  --primary-glow: oklch(0.50 0.21 278);
+
+  --secondary: oklch(0.93 0.032 283);
+  --secondary-foreground: oklch(0.31 0.13 280);
+
+  --muted: oklch(0.95 0.010 285);
+  --muted-foreground: oklch(0.47 0.032 280);
+
+  /* Gold drops from 0.84 to 0.74. At 0.84 it is a highlight on black; on white
+     it is barely visible, and `text-accent` is used for prize amounts — the one
+     number on the page nobody should have to squint at. */
+  --accent: oklch(0.74 0.152 78);
+  --accent-foreground: oklch(0.20 0.045 285);
+
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.52 0.05 283 / 0.20);
+  --input: oklch(0.52 0.05 283 / 0.30);
+  --ring: oklch(0.51 0.23 277);
+
+  /* Brand fill is identical — it sits on top of things, not behind them. */
+  --gradient-brand: linear-gradient(135deg, oklch(0.51 0.23 277) 0%, oklch(0.62 0.20 279) 100%);
+  --gradient-hero: radial-gradient(ellipse at top left, oklch(0.72 0.14 278 / 0.22), transparent 58%),
+                   radial-gradient(ellipse at bottom right, oklch(0.80 0.10 285 / 0.28), transparent 55%),
+                   linear-gradient(180deg, oklch(0.985 0.004 285) 0%, oklch(0.955 0.010 285) 100%);
+  --gradient-card: linear-gradient(160deg, oklch(1 0 0 / 0.96), oklch(0.972 0.008 285 / 0.96));
+  --gradient-gold: linear-gradient(135deg, oklch(0.80 0.14 84), oklch(0.68 0.15 62));
+
+  /* Glows become soft coloured shadows. Kept because they carry brand
+     character, dialled right down because a bloom on white reads as a smudge. */
+  --glow-primary: 0 6px 24px oklch(0.51 0.23 277 / 0.20);
+  --glow-secondary: 0 6px 22px oklch(0.62 0.20 279 / 0.16);
+  --glow-gold: 0 6px 18px oklch(0.74 0.152 78 / 0.28);
+
+  --shadow-card: 0 6px 20px -8px oklch(0.25 0.06 285 / 0.16), 0 0 0 1px oklch(0.25 0.06 285 / 0.06);
+  --shadow-elevated: 0 20px 45px -18px oklch(0.25 0.06 285 / 0.24), 0 0 0 1px oklch(0.25 0.06 285 / 0.08);
+
+  /* Scanline overlay: white-on-dark is invisible on white, so it flips to a
+     faint ink. See the `scanlines` utility. */
+  --scanline: oklch(0.25 0.06 285 / 0.045);
+
+  /* Same shape as dark — near-white core washing out to brand violet at the
+     edges, so the hero keeps its identity instead of turning into a blank sheet. */
+  --gradient-page: radial-gradient(125% 125% at 50% 10%, oklch(0.995 0.002 285) 42%, oklch(0.80 0.11 280) 100%);
 }
 
 @layer base {
@@ -112,9 +208,9 @@
     border-color: var(--color-border);
   }
 
-  html {
-    color-scheme: dark;
-  }
+  /* color-scheme now comes from the .dark / .light class, so native controls,
+     scrollbars and form widgets follow the chosen theme rather than always
+     rendering dark. */
 
   body {
     background: var(--background);
@@ -196,8 +292,8 @@
     to bottom,
     transparent 0,
     transparent 2px,
-    oklch(1 0 0 / 0.03) 2px,
-    oklch(1 0 0 / 0.03) 3px
+    var(--scanline) 2px,
+    var(--scanline) 3px
   );
 }
 
