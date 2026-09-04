@@ -1,6 +1,11 @@
 """
 Fit the client's official game covers to the two art slots the site uses.
 
+SOURCES ARE OFFICIAL PRESS KEY ART (4500x5000 from EA's newsroom, 2160x2160
+from 2K's), so everything below is now a DOWNSCALE. The earlier versions of this
+script were fighting 446-592px thumbnails blown up 3-4.5x, which is why the
+cards looked soft at hero size while looking fine as small grid tiles.
+
     card-<game>.jpg   1920x1080  16:9  — marketplace + homepage cards, CTA,
                                           Stats, and the hero slideshow
     game-<game>.jpg    800x1000   4:5  — the Games grid tile
@@ -38,15 +43,21 @@ from PIL import Image, ImageFilter
 # slug -> source, trim (l, t, r, b as fractions), 16:9 focus_y, 4:5 focus_y.
 #
 # focus_y picks which horizontal band survives the crop: 0 keeps the top edge,
-# 1 keeps the bottom. Lower it where the wordmark sits high in the cover.
+# 1 keeps the bottom. All three sit at or near 0 because on official key art the
+# wordmark is right at the top — anything higher clips it. (These values are NOT
+# transferable from the old box-photo sources: those had different proportions,
+# so the same number cropped to a completely different place.)
 GAMES = [
-    # Wordmark sits ~25% down, under a band of sky — needs more headroom than
-    # the others or the crop opens on empty blue.
-    ("_src-madden-cover.png", "madden", (0.012, 0.0, 0.012, 0.175), 0.20, 0.30),
-    # Wordmark hard at the top; three players fill the middle.
-    ("_src-ncaa-cover.png", "ncaa", (0.045, 0.008, 0.035, 0.145), 0.07, 0.28),
-    # "2K27" runs across the very top with Rose's head just under it.
-    ("_src-nba2k-cover.png", "nba2k", (0.0, 0.0, 0.0, 0.0), 0.05, 0.22),
+    # Official press key art, 4500x5000, from EA's newsroom. Only the ESRB /
+    # NFLPA strip along the bottom needs removing — key art has no case edge and
+    # no platform badges, unlike the box photos this replaced.
+    ("_src-madden-cover.jpg", "madden", (0.0, 0.0, 0.0, 0.115), 0.02, 0.30),
+    # Official press key art, 4500x5000. ESRB block bottom-left.
+    ("_src-ncaa-cover.jpg", "ncaa", (0.0, 0.0, 0.0, 0.10), 0.0, 0.24),
+    # Official Ultra Edition cover, 2160x2160, from 2K's newsroom. Carries an
+    # "ULTRA EDITION" line across the top that is an edition label rather than
+    # part of the artwork, so it comes off.
+    ("_src-nba2k-cover.jpg", "nba2k", (0.0, 0.085, 0.0, 0.0), 0.0, 0.14),
 ]
 
 CARD_W, CARD_H = 1920, 1080  # 16:9
@@ -77,18 +88,20 @@ def fill_crop(src, out_name, W, H, focus_y):
     y = round((r.height - H) * focus_y)
     out = r.crop((x, y, x + W, y + H))
 
-    # Perceived sharpness recovery.
+    # Acutance. LANCZOS is correct interpolation but leaves no edge contrast, and
+    # that absence is what a viewer reads as "blurry" — in BOTH directions.
     #
-    # These sources are 446-592px being blown up 3-4.5x, and LANCZOS gives a
-    # clean but soft result — correct interpolation, no acutance. An unsharp
-    # mask cannot invent detail that was never captured, but it restores the
-    # edge contrast the upscale washed out, which is what actually reads as
-    # "blurry" to a viewer.
+    #   downscale (s < 1): the sources are now 2160-4500px press key art being
+    #     reduced to 1920 or 800. Real detail is being thrown away, so a light
+    #     touch restores the crispness the resample softened.
+    #   upscale (s > 1.2): nothing can invent detail that was never captured,
+    #     but restoring edge contrast still helps a lot. Scaled to the factor so
+    #     art that barely needed enlarging never gets over-sharpened into halos.
     #
-    # Scaled to the upscale factor: a source that barely needed enlarging gets
-    # little or none, so this never over-sharpens into halos on good art. The
-    # threshold keeps flat areas (sky, studio backdrops) from picking up noise.
-    if s > 1.2:
+    # The threshold keeps flat areas (sky, studio backdrops) from growing noise.
+    if s < 1.0:
+        out = out.filter(ImageFilter.UnsharpMask(radius=0.8, percent=65, threshold=3))
+    elif s > 1.2:
         amount = min(150, int(60 * s))
         out = out.filter(ImageFilter.UnsharpMask(radius=1.6, percent=amount, threshold=3))
 
