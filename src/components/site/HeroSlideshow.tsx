@@ -79,8 +79,8 @@ export function HeroSlideshow() {
                   height={1080}
                 />
                 {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-r from-background/40 to-transparent" />
+                <div className="absolute inset-0 img-scrim" />
+                <div className="absolute inset-0 img-scrim-side" />
               </div>
 
               {/* Slide content */}

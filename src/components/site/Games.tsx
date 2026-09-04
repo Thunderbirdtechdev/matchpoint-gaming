@@ -75,7 +75,7 @@ export function Games() {
                   height={800}
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+                <div className="absolute inset-0 img-scrim" />
               </div>
 
               <div className="absolute inset-x-0 bottom-0 p-5">

@@ -107,6 +107,26 @@
      Was hardcoded as #000 -> #63e inside the component, which is why light
      mode showed dark-on-dark text there until it became a token. */
   --gradient-page: radial-gradient(125% 125% at 50% 10%, oklch(0 0 0) 40%, oklch(0.51 0.23 277) 100%);
+
+  /* Scrim that fades cover art into the card so the caption underneath reads.
+     The caption uses the theme foreground, NOT white, so this fades toward the
+     page colour rather than toward black. */
+  --img-scrim: linear-gradient(to top, var(--background) 0%, oklch(0.13 0.032 285 / 0.6) 42%, transparent 78%);
+  --img-scrim-side: linear-gradient(to right, oklch(0.13 0.032 285 / 0.4), transparent);
+
+  /* IconTile — a solid raised chip, not a translucent wash. */
+  --tile-from: oklch(0.27 0.062 285);
+  --tile-to: oklch(0.195 0.048 285);
+  --tile-from-hover: oklch(0.32 0.09 283);
+  --tile-to-hover: oklch(0.22 0.06 285);
+  --tile-ring: oklch(1 0 0 / 0.10);
+  --tile-highlight: oklch(1 0 0 / 0.07);
+  --tile-highlight-hover: oklch(1 0 0 / 0.14);
+  --tile-icon: var(--primary-glow);
+
+  /* Animated counters on the stats band. */
+  --gradient-stat: linear-gradient(90deg, oklch(0.95 0 0), oklch(0.75 0.15 277), oklch(0.95 0 0));
+  --stat-glow: 0 0 30px oklch(0.51 0.23 277 / 0.5), 0 0 60px oklch(0.66 0.19 279 / 0.25);
 }
 
 .dark {
@@ -201,6 +221,31 @@
   /* Same shape as dark — near-white core washing out to brand violet at the
      edges, so the hero keeps its identity instead of turning into a blank sheet. */
   --gradient-page: radial-gradient(125% 125% at 50% 10%, oklch(0.995 0.002 285) 42%, oklch(0.80 0.11 280) 100%);
+
+  /* Tighter and faster than dark. Fading toward white washes cover art out in a
+     way fading toward black does not — a dark scrim deepens an image, a light
+     one bleaches it. So the fade reaches transparent at 58% instead of 78%,
+     leaving most of the artwork untouched while the bottom strip still goes
+     opaque enough for the caption to read. */
+  --img-scrim: linear-gradient(to top, oklch(0.985 0.004 285 / 0.96) 0%, oklch(0.985 0.004 285 / 0.55) 26%, transparent 58%);
+  --img-scrim-side: linear-gradient(to right, oklch(0.985 0.004 285 / 0.18), transparent);
+
+  /* The tile keeps its raised-chip shape, inverted: a light face with the
+     highlight on top and a real (not white) hairline ring. Left dark, these
+     were navy squares sitting on a white page. */
+  --tile-from: oklch(0.97 0.012 285);
+  --tile-to: oklch(0.925 0.022 285);
+  --tile-from-hover: oklch(0.94 0.045 282);
+  --tile-to-hover: oklch(0.89 0.055 282);
+  --tile-ring: oklch(0.30 0.06 285 / 0.12);
+  --tile-highlight: oklch(1 0 0 / 0.85);
+  --tile-highlight-hover: oklch(1 0 0 / 0.95);
+  --tile-icon: oklch(0.47 0.20 278);
+
+  /* Was near-white -> light indigo -> near-white clipped to text, which on a
+     white page is close to invisible. Inverted to ink -> indigo -> ink. */
+  --gradient-stat: linear-gradient(90deg, oklch(0.26 0.055 285), oklch(0.50 0.21 277), oklch(0.26 0.055 285));
+  --stat-glow: 0 0 22px oklch(0.51 0.23 277 / 0.20);
 }
 
 @layer base {
@@ -285,6 +330,17 @@
     radial-gradient(oklch(0.51 0.23 277 / 0.10) 1px, transparent 1px);
   background-size: 28px 28px, 28px 28px;
   background-position: 0 0, 14px 14px;
+}
+
+/* Cover-art scrims. Utilities rather than inline Tailwind gradients so both
+   themes can define a different SHAPE, not just different colours — light needs
+   a tighter, faster fade than dark. */
+@utility img-scrim {
+  background-image: var(--img-scrim);
+}
+
+@utility img-scrim-side {
+  background-image: var(--img-scrim-side);
 }
 
 @utility scanlines {
@@ -415,7 +471,7 @@
 
 @keyframes stat-glow-pulse {
   0%, 100% { text-shadow: 0 0 0px transparent }
-  50% { text-shadow: 0 0 30px oklch(0.51 0.23 277 / 0.5), 0 0 60px oklch(0.66 0.19 279 / 0.25) }
+  50% { text-shadow: var(--stat-glow) }
 }
 
 @keyframes stat-divider-glow {

@@ -33,7 +33,7 @@ scripts/check-assets.mjs guards it now.
 Run: python scripts/build-game-art.py
 """
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 # slug -> source, trim (l, t, r, b as fractions), 16:9 focus_y, 4:5 focus_y.
 #
@@ -75,9 +75,29 @@ def fill_crop(src, out_name, W, H, focus_y):
     r = src.resize((round(src.width * s), round(src.height * s)), Image.LANCZOS)
     x = round((r.width - W) * 0.5)
     y = round((r.height - H) * focus_y)
-    r.crop((x, y, x + W, y + H)).save(f"src/assets/{out_name}", "JPEG", quality=90, subsampling=1)
+    out = r.crop((x, y, x + W, y + H))
+
+    # Perceived sharpness recovery.
+    #
+    # These sources are 446-592px being blown up 3-4.5x, and LANCZOS gives a
+    # clean but soft result — correct interpolation, no acutance. An unsharp
+    # mask cannot invent detail that was never captured, but it restores the
+    # edge contrast the upscale washed out, which is what actually reads as
+    # "blurry" to a viewer.
+    #
+    # Scaled to the upscale factor: a source that barely needed enlarging gets
+    # little or none, so this never over-sharpens into halos on good art. The
+    # threshold keeps flat areas (sky, studio backdrops) from picking up noise.
+    if s > 1.2:
+        amount = min(150, int(60 * s))
+        out = out.filter(ImageFilter.UnsharpMask(radius=1.6, percent=amount, threshold=3))
+
+    out.save(f"src/assets/{out_name}", "JPEG", quality=92, subsampling=0)
     kept = round(H / r.height * 100)
-    print(f"  wrote src/assets/{out_name:22s} {W}x{H}  focus_y={focus_y}  keeps {kept}% of height")
+    print(
+        f"  wrote src/assets/{out_name:22s} {W}x{H}  focus_y={focus_y}  "
+        f"upscale={s:.1f}x  keeps {kept}% of height"
+    )
 
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ export function ListingCard({
           height={360}
           className="h-full w-full object-cover object-[center_30%] transition-transform duration-500 ease-out group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+        <div className="absolute inset-0 img-scrim" />
         <Status
           variant="brandSolid"
           className="absolute bottom-2 left-3 px-2 py-0.5 text-[10px] uppercase tracking-wider"

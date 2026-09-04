@@ -81,9 +81,10 @@ function Metric({ end, suffix, prefix, label, decimals = 0, index }: {
           animation: done
             ? `stat-count-land 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both, stat-glow-pulse 3s ease-in-out 0.5s infinite`
             : "none",
-          backgroundImage: done
-            ? "linear-gradient(90deg, oklch(0.95 0 0), oklch(0.75 0.15 277), oklch(0.95 0 0))"
-            : "none",
+          // Tokenised: this is clipped to the text, and the dark-mode ramp runs
+          // near-white -> light indigo -> near-white, which on a white page is
+          // very nearly invisible. `--gradient-stat` inverts it for light.
+          backgroundImage: done ? "var(--gradient-stat)" : "none",
           backgroundSize: "200% 100%",
           WebkitBackgroundClip: done ? "text" : "unset",
           backgroundClip: done ? "text" : "unset",

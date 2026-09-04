@@ -13,18 +13,24 @@ import { cn } from "@/lib/utils";
  * top edge, the way a physical raised chip catches light.
  *
  * Put it inside a `group` and it warms to brand on hover.
+ *
+ * The colours are tokens (`--tile-*`), so the chip keeps its raised shape in
+ * light mode with the face and highlight inverted rather than staying navy.
  */
 const iconTileVariants = cva(
   [
     "relative grid shrink-0 place-items-center",
-    "bg-gradient-to-b from-[oklch(0.27_0.062_285)] to-[oklch(0.195_0.048_285)]",
-    "text-primary-glow",
-    "ring-1 ring-inset ring-white/10",
-    "shadow-[inset_0_1px_0_oklch(1_0_0/0.07)]",
+    // Every colour here is a token. Hardcoded, these were navy chips with a
+    // white hairline — correct on the dark page they were designed for, and
+    // obviously wrong sitting on a white one.
+    "bg-gradient-to-b from-[var(--tile-from)] to-[var(--tile-to)]",
+    "text-[var(--tile-icon)]",
+    "ring-1 ring-inset ring-[var(--tile-ring)]",
+    "shadow-[inset_0_1px_0_var(--tile-highlight)]",
     "transition-all duration-300 ease-out",
-    "group-hover:from-[oklch(0.32_0.09_283)] group-hover:to-[oklch(0.22_0.06_285)]",
+    "group-hover:from-[var(--tile-from-hover)] group-hover:to-[var(--tile-to-hover)]",
     "group-hover:ring-primary/50",
-    "group-hover:shadow-[inset_0_1px_0_oklch(1_0_0/0.14),0_0_22px_oklch(0.51_0.23_277/0.30)]",
+    "group-hover:shadow-[inset_0_1px_0_var(--tile-highlight-hover),0_0_22px_oklch(0.51_0.23_277/0.30)]",
   ].join(" "),
   {
     variants: {

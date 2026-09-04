@@ -79,8 +79,8 @@ export function PageHeader({
               </div>
 
               {/* Overlays */}
-              <div className="absolute inset-0 bg-gradient-to-t from-background/70 via-background/20 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-l from-transparent to-background/30" />
+              <div className="absolute inset-0 img-scrim" />
+              <div className="absolute inset-0 img-scrim-side" />
 
               {/* Live badge */}
               <Status variant="live" className="absolute left-4 top-4">
