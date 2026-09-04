@@ -107,6 +107,24 @@ export const adminCreatePromoCode = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw error;
+
+    // Promo codes mint spendable credit. Capped and revocable, which is why
+    // Module 7 left them with operations rather than treasury — but they are
+    // still money creation, so they are on the trail.
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "promo.create",
+      target_type: "promo",
+      target_id: String(row?.id ?? ""),
+      target_label: data.code.toUpperCase(),
+      amount_cents: data.amount_cents,
+      summary: `Created promo ${data.code.toUpperCase()} worth ${(data.amount_cents / 100).toFixed(2)}`,
+      metadata: {
+        max_redemptions: data.max_redemptions ?? null,
+        expires_at: data.expires_at ?? null,
+      },
+    });
+
     return { ok: true, promo: row };
   });
 
@@ -142,10 +160,27 @@ export const adminTogglePromoCode = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
+    const { data: before } = await db
+      .from("promo_codes")
+      .select("code")
+      .eq("id", data.id)
+      .maybeSingle();
+
     const { error } = await db
       .from("promo_codes")
       .update({ active: data.active })
       .eq("id", data.id);
     if (error) throw error;
+
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "promo.toggle",
+      target_type: "promo",
+      target_id: data.id,
+      target_label: before?.code ?? null,
+      summary: `${data.active ? "Activated" : "Deactivated"} promo ${before?.code ?? data.id}`,
+      metadata: { active: data.active },
+    });
+
     return { ok: true };
   });

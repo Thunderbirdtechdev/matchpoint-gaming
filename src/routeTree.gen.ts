@@ -32,6 +32,7 @@ import { Route as MatchIdRouteImport } from './routes/match.$id'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedSupportRouteImport } from './routes/_authenticated/support'
+import { Route as AuthenticatedSecurityRouteImport } from './routes/_authenticated/security'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPayoutsRouteImport } from './routes/_authenticated/payouts'
 import { Route as AuthenticatedMyTournamentsRouteImport } from './routes/_authenticated/my-tournaments'
@@ -166,6 +167,11 @@ const AuthenticatedSupportRoute = AuthenticatedSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSecurityRoute = AuthenticatedSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -295,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/payouts': typeof AuthenticatedPayoutsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/security': typeof AuthenticatedSecurityRoute
   '/support': typeof AuthenticatedSupportRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -338,6 +345,7 @@ export interface FileRoutesByTo {
   '/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/payouts': typeof AuthenticatedPayoutsRoute
   '/profile': typeof AuthenticatedProfileRoute
+  '/security': typeof AuthenticatedSecurityRoute
   '/support': typeof AuthenticatedSupportRoute
   '/wallet': typeof AuthenticatedWalletRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -383,6 +391,7 @@ export interface FileRoutesById {
   '/_authenticated/my-tournaments': typeof AuthenticatedMyTournamentsRoute
   '/_authenticated/payouts': typeof AuthenticatedPayoutsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
+  '/_authenticated/security': typeof AuthenticatedSecurityRoute
   '/_authenticated/support': typeof AuthenticatedSupportRoute
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -428,6 +437,7 @@ export interface FileRouteTypes {
     | '/my-tournaments'
     | '/payouts'
     | '/profile'
+    | '/security'
     | '/support'
     | '/wallet'
     | '/email/unsubscribe'
@@ -471,6 +481,7 @@ export interface FileRouteTypes {
     | '/my-tournaments'
     | '/payouts'
     | '/profile'
+    | '/security'
     | '/support'
     | '/wallet'
     | '/email/unsubscribe'
@@ -515,6 +526,7 @@ export interface FileRouteTypes {
     | '/_authenticated/my-tournaments'
     | '/_authenticated/payouts'
     | '/_authenticated/profile'
+    | '/_authenticated/security'
     | '/_authenticated/support'
     | '/_authenticated/wallet'
     | '/email/unsubscribe'
@@ -726,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSupportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/security': {
+      id: '/_authenticated/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof AuthenticatedSecurityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -874,6 +893,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMyTournamentsRoute: typeof AuthenticatedMyTournamentsRoute
   AuthenticatedPayoutsRoute: typeof AuthenticatedPayoutsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
+  AuthenticatedSecurityRoute: typeof AuthenticatedSecurityRoute
   AuthenticatedSupportRoute: typeof AuthenticatedSupportRoute
   AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
 }
@@ -890,6 +910,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMyTournamentsRoute: AuthenticatedMyTournamentsRoute,
   AuthenticatedPayoutsRoute: AuthenticatedPayoutsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
+  AuthenticatedSecurityRoute: AuthenticatedSecurityRoute,
   AuthenticatedSupportRoute: AuthenticatedSupportRoute,
   AuthenticatedWalletRoute: AuthenticatedWalletRoute,
 }

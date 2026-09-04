@@ -143,6 +143,14 @@ export const joinTournament = createServerFn({ method: "POST" })
 
     const entryCents = toCents(Number(t.entry_fee));
 
+    // Module 9 compliance gate — money at stake only. A free match is not a
+    // money movement, and blocking one would punish an ineligible account for
+    // something that costs it nothing.
+    if (entryCents > 0) {
+      const { assertMoneyEligible } = await import("@/lib/compliance.server");
+      await assertMoneyEligible(context.userId);
+    }
+
     if (entryCents > 0) {
       const { error: dErr } = await supabaseAdmin.rpc("escrow_debit", {
         _user_id: context.userId,
@@ -417,6 +425,14 @@ export const createChallenge = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const entryCents = toCents(data.entry_amount);
 
+    // Module 9 compliance gate — money at stake only. A free match is not a
+    // money movement, and blocking one would punish an ineligible account for
+    // something that costs it nothing.
+    if (entryCents > 0) {
+      const { assertMoneyEligible } = await import("@/lib/compliance.server");
+      await assertMoneyEligible(context.userId);
+    }
+
     const { data: ch, error } = await supabaseAdmin
       .from("challenges")
       .insert({
@@ -463,6 +479,15 @@ export const acceptChallenge = createServerFn({ method: "POST" })
     if (ch.creator_id === context.userId) throw new Error("Can't accept your own challenge");
 
     const entryCents = toCents(Number(ch.entry_amount));
+
+    // Module 9 compliance gate — money at stake only. A free match is not a
+    // money movement, and blocking one would punish an ineligible account for
+    // something that costs it nothing.
+    if (entryCents > 0) {
+      const { assertMoneyEligible } = await import("@/lib/compliance.server");
+      await assertMoneyEligible(context.userId);
+    }
+
     if (entryCents > 0) {
       const r = await supabaseAdmin.rpc("escrow_debit", {
         _user_id: context.userId,
@@ -655,6 +680,27 @@ export const adminResolveChallenge = createServerFn({ method: "POST" })
       } as never)
       .eq("challenge_id", ch.id)
       .eq("status", "open");
+
+    // Module 9. This path is the deliberate break-glass override: it settles a
+    // match and releases escrow on ONE person's say-so, bypassing the
+    // two-person rule the dispute flow exists to enforce. Module 6 kept it on
+    // purpose and asked for exactly this — a record of every use, so the
+    // exception stays visible instead of becoming the normal way to resolve.
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "moderation.challenge_override",
+      target_type: "challenge",
+      target_id: ch.id,
+      amount_cents: Math.round(Number(ch.entry_amount ?? 0) * 100) * 2,
+      summary: `Override: settled a disputed match directly, bypassing the two-person rule`,
+      metadata: {
+        winner_id: data.winner_id,
+        loser_id: ch.creator_id === data.winner_id ? ch.opponent_id : ch.creator_id,
+        note: data.resolution_note ?? null,
+        bypassed_two_person_rule: true,
+      },
+    });
+
     return result;
   });
 
@@ -784,6 +830,19 @@ export const recommendDisputeResolution = createServerFn({ method: "POST" })
       .eq("id", data.dispute_id);
     if (error) throw new Error(error.message);
 
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "moderation.dispute_recommend",
+      target_type: "dispute",
+      target_id: data.dispute_id,
+      summary: "Recommended a dispute winner for approval",
+      metadata: {
+        recommended_winner_id: data.recommended_winner_id,
+        challenge_id: dispute.challenge_id,
+        note: data.review_note ?? null,
+      },
+    });
+
     return { ok: true as const };
   });
 
@@ -831,6 +890,21 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
       } as never)
       .eq("id", data.dispute_id);
 
+    // Both halves of the two-person rule are recorded on the entry, so the log
+    // shows on its face that two different people signed off.
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "moderation.dispute_approve",
+      target_type: "dispute",
+      target_id: data.dispute_id,
+      summary: "Approved a dispute resolution and released escrow",
+      metadata: {
+        winner_id: dispute.recommended_winner_id,
+        reviewed_by: dispute.reviewed_by,
+        challenge_id: dispute.challenge_id,
+      },
+    });
+
     return result;
   });
 
@@ -859,6 +933,15 @@ export const rejectDisputeRecommendation = createServerFn({ method: "POST" })
       } as never)
       .eq("id", data.dispute_id);
     if (error) throw new Error(error.message);
+
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "moderation.dispute_reject",
+      target_type: "dispute",
+      target_id: data.dispute_id,
+      summary: "Sent a dispute recommendation back for another look",
+      metadata: { note: data.note ?? null },
+    });
 
     return { ok: true as const };
   });

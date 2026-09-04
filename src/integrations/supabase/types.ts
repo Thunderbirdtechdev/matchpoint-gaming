@@ -1017,6 +1017,126 @@ export type Database = {
         }
         Relationships: []
       }
+      // Added by hand for migration 20260904210000_security_audit_and_compliance.
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_label: string | null
+          actor_roles: string[] | null
+          amount_cents: number | null
+          created_at: string
+          id: number
+          ip: string | null
+          metadata: Json
+          summary: string
+          target_id: string | null
+          target_label: string | null
+          target_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_roles?: string[] | null
+          amount_cents?: number | null
+          created_at?: string
+          id?: number
+          ip?: string | null
+          metadata?: Json
+          summary: string
+          target_id?: string | null
+          target_label?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        // UPDATE is rejected by trigger for every role, service_role included.
+        // The shape is kept only so the generated client type stays uniform.
+        Update: never
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      security_flags: {
+        Row: {
+          detail: Json
+          dedupe_key: string
+          dismissed_magnitude: number | null
+          first_seen_at: string
+          id: string
+          kind: string
+          last_seen_at: string
+          magnitude: number
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          seen_count: number
+          severity: string
+          status: string
+          subject_user_id: string | null
+          title: string
+        }
+        Insert: {
+          detail?: Json
+          dedupe_key: string
+          dismissed_magnitude?: number | null
+          first_seen_at?: string
+          id?: string
+          kind: string
+          last_seen_at?: string
+          magnitude?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          seen_count?: number
+          severity?: string
+          status?: string
+          subject_user_id?: string | null
+          title: string
+        }
+        Update: {
+          detail?: Json
+          dedupe_key?: string
+          dismissed_magnitude?: number | null
+          first_seen_at?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          magnitude?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          seen_count?: number
+          severity?: string
+          status?: string
+          subject_user_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       // Added by hand for migration 20260903180000_support_and_dispute_review.
       support_tickets: {
         Row: {
@@ -1517,6 +1637,27 @@ export type Database = {
           day: string
           total_cents: number
           event_count: number
+        }[]
+      }
+      security_scan_candidates: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          kind: string
+          dedupe_key: string
+          subject_user_id: string | null
+          magnitude: number
+          detail: Json
+        }[]
+      }
+      admin_mfa_status: {
+        Args: {
+          _user_ids: string[]
+        }
+        Returns: {
+          user_id: string
+          factor_count: number
+          verified_count: number
+          last_verified_at: string | null
         }[]
       }
       has_capability: {

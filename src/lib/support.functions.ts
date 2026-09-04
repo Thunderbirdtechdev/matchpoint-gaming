@@ -155,6 +155,20 @@ export const updateTicket = createServerFn({ method: "POST" })
       .eq("id", data.ticket_id);
     if (error) throw new Error(error.message);
 
+    // Only status changes are audited, not assignment churn. A ticket picked up
+    // and handed on three times is workflow noise; closing one is a decision
+    // someone may later need to account for.
+    if (data.status) {
+      const { recordAudit } = await import("@/lib/audit.server");
+      await recordAudit(context.userId, {
+        action: "moderation.ticket_update",
+        target_type: "ticket",
+        target_id: data.ticket_id,
+        summary: `Set a support ticket to ${data.status}`,
+        metadata: { status: data.status, priority: data.priority ?? null },
+      });
+    }
+
     return { ok: true as const };
   });
 

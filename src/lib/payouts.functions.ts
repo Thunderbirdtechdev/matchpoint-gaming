@@ -54,6 +54,12 @@ export const requestManualPayout = createServerFn({ method: "POST" })
   .inputValidator((d) => RequestPayoutSchema.parse(d))
   .handler(async ({ data, context }) => {
     validateHandle(data.method, data.handle);
+
+    // Module 9 compliance gate. Ships as a no-op unless an operator has switched
+    // enforcement on in /security — see src/lib/compliance.server.ts.
+    const { assertMoneyEligible } = await import("@/lib/compliance.server");
+    await assertMoneyEligible(context.userId);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const normalizedHandle =
@@ -265,6 +271,33 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
 
     const now = new Date().toISOString();
 
+    // Module 9. Each of the three outcomes below is a different fact about real
+    // money, so each writes its own entry rather than one generic "updated".
+    const auditDecision = async (
+      outcome: string,
+      summary: string,
+      amount_cents: number,
+      extra: Record<string, unknown> = {},
+    ) => {
+      const { recordAudit } = await import("@/lib/audit.server");
+      await recordAudit(context.userId, {
+        action: "finance.payout_decision",
+        target_type: "payout",
+        target_id: req.id,
+        target_label: `${req.method} → ${req.handle}`,
+        amount_cents,
+        summary,
+        metadata: {
+          outcome,
+          payout_user_id: req.user_id,
+          method: req.method,
+          speed: req.speed,
+          admin_note: data.admin_note ?? null,
+          ...extra,
+        },
+      });
+    };
+
     const sendUserStatusEmail = async (status: "processing" | "paid" | "rejected", note?: string | null) => {
       try {
         const { data: userRes } = await supabaseAdmin.auth.admin.getUserById(req.user_id);
@@ -308,6 +341,11 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
         .eq("id", req.id);
       if (error) throw error;
       await sendUserStatusEmail("processing", data.admin_note ?? null);
+      await auditDecision(
+        "processing",
+        `Marked a ${(req.net_cents / 100).toFixed(2)} payout as processing`,
+        req.net_cents,
+      );
       return { ok: true, status: "processing" };
     }
 
@@ -350,6 +388,12 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
         }
       }
       await sendUserStatusEmail("paid", data.admin_note ?? null);
+      await auditDecision(
+        "paid",
+        `Paid ${(req.net_cents / 100).toFixed(2)} out to a player`,
+        req.net_cents,
+        { fee_cents: req.fee_cents ?? 0, fee_warning },
+      );
       return { ok: true, status: "paid", fee_warning };
     }
 
@@ -401,6 +445,12 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
     if (uErr) throw uErr;
 
     await sendUserStatusEmail("rejected", data.admin_note ?? null);
+    await auditDecision(
+      "rejected",
+      `Rejected a payout and refunded ${(req.amount_cents / 100).toFixed(2)} to the player's wallet`,
+      req.amount_cents,
+      { refunded_cents: req.amount_cents },
+    );
     return { ok: true, status: "canceled", refunded_cents: req.amount_cents };
 
   });

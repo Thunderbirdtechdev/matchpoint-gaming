@@ -36,7 +36,10 @@ export type Capability =
   | "finance.view"
   | "finance.payouts"
   | "finance.treasury"
-  | "finance.wallet_adjust";
+  | "finance.wallet_adjust"
+  | "security.audit.view"
+  | "security.flags.manage"
+  | "security.settings";
 
 export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
   moderator: ["moderation.disputes.review", "moderation.tickets", "moderation.evidence"],
@@ -53,6 +56,8 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "roles.manage",
     "platform.analytics",
     "finance.view",
+    "security.audit.view",
+    "security.flags.manage",
   ],
 
   financial_admin: [
@@ -63,6 +68,7 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "finance.payouts",
     "finance.treasury",
     "finance.wallet_adjust",
+    "security.audit.view",
   ],
 
   super_admin: [
@@ -81,6 +87,9 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "finance.payouts",
     "finance.treasury",
     "finance.wallet_adjust",
+    "security.audit.view",
+    "security.flags.manage",
+    "security.settings",
   ],
 
   user: [],
@@ -121,6 +130,9 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "finance.payouts": "Process player payouts",
   "finance.treasury": "Move company funds",
   "finance.wallet_adjust": "Adjust player wallets",
+  "security.audit.view": "View the audit log",
+  "security.flags.manage": "Triage security flags",
+  "security.settings": "Change security settings",
 };
 
 /** Capabilities grouped for display, in the order the admin UI shows them. */
@@ -146,6 +158,10 @@ export const CAPABILITY_GROUPS: { label: string; capabilities: Capability[] }[] 
   {
     label: "Roles",
     capabilities: ["roles.view", "roles.manage", "roles.manage_privileged"],
+  },
+  {
+    label: "Security",
+    capabilities: ["security.audit.view", "security.flags.manage", "security.settings"],
   },
 ];
 

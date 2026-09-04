@@ -11,6 +11,7 @@ import { updateProfile } from "@/lib/profile.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { AvatarUpload } from "@/components/profile/AvatarUpload";
 import { EligibilityCard } from "@/components/profile/EligibilityCard";
+import { TwoFactorCard } from "@/components/security/TwoFactorCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -189,6 +190,8 @@ function ProfilePage() {
         </div>
 
         {user && <EligibilityCard userId={user.id} />}
+
+        <TwoFactorCard />
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

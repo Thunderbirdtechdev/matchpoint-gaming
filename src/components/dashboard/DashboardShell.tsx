@@ -15,6 +15,7 @@ import {
   Banknote,
   LifeBuoy,
   LineChart,
+  FileClock,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRoles } from "@/hooks/use-roles";
@@ -48,6 +49,7 @@ const staff = [
   { to: "/finance", label: "Finance", icon: LineChart, capability: "finance.view" },
   { to: "/payouts", label: "Payouts", icon: Banknote, capability: "finance.payouts" },
   { to: "/analytics", label: "Analytics", icon: BarChart3, capability: "platform.analytics" },
+  { to: "/security", label: "Security", icon: FileClock, capability: "security.audit.view" },
 ] as const satisfies readonly {
   to: string;
   label: string;

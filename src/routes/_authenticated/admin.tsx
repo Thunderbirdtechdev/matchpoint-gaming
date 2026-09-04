@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Status } from "@/components/ui/status";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,7 @@ import {
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History } from "lucide-react";
 import { toast } from "sonner";
 import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
+import { listMfaStatus, adminResetUserMfa } from "@/lib/security.functions";
 import { getHotWalletStatus } from "@/lib/crypto.functions";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
 import { adminCreatePromoCode, adminListPromoCodes, adminTogglePromoCode } from "@/lib/promo.functions";
@@ -819,6 +821,10 @@ function RoleBadge({ role }: { role: AppRole }) {
  * financial_admin would have a two-click path into the treasury.
  */
 function RolesCard() {
+  // Resetting someone else's second factor is a super_admin power, so the
+  // button only renders for one.
+  const { can: canDo } = useRoles();
+  const canManageSecurity = canDo("security.settings");
   const listFn = useServerFn(adminListStaff);
   const auditFn = useServerFn(adminListRoleAudit);
   const grantFn = useServerFn(adminGrantRole);
@@ -834,6 +840,36 @@ function RolesCard() {
   const { data: audit } = useQuery({
     queryKey: ["admin-role-audit"],
     queryFn: () => auditFn({ data: { limit: 25 } }) as Promise<AuditRow[]>,
+  });
+
+  /**
+   * Module 9. Who has actually enrolled a second factor.
+   *
+   * Shown here rather than on /security because this is the page where someone
+   * decides whether it is safe to switch the treasury 2FA requirement on — that
+   * decision is "has everyone who needs it enrolled?", and it should not require
+   * asking each of them.
+   */
+  const mfaFn = useServerFn(listMfaStatus);
+  const resetMfaFn = useServerFn(adminResetUserMfa);
+  const staffIds = (data?.staff ?? []).map((s) => s.user_id);
+  const { data: mfa } = useQuery({
+    queryKey: ["staff-mfa", staffIds.join(",")],
+    enabled: staffIds.length > 0,
+    queryFn: () => mfaFn({ data: { user_ids: staffIds } }),
+  });
+
+  const resetMfa = useMutation({
+    mutationFn: (userId: string) => resetMfaFn({ data: { user_id: userId } }),
+    onSuccess: (r) => {
+      toast.success(
+        r.removed
+          ? `Removed ${r.removed} factor(s). They'll be asked to set it up again.`
+          : "That account had no second factor.",
+      );
+      qc.invalidateQueries({ queryKey: ["staff-mfa"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   // Surfaces drift between src/lib/roles.ts and the seeded role_capabilities
@@ -1015,15 +1051,16 @@ function RolesCard() {
             <tr>
               <th className="px-3 py-2 text-left">Player</th>
               <th className="px-3 py-2 text-left">Roles</th>
+              <th className="px-3 py-2 text-left">2FA</th>
               <th className="px-3 py-2 text-left">Since</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={4} className="px-3 py-4 text-muted-foreground">Loading…</td></tr>
+              <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">Loading…</td></tr>
             ) : !staff.length ? (
-              <tr><td colSpan={4} className="px-3 py-4 text-muted-foreground">No staff yet.</td></tr>
+              <tr><td colSpan={5} className="px-3 py-4 text-muted-foreground">No staff yet.</td></tr>
             ) : (
               staff.map((s) => {
                 const isSelf = s.user_id === user?.id;
@@ -1042,6 +1079,13 @@ function RolesCard() {
                       <div className="flex flex-wrap gap-1">
                         {s.roles.map((r) => <RoleBadge key={r} role={r} />)}
                       </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      {mfa?.[s.user_id]?.enrolled ? (
+                        <Status variant="success">On</Status>
+                      ) : (
+                        <Status variant="default">Off</Status>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
                       {new Date(s.granted_at).toLocaleDateString()}
@@ -1063,6 +1107,21 @@ function RolesCard() {
                               Revoke {ROLE_LABELS[r].toLowerCase()}
                             </Button>
                           ))}
+                        {/* The recovery path for a lost authenticator. Without
+                            it, requiring 2FA for treasury would be a one-way
+                            door for anyone who changes phone. */}
+                        {canManageSecurity && mfa?.[s.user_id]?.enrolled && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-[11px] text-orange-300"
+                            disabled={resetMfa.isPending}
+                            title="Remove their second factor so they can set it up again"
+                            onClick={() => resetMfa.mutate(s.user_id)}
+                          >
+                            Reset 2FA
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

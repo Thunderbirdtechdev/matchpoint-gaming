@@ -24,6 +24,10 @@ export const adminCreditWallet = createServerFn({ method: "POST" })
   .inputValidator((d) => CreditWalletSchema.parse(d))
   .handler(async ({ data, context }) => {
     await requireCapability(context, "finance.wallet_adjust");
+    // Module 9: minting spendable balance out of nothing is the single easiest
+    // way to steal from this platform, so it sits behind the second factor.
+    const { assertMfaForSensitiveAction } = await import("@/lib/compliance.server");
+    await assertMfaForSensitiveAction(context);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -51,7 +55,17 @@ export const adminCreditWallet = createServerFn({ method: "POST" })
     });
     if (error) throw error;
 
-    return { ok: true, user_id: userId, balance_cents: newBalance };
+    const { recordAudit } = await import("@/lib/audit.server");
+    const audit = await recordAudit(context.userId, {
+      action: "finance.wallet_credit",
+      target_type: "user",
+      target_id: userId,
+      amount_cents: data.amount_cents,
+      summary: `Credited ${(data.amount_cents / 100).toFixed(2)} to a player wallet`,
+      metadata: { note: data.note ?? null, balance_after_cents: newBalance },
+    });
+
+    return { ok: true, user_id: userId, balance_cents: newBalance, audit_failed: !audit.ok };
   });
 
 const RoleEnum = z.enum(APP_ROLES);
@@ -119,6 +133,16 @@ export const adminGrantRole = createServerFn({ method: "POST" })
   .inputValidator((d) => GrantRoleSchema.parse(d))
   .handler(async ({ data, context }) => {
     await requireCanManageRole(context, data.role);
+
+    // Module 9: granting a privileged role is how a stolen admin session
+    // becomes a permanent one, so it needs the second factor. Granting
+    // `moderator` does not — it carries no money capability, and gating it
+    // would put the second factor in front of routine day-to-day staffing.
+    if (data.role !== "moderator" && data.role !== "user") {
+      const { assertMfaForSensitiveAction } = await import("@/lib/compliance.server");
+      await assertMfaForSensitiveAction(context);
+    }
+
     const userId = await resolveUserId(data.target);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -139,6 +163,15 @@ export const adminGrantRole = createServerFn({ method: "POST" })
         note: data.note,
       });
     }
+
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "roles.grant",
+      target_type: "user",
+      target_id: userId,
+      summary: `Granted ${roles.join(" + ")}`,
+      metadata: { roles, note: data.note ?? null },
+    });
 
     return { ok: true, user_id: userId, roles };
   });
@@ -202,6 +235,15 @@ export const adminRevokeRole = createServerFn({ method: "POST" })
       action: "revoke",
       actor_id: context.userId,
       note: data.note,
+    });
+
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "roles.revoke",
+      target_type: "user",
+      target_id: userId,
+      summary: `Revoked ${data.role}`,
+      metadata: { role: data.role, note: data.note ?? null },
     });
 
     return { ok: true, user_id: userId, role: data.role };
@@ -361,6 +403,9 @@ export const withdrawCompanyFunds = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     await requireCapability(context, "finance.treasury");
+    const { assertMfaForSensitiveAction } = await import("@/lib/compliance.server");
+    await assertMfaForSensitiveAction(context);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: wid, error } = await supabaseAdmin.rpc("company_wallet_withdraw", {
       _amount_cents: data.amount_cents,
@@ -369,7 +414,18 @@ export const withdrawCompanyFunds = createServerFn({ method: "POST" })
       _created_by: context.userId,
     } as never);
     if (error) throw new Error(error.message);
-    return { ok: true, withdrawal_id: wid };
+
+    const { recordAudit } = await import("@/lib/audit.server");
+    const audit = await recordAudit(context.userId, {
+      action: "finance.company_withdrawal",
+      target_type: "payout",
+      target_id: String(wid ?? ""),
+      amount_cents: data.amount_cents,
+      summary: `Withdrew ${(data.amount_cents / 100).toFixed(2)} of company funds to ${data.destination}`,
+      metadata: { destination: data.destination, note: data.note ?? null },
+    });
+
+    return { ok: true, withdrawal_id: wid, audit_failed: !audit.ok };
   });
 
 /** Admin-only: list recent company-fund withdrawals. */
@@ -497,6 +553,9 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await requireCapability(context, "finance.treasury");
+    const { assertMfaForSensitiveAction } = await import("@/lib/compliance.server");
+    await assertMfaForSensitiveAction(context);
+
     const currency = data.currency.toLowerCase();
 
     let amount = data.amount_cents ?? 0;
@@ -530,6 +589,26 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
       _created_by: context.userId,
     } as never);
     const ledger_warning = rpcErr ? rpcErr.message : null;
+
+    // Audited after the Stripe call, not before: an entry written first would
+    // record sweeps that never happened if Stripe refused. `ledger_warning`
+    // rides along so the log shows a sweep that left the bank but never made it
+    // into the company ledger — the discrepancy someone would otherwise chase
+    // for hours during a reconciliation.
+    const { recordAudit } = await import("@/lib/audit.server");
+    await recordAudit(context.userId, {
+      action: "finance.stripe_sweep",
+      target_type: "payout",
+      target_id: String(payout.id ?? ""),
+      amount_cents: amount,
+      summary: `Swept ${(amount / 100).toFixed(2)} ${currency.toUpperCase()} from Stripe to the bank`,
+      metadata: {
+        stripe_payout_id: payout.id ?? null,
+        currency,
+        note: data.note ?? null,
+        ledger_warning,
+      },
+    });
 
     // Send "initiated" notification to the admin who triggered the payout.
     let email_warning: string | null = null;

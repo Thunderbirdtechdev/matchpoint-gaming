@@ -82,6 +82,12 @@ INSERT INTO public.role_capabilities (role, capability) VALUES
   ('admin',           'roles.manage'),
   ('admin',           'platform.analytics'),
   ('admin',           'finance.view'),
+  -- Added by Module 9. This seed is rebuilt on every run of this file, so the
+  -- Module 9 rows have to live here too or re-running this one would delete
+  -- them. 20260904210000_security_audit_and_compliance.sql adds the same rows
+  -- idempotently for a database where that file runs after this one.
+  ('admin',           'security.audit.view'),
+  ('admin',           'security.flags.manage'),
 
   -- ── financial_admin ── the treasury lane. Moves real money; sees no
   --    disputes, no tickets, no evidence. Lateral to admin, not below it.
@@ -92,6 +98,7 @@ INSERT INTO public.role_capabilities (role, capability) VALUES
   ('financial_admin', 'finance.payouts'),
   ('financial_admin', 'finance.treasury'),
   ('financial_admin', 'finance.wallet_adjust'),
+  ('financial_admin', 'security.audit.view'),   -- Module 9
 
   -- ── super_admin ── the union of both lanes, and the only role that can
   --    grant a privileged role. Someone has to be able to appoint the first
@@ -110,7 +117,13 @@ INSERT INTO public.role_capabilities (role, capability) VALUES
   ('super_admin',     'finance.view'),
   ('super_admin',     'finance.payouts'),
   ('super_admin',     'finance.treasury'),
-  ('super_admin',     'finance.wallet_adjust');
+  ('super_admin',     'finance.wallet_adjust'),
+  -- Module 9. 'security.settings' is super_admin ONLY: it is the power to turn
+  -- jurisdiction enforcement and the 2FA requirement back off, so it must not
+  -- sit on the same role as the actions those controls exist to restrain.
+  ('super_admin',     'security.audit.view'),
+  ('super_admin',     'security.flags.manage'),
+  ('super_admin',     'security.settings');
 
 
 -- ---------------------------------------------------------------------------

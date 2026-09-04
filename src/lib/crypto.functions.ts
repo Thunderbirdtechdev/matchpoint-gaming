@@ -138,6 +138,11 @@ export const requestCryptoPayout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => RequestPayoutSchema.parse(d))
   .handler(async ({ data, context }) => {
+    // Module 9 compliance gate. Ships as a no-op unless an operator has switched
+    // enforcement on in /security — see src/lib/compliance.server.ts.
+    const { assertMoneyEligible } = await import("@/lib/compliance.server");
+    await assertMoneyEligible(context.userId);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const network = networkFor(data.currency);
 

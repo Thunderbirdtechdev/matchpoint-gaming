@@ -170,6 +170,11 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => DepositSchema.parse(d))
   .handler(async ({ data, context }) => {
+    // Module 9 compliance gate. Ships as a no-op unless an operator has switched
+    // enforcement on in /security — see src/lib/compliance.server.ts.
+    const { assertMoneyEligible } = await import("@/lib/compliance.server");
+    await assertMoneyEligible(context.userId);
+
     const { getStripe } = await import("@/lib/stripe.server");
     const stripe = getStripe();
     const base = origin();
@@ -277,6 +282,11 @@ export const createCashout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => CashoutSchema.parse(d))
   .handler(async ({ data, context }) => {
+    // Module 9 compliance gate. Ships as a no-op unless an operator has switched
+    // enforcement on in /security — see src/lib/compliance.server.ts.
+    const { assertMoneyEligible } = await import("@/lib/compliance.server");
+    await assertMoneyEligible(context.userId);
+
     const { getStripe } = await import("@/lib/stripe.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { calculateWithdrawalFee } = await import("./fees");
