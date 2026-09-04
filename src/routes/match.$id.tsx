@@ -26,7 +26,28 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 
 export const Route = createFileRoute("/match/$id")({
-  head: () => ({ meta: [{ title: "Match — MatchPoint" }] }),
+  /*
+   * Module 11. These are the pages players actually share — "come play me" is
+   * a link to a match lobby — and they were shipping with a generic title, no
+   * description and no canonical, so every match unfurled identically in a
+   * chat app. The player-profile route already had the right shape; this
+   * matches it.
+   *
+   * The id is all that is available at head time (the lobby data is fetched in
+   * the component), so the copy is written to be true without it.
+   */
+  head: ({ params }) => ({
+    meta: [
+      { title: "Match — MatchPoint" },
+      {
+        name: "description",
+        content: "Follow this 1v1 match on MatchPoint — stake, players and result.",
+      },
+      { property: "og:title", content: "A match on MatchPoint" },
+      { property: "og:url", content: `https://matchpointgaming.org/match/${params.id}` },
+    ],
+    links: [{ rel: "canonical", href: `https://matchpointgaming.org/match/${params.id}` }],
+  }),
   component: MatchLobby,
 });
 

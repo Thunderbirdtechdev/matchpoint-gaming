@@ -26,7 +26,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BackgroundPattern } from "@/components/ui/tailwind-css-background-snippet";
 
 export const Route = createFileRoute("/tournament/$id")({
-  head: () => ({ meta: [{ title: "Tournament — MatchPoint" }] }),
+  /* Module 11 — see the note on match.$id; same gap, same fix. */
+  head: ({ params }) => ({
+    meta: [
+      { title: "Tournament — MatchPoint" },
+      {
+        name: "description",
+        content: "Bracket, entrants and prize pool for this MatchPoint tournament.",
+      },
+      { property: "og:title", content: "A tournament on MatchPoint" },
+      { property: "og:url", content: `https://matchpointgaming.org/tournament/${params.id}` },
+    ],
+    links: [{ rel: "canonical", href: `https://matchpointgaming.org/tournament/${params.id}` }],
+  }),
   component: TournamentLobby,
 });
 
