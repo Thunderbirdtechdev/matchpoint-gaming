@@ -1,23 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  Trophy,
-  LayoutDashboard,
-  Swords,
-  Users,
-  Wallet,
-  ShieldAlert,
-  User as UserIcon,
-  ShieldCheck,
-  BarChart3,
-  LogOut,
-  Gamepad2,
-  Banknote,
-  LifeBuoy,
-  LineChart,
-  FileClock,
-  Menu,
-} from "lucide-react";
+import { Banknote, BarChart3, FileClock, Gamepad2, LayoutDashboard, LifeBuoy, LineChart, LogOut, Menu, ShieldAlert, ShieldCheck, Store, Swords, Trophy, User as UserIcon, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useRoles } from "@/hooks/use-roles";
 import { ROLE_LABELS, type Capability } from "@/lib/roles";
@@ -33,6 +16,9 @@ const nav = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/challenges", label: "Challenges", icon: Swords },
   { to: "/my-tournaments", label: "Tournaments", icon: Trophy },
+  // `/marketplace` existed from the start but was never in this list, so the
+  // only way to reach the open-challenge board was to know the URL.
+  { to: "/marketplace", label: "Marketplace", icon: Store },
   { to: "/community", label: "Community", icon: Users },
   { to: "/wallet", label: "Wallet", icon: Wallet },
   { to: "/dispute-center", label: "Disputes", icon: ShieldAlert },

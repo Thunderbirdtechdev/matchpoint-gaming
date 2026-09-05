@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site/SiteShell";
 import { PageHeader } from "@/components/site/PageHeader";
+import { OffPlatformNotice } from "@/components/safety/OffPlatformNotice";
 import { CTA } from "@/components/site/CTA";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -288,6 +289,10 @@ function MarketplacePage() {
       />
 
       <section className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 md:py-20">
+        {/* This is where a player first deals with a stranger, so it is where
+            the escrow warning belongs — before they accept, not after. */}
+        <OffPlatformNotice className="mb-8" />
+
         {/* Tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as ListingKind)}>
           <TabsList className="h-auto bg-surface/50 p-1">
