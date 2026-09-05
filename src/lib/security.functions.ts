@@ -155,6 +155,50 @@ export const updateSecuritySetting = createServerFn({ method: "POST" })
     await requireCapability(context, "security.settings");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    /**
+     * Refuse to arm the treasury gate while nobody can pass it.
+     *
+     * `require_mfa_for_treasury` gates Stripe sweeps, company withdrawals,
+     * wallet credits AND privileged role grants. Turning it on with no enrolled
+     * super admin therefore removes the ability to appoint anyone at the same
+     * moment it removes the ability to move money — including from the person
+     * who just turned it on, as soon as their session ends. The warning under
+     * the switch said so and was not enough; someone read it as the button that
+     * SETS UP two-factor.
+     *
+     * Checked against super_admin specifically, because that is the only role
+     * that can grant a privileged role and so the only one whose lockout has no
+     * way back through the UI.
+     */
+    if (data.key === "require_mfa_for_treasury" && data.value === true) {
+      const { data: supers, error: rolesErr } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "super_admin");
+      if (rolesErr) throw new Error(rolesErr.message);
+
+      const ids = Array.from(new Set((supers ?? []).map((r: { user_id: string }) => r.user_id)));
+      let enrolled = 0;
+      if (ids.length) {
+        const { data: rows, error: mfaErr } = await supabaseAdmin.rpc(
+          "admin_mfa_status" as never,
+          { _user_ids: ids } as never,
+        );
+        if (mfaErr) throw new Error(mfaErr.message);
+        enrolled = ((rows ?? []) as { verified_count: number }[]).filter(
+          (r) => Number(r.verified_count) > 0,
+        ).length;
+      }
+
+      if (enrolled === 0) {
+        throw new Error(
+          "No super admin has enrolled a second factor yet. Turning this on now would block every " +
+            "treasury action and every role grant, with no way back through the app. Enrol from " +
+            "Profile → Security first, then switch this on.",
+        );
+      }
+    }
+
     const { data: before } = await supabaseAdmin
       .from("security_settings")
       .select("value")

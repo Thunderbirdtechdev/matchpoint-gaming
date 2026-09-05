@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/site/AuthShell";
+import { MfaChallenge } from "@/components/security/MfaChallenge";
+import { needsMfaChallenge } from "@/lib/mfa";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
@@ -25,19 +27,72 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [challenge, setChallenge] = useState(false);
 
+  /**
+   * The redirect has to yield to a pending challenge. `signInWithPassword`
+   * populates `user` at AAL1, so without this guard the effect fires and
+   * navigates away before the code can be entered — which is the bug that made
+   * two-factor unenforceable in the first place.
+   *
+   * `user && !challenge` also covers arriving here with a session already in
+   * hand: the check below runs first and only sets `challenge` when one is
+   * genuinely owed, so an already-elevated session redirects as it always did.
+   */
   useEffect(() => {
-    if (user) navigate({ to: "/dashboard" });
-  }, [user, navigate]);
+    if (user && !challenge) navigate({ to: "/dashboard" });
+  }, [user, challenge, navigate]);
+
+  /**
+   * Resume rather than skip. A reload during the challenge leaves a valid AAL1
+   * session behind, and without this the page would treat it as done.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) return;
+    void needsMfaChallenge().then((owed) => {
+      if (!cancelled && owed) setChallenge(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setLoading(false);
+      return toast.error(error.message);
+    }
+
+    // Ask before celebrating. An account with a factor is not finished signing
+    // in yet, and "Signed in" followed by a code prompt reads as a failure.
+    const owed = await needsMfaChallenge();
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (owed) return setChallenge(true);
+
     toast.success("Signed in");
     navigate({ to: "/dashboard" });
+  }
+
+  if (challenge) {
+    return (
+      <AuthShell title="One more step" subtitle="Enter the code from your authenticator app.">
+        <MfaChallenge
+          onVerified={() => {
+            toast.success("Signed in");
+            setChallenge(false);
+            navigate({ to: "/dashboard" });
+          }}
+          onCancel={() => {
+            setChallenge(false);
+            navigate({ to: "/dashboard" });
+          }}
+        />
+      </AuthShell>
+    );
   }
 
   return (
