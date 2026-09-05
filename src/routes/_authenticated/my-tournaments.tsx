@@ -181,7 +181,7 @@ function MyTournamentsPage() {
               </div>
               <div className="space-y-2"><Label>Platform</Label><Input value={form.platform} onChange={(e) => setForm({ ...form, platform: e.target.value })} /></div>
               <div className="space-y-2"><Label>Max players</Label><Input type="number" value={form.max_players} onChange={(e) => setForm({ ...form, max_players: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Entry fee ($)</Label><Input type="number" value={form.entry_fee} onChange={(e) => setForm({ ...form, entry_fee: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Entry fee (USD, min ${MIN_ENTRY_USD})</Label><Input type="number" min={MIN_ENTRY_USD} value={form.entry_fee} onChange={(e) => setForm({ ...form, entry_fee: e.target.value })} /></div>
               <div className="space-y-2"><Label>Prize pool ($)</Label><Input type="number" value={form.prize_pool} onChange={(e) => setForm({ ...form, prize_pool: e.target.value })} /></div>
               <div className="space-y-2"><Label>Starts at</Label><Input type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} /></div>
             </div>

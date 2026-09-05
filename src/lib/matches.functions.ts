@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { calculateChallengeFee, calculateTournamentFee, calculateFee } from "./fees";
+import { calculateChallengeFee, calculateTournamentFee, calculateFee, MIN_ENTRY_USD } from "./fees";
 import { can, requireCapability } from "@/lib/authz";
 
 const toCents = (usd: number) => Math.round(Number(usd || 0) * 100);
@@ -23,11 +23,13 @@ const CreateTournamentSchema = z
     game_slug: z.string().min(1),
     platform: z.string().trim().min(1).max(100),
     max_players: z.number().int().min(2).max(256),
+    // $10 is the platform floor, set by the client. It had been three different
+    // numbers at once: the form advertised $10, this allowed $0 or $5+, and
+    // nothing stopped a $0 entry reaching the database.
     entry_fee: z
       .number()
-      .min(0)
-      .max(5000)
-      .refine((v) => v === 0 || v >= 5, { message: "Entry fee must be $0 (free) or at least $5" }),
+      .min(MIN_ENTRY_USD, { message: `Entry fee must be at least $${MIN_ENTRY_USD}` })
+      .max(5000),
     prize_pool: z.number().min(0).max(500_000).optional().default(0),
     starts_at: z
       .string()
@@ -143,9 +145,10 @@ export const joinTournament = createServerFn({ method: "POST" })
 
     const entryCents = toCents(Number(t.entry_fee));
 
-    // Module 9 compliance gate — money at stake only. A free match is not a
-    // money movement, and blocking one would punish an ineligible account for
-    // something that costs it nothing.
+    // Module 9 compliance gate — money at stake only. Nothing free can be
+    // created any more, but rows that predate the floor still exist, and a $0
+    // entry is not a money movement: blocking one would punish an ineligible
+    // account for something that costs it nothing.
     if (entryCents > 0) {
       const { assertMoneyEligible } = await import("@/lib/compliance.server");
       await assertMoneyEligible(context.userId);
@@ -484,9 +487,8 @@ export const createChallenge = createServerFn({ method: "POST" })
         platform: z.string().min(1),
         entry_amount: z
           .number()
-          .min(0)
-          .max(5000)
-          .refine((v) => v === 0 || v >= 5, { message: "Entry must be $0 (free) or at least $5" }),
+          .min(MIN_ENTRY_USD, { message: `Entry must be at least $${MIN_ENTRY_USD}` })
+          .max(5000),
         rules: z.string().max(2000).optional().default(""),
         /*
          * Optional. A username or account email. When present the challenge is
@@ -536,9 +538,10 @@ export const createChallenge = createServerFn({ method: "POST" })
       }
     }
 
-    // Module 9 compliance gate — money at stake only. A free match is not a
-    // money movement, and blocking one would punish an ineligible account for
-    // something that costs it nothing.
+    // Module 9 compliance gate — money at stake only. Nothing free can be
+    // created any more, but rows that predate the floor still exist, and a $0
+    // entry is not a money movement: blocking one would punish an ineligible
+    // account for something that costs it nothing.
     if (entryCents > 0) {
       const { assertMoneyEligible } = await import("@/lib/compliance.server");
       await assertMoneyEligible(context.userId);
@@ -628,9 +631,10 @@ export const acceptChallenge = createServerFn({ method: "POST" })
 
     const entryCents = toCents(Number(ch.entry_amount));
 
-    // Module 9 compliance gate — money at stake only. A free match is not a
-    // money movement, and blocking one would punish an ineligible account for
-    // something that costs it nothing.
+    // Module 9 compliance gate — money at stake only. Nothing free can be
+    // created any more, but rows that predate the floor still exist, and a $0
+    // entry is not a money movement: blocking one would punish an ineligible
+    // account for something that costs it nothing.
     if (entryCents > 0) {
       const { assertMoneyEligible } = await import("@/lib/compliance.server");
       await assertMoneyEligible(context.userId);
