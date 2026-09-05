@@ -1157,7 +1157,7 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
       .eq("id", dispute.challenge_id!)
       .single();
     if (!ch) throw new Error("Challenge not found.");
-    if (ch.status === "settled") throw new Error("That match is already settled.");
+    if (ch.status === "completed") throw new Error("That match is already settled.");
 
     const result = await settleChallenge(
       supabaseAdmin,

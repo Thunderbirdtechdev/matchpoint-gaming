@@ -236,7 +236,7 @@ function MatchLobby() {
                 <StatusLabel>Under review</StatusLabel>
               </Status>
             )}
-            {challenge.status === "settled" && <Status variant="success">Settled</Status>}
+            {challenge.status === "completed" && <Status variant="success">Settled</Status>}
             {challenge.status === "active" && <Status variant="info">In progress</Status>}
           </div>
 
@@ -398,7 +398,7 @@ function MatchLobby() {
           <EvidenceUpload
             userId={user.id}
             challengeId={id}
-            canUpload={challenge.status !== "settled"}
+            canUpload={challenge.status !== "completed"}
           />
         )}
       </section>
