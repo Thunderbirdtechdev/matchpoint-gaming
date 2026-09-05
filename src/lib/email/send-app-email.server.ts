@@ -2,7 +2,7 @@ import * as React from 'react'
 import { render } from '@react-email/render'
 import { TEMPLATES } from '@/lib/email-templates/registry'
 
-const SITE_NAME = 'matchpoint-gaming'
+const SITE_NAME = 'MatchPoint'
 const SENDER_DOMAIN = 'notify.matchpointgaming.org'
 const FROM_DOMAIN = 'matchpointgaming.org'
 
