@@ -178,3 +178,57 @@ export async function assertMfaForSensitiveAction(context: {
   const aal = context?.claims?.aal;
   if (aal !== "aal2") throw new MfaRequiredError();
 }
+
+/**
+ * Deposited money has to be played before it can be taken out.
+ *
+ * Kevin's decision, and the reasoning is arithmetic. Stripe charges
+ * 2.9% + 30¢, so a $10 deposit costs the platform 59¢ before anyone has
+ * played anything. That is recovered comfortably by the match fee — a $20 pool
+ * returns $2 — but only if the money is actually staked. Deposit, withdraw,
+ * repeat is a straight loss on every cycle, and it is also the exact shape of
+ * moving money through a platform for reasons that have nothing to do with
+ * gaming, which is a problem worth avoiding for more than the 59¢.
+ *
+ * The bar is deliberately low: ONE stake, ever. Not one settled match, not a
+ * proportion of the balance played. Someone who deposits, stakes $10 and wins
+ * should be able to take their winnings out immediately, and a rule that made
+ * them wait would punish the players the platform wants.
+ *
+ * `escrow_holds` is the right table to ask. A row appears the moment a stake
+ * is debited for a challenge or a tournament, and settlement UPDATES its status
+ * rather than deleting it, so the record survives. Status is not filtered on
+ * purpose — a released, refunded or still-held stake all mean the same thing
+ * here, which is that this person came to play.
+ *
+ * A free match leaves no hold and so does not count. Entry is $10 minimum now,
+ * so that only affects rows created before that floor existed.
+ */
+export class MustPlayFirstError extends Error {
+  readonly code = "must_play_first";
+  constructor(
+    message = "Play a match before withdrawing. Your balance becomes available to cash out once you've staked in at least one challenge or tournament.",
+  ) {
+    super(message);
+    this.name = "MustPlayFirstError";
+  }
+}
+
+export async function assertHasPlayed(userId: string): Promise<void> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("escrow_holds")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1);
+
+  // Fail OPEN on a database error. A withdrawal is a player asking for their
+  // own money; refusing it because a check could not run is the wrong way to
+  // be wrong, and the balance itself is still verified downstream.
+  if (error) {
+    console.error("[MUST-PLAY] check failed, allowing withdrawal", error);
+    return;
+  }
+
+  if (!data?.length) throw new MustPlayFirstError();
+}

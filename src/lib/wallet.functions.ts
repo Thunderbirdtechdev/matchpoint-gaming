@@ -70,6 +70,21 @@ export const getMyWallet = createServerFn({ method: "GET" })
 
     const escrowCents = (holds ?? []).reduce((sum, h) => sum + Number(h.amount_cents ?? 0), 0);
 
+    /*
+     * Has this player ever staked anything?
+     *
+     * `holds` above is filtered to status='held' because it answers "what is
+     * locked right now". This asks a different question — "have they ever
+     * played" — so it counts every hold regardless of status, the same way
+     * `assertHasPlayed` does on the server. The wallet page uses it to explain
+     * a locked cash-out rather than letting the player discover the rule by
+     * being refused.
+     */
+    const { count: playedCount } = await supabaseAdmin
+      .from("escrow_holds")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId);
+
     // Deposits that Stripe has not confirmed yet: real money in flight, but not
     // spendable, so it must not be folded into either of the other two numbers.
     const { data: pendingRows } = await supabaseAdmin
@@ -91,6 +106,8 @@ export const getMyWallet = createServerFn({ method: "GET" })
       connect: connect ?? null,
       paypal_email: payout?.paypal_email ?? null,
       cashapp_tag: payout?.cashapp_tag ?? null,
+      /** False until they have staked in a challenge or tournament. */
+      has_played: (playedCount ?? 0) > 0,
       balances: {
         available_cents: availableCents,
         escrow_cents: escrowCents,
@@ -327,8 +344,12 @@ export const createCashout = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     // Module 9 compliance gate. Ships as a no-op unless an operator has switched
     // enforcement on in /security — see src/lib/compliance.server.ts.
-    const { assertMoneyEligible } = await import("@/lib/compliance.server");
+    const { assertMoneyEligible, assertHasPlayed } = await import("@/lib/compliance.server");
     await assertMoneyEligible(context.userId);
+    // Kevin's rule: deposited money has to be staked once before it can leave.
+    // Applied on every withdrawal path, because a rule enforced on one of three
+    // is not a rule, it is a detour.
+    await assertHasPlayed(context.userId);
 
     const { getStripe } = await import("@/lib/stripe.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

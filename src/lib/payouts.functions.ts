@@ -57,8 +57,12 @@ export const requestManualPayout = createServerFn({ method: "POST" })
 
     // Module 9 compliance gate. Ships as a no-op unless an operator has switched
     // enforcement on in /security — see src/lib/compliance.server.ts.
-    const { assertMoneyEligible } = await import("@/lib/compliance.server");
+    const { assertMoneyEligible, assertHasPlayed } = await import("@/lib/compliance.server");
     await assertMoneyEligible(context.userId);
+    // Kevin's rule: deposited money has to be staked once before it can leave.
+    // Applied on every withdrawal path, because a rule enforced on one of three
+    // is not a rule, it is a detour.
+    await assertHasPlayed(context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

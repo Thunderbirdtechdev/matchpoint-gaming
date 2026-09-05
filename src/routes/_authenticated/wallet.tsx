@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useSearch, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
@@ -20,6 +20,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   ExternalLink,
+  Swords,
   Loader2,
   Landmark,
   Zap,
@@ -164,6 +165,7 @@ function WalletPage() {
 
   const balance = data?.wallet?.balance_cents ?? 0;
   const payoutsEnabled = !!data?.connect?.payouts_enabled;
+  const hasPlayed = data?.has_played !== false;
 
   return (
     <DashboardShell title="Wallet" subtitle="Deposit, track winnings, and cash out.">
@@ -229,7 +231,27 @@ function WalletPage() {
           <ArrowUpCircle className="h-4 w-4" /> Cash out
         </div>
 
-        {!payoutsEnabled ? (
+        {!hasPlayed ? (
+          /* Explained here rather than discovered by being refused. The rule is
+             Kevin's: card processing costs the platform ~59c on a $10 deposit,
+             which the match fee recovers only if the money is actually staked. */
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <Swords className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div className="text-xs leading-relaxed">
+              <p className="font-semibold text-foreground">Play a match first</p>
+              <p className="mt-1 text-muted-foreground">
+                Your balance becomes available to cash out once you've staked in at least one
+                challenge or tournament. Winnings can be withdrawn straight after.
+              </p>
+              <Link
+                to="/marketplace"
+                className="mt-2 inline-block font-medium text-foreground underline underline-offset-2"
+              >
+                Find a match
+              </Link>
+            </div>
+          </div>
+        ) : !payoutsEnabled ? (
           <>
             <p className="mt-2 text-xs text-muted-foreground">
               Connect a bank account to cash out, a quick, secure setup through Stripe (the same
