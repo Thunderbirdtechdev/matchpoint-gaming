@@ -28,8 +28,32 @@ export function getStripe(): Stripe {
   return _stripe;
 }
 
+/**
+ * Every signing secret this app will accept.
+ *
+ * Connect forces two webhook destinations, not one. Stripe routes events by
+ * scope: `checkout.session.completed` and the payout events belong to the
+ * platform account, while `account.updated` — the only thing that tells us a
+ * player finished onboarding — is a CONNECTED account event and is delivered
+ * to a separate destination. Two destinations mean two signing secrets, and a
+ * verifier that knows only one silently 400s half its traffic.
+ *
+ * Order matters only for cost: the platform secret is tried first because it
+ * carries almost all the volume.
+ */
+export function getWebhookSecrets(): string[] {
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_CONNECT,
+  ]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean);
+
+  if (!secrets.length) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
+  return secrets;
+}
+
+/** @deprecated Use {@link getWebhookSecrets}. Kept so a single-secret caller still works. */
 export function getWebhookSecret(): string {
-  const s = (process.env.STRIPE_WEBHOOK_SECRET ?? "").trim();
-  if (!s) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
-  return s;
+  return getWebhookSecrets()[0];
 }

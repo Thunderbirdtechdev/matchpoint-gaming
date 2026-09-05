@@ -5,7 +5,7 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { getStripe, getWebhookSecret } = await import("@/lib/stripe.server");
+        const { getStripe, getWebhookSecrets } = await import("@/lib/stripe.server");
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         const sig = request.headers.get("stripe-signature");
@@ -14,11 +14,25 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
         const raw = await request.text();
         const stripe = getStripe();
 
-        let event: Stripe.Event;
-        try {
-          event = await stripe.webhooks.constructEventAsync(raw, sig, getWebhookSecret());
-        } catch (err) {
-          console.error("[stripe-webhook] signature verification failed", err);
+        /*
+         * Try every configured secret. Connect needs two webhook destinations —
+         * one for the platform, one for connected accounts — and a request is
+         * signed by whichever destination sent it. There is no way to tell them
+         * apart before verifying, so the only correct check is "does ANY of our
+         * secrets verify this?".
+         */
+        let event: Stripe.Event | null = null;
+        let lastErr: unknown = null;
+        for (const secret of getWebhookSecrets()) {
+          try {
+            event = await stripe.webhooks.constructEventAsync(raw, sig, secret);
+            break;
+          } catch (err) {
+            lastErr = err;
+          }
+        }
+        if (!event) {
+          console.error("[stripe-webhook] signature verification failed", lastErr);
           return new Response("Invalid signature", { status: 400 });
         }
 
