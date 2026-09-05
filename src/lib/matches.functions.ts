@@ -168,14 +168,14 @@ export const joinTournament = createServerFn({ method: "POST" })
     if (eErr) throw eErr;
 
     try {
-      const { notifyUser, usd, notifyKey } = await import("@/lib/email/notify.server");
+      const { notifyUser, usd, notifyKey, gameLabel } = await import("@/lib/email/notify.server");
       await notifyUser(
         context.userId,
         "tournament-update",
         {
           status: "joined",
           tournamentName: t.title,
-          game: t.game_slug,
+          game: gameLabel(t.game_slug),
           entryFormatted: usd(entryCents),
           startsAt: t.starts_at ? new Date(t.starts_at).toUTCString() : null,
           tournamentId: t.id,
@@ -367,7 +367,7 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
     // Mailing every entrant "the tournament ended" would be a notification
     // about someone else's win, and the players who lost already know.
     try {
-      const { notifyUser, usd, notifyKey } = await import("@/lib/email/notify.server");
+      const { notifyUser, usd, notifyKey, gameLabel } = await import("@/lib/email/notify.server");
       for (const w of data.winners) {
         const amt = placeAmounts.get(w.place) ?? 0;
         if (amt <= 0) continue;
@@ -377,7 +377,7 @@ export const declareTournamentWinner = createServerFn({ method: "POST" })
           {
             status: "placed",
             tournamentName: t.title,
-            game: t.game_slug,
+            game: gameLabel(t.game_slug),
             place: w.place,
             amountFormatted: usd(amt),
             tournamentId: t.id,
@@ -448,7 +448,7 @@ export const cancelTournament = createServerFn({ method: "POST" })
     // the worst, and the refund has already happened above — the email exists
     // to say so before they open a ticket about it.
     try {
-      const { notifyUser, usd, notifyKey } = await import("@/lib/email/notify.server");
+      const { notifyUser, usd, notifyKey, gameLabel } = await import("@/lib/email/notify.server");
       for (const h of holds ?? []) {
         await notifyUser(
           h.user_id,
@@ -456,7 +456,7 @@ export const cancelTournament = createServerFn({ method: "POST" })
           {
             status: "canceled",
             tournamentName: t.title,
-            game: t.game_slug,
+            game: gameLabel(t.game_slug),
             amountFormatted: usd(Number(h.amount_cents ?? 0)),
             tournamentId: t.id,
           },
@@ -577,7 +577,7 @@ export const createChallenge = createServerFn({ method: "POST" })
     // one specific person is close to not having sent it.
     if (invitedUserId) {
       try {
-        const { notifyUser, displayNameFor, usd, notifyKey } =
+        const { notifyUser, displayNameFor, usd, notifyKey, gameLabel } =
           await import("@/lib/email/notify.server");
         await notifyUser(
           invitedUserId,
@@ -585,7 +585,7 @@ export const createChallenge = createServerFn({ method: "POST" })
           {
             status: "invited",
             opponent: await displayNameFor(supabaseAdmin, context.userId),
-            game: data.game_slug,
+            game: gameLabel(data.game_slug),
             platform: data.platform,
             stakeFormatted: usd(entryCents),
             challengeId: ch.id,
@@ -657,7 +657,7 @@ export const acceptChallenge = createServerFn({ method: "POST" })
     // screen that just told them it worked, and an email confirming an action
     // someone took two seconds ago is noise.
     try {
-      const { notifyUser, displayNameFor, usd, notifyKey } =
+      const { notifyUser, displayNameFor, usd, notifyKey, gameLabel } =
         await import("@/lib/email/notify.server");
       await notifyUser(
         ch.creator_id,
@@ -665,7 +665,7 @@ export const acceptChallenge = createServerFn({ method: "POST" })
         {
           status: "accepted",
           opponent: await displayNameFor(supabaseAdmin, context.userId),
-          game: ch.game_slug,
+          game: gameLabel(ch.game_slug),
           platform: ch.platform,
           stakeFormatted: usd(entryCents),
           challengeId: ch.id,
@@ -825,7 +825,7 @@ export const reportChallengeResult = createServerFn({ method: "POST" })
     // the mismatch. Their stake is frozen either way, and finding that out by
     // noticing a missing balance is how a dispute becomes a support ticket.
     try {
-      const { notifyUser, displayNameFor, usd, notifyKey } =
+      const { notifyUser, displayNameFor, usd, notifyKey, gameLabel } =
         await import("@/lib/email/notify.server");
       const stake = usd(toCents(Number(ch.entry_amount)));
       for (const [uid, otherId] of [
@@ -839,7 +839,7 @@ export const reportChallengeResult = createServerFn({ method: "POST" })
           {
             status: "disputed",
             opponent: otherId ? await displayNameFor(supabaseAdmin, otherId) : null,
-            game: ch.game_slug,
+            game: gameLabel(ch.game_slug),
             platform: ch.platform,
             stakeFormatted: stake,
             challengeId: ch.id,
@@ -995,7 +995,7 @@ async function settleChallenge(
    */
   const loserId = ch.creator_id === winnerId ? ch.opponent_id : ch.creator_id;
   try {
-    const { notifyUser, displayNameFor, usd, notifyKey } =
+    const { notifyUser, displayNameFor, usd, notifyKey, gameLabel } =
       await import("@/lib/email/notify.server");
     const [winnerName, loserName] = await Promise.all([
       displayNameFor(supabaseAdmin, winnerId),
@@ -1010,7 +1010,7 @@ async function settleChallenge(
       {
         status: "settled_won",
         opponent: loserName,
-        game: ch.game_slug,
+        game: gameLabel(ch.game_slug),
         platform: ch.platform,
         stakeFormatted: stake,
         payoutFormatted: usd(netCents),
@@ -1027,7 +1027,7 @@ async function settleChallenge(
         {
           status: "settled_lost",
           opponent: winnerName,
-          game: ch.game_slug,
+          game: gameLabel(ch.game_slug),
           platform: ch.platform,
           stakeFormatted: stake,
           challengeId: ch.id,

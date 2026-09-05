@@ -17,6 +17,8 @@
  * reasoning as the audit writer in Module 9.
  */
 
+import { GAME_LABELS } from "@/lib/fees";
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
@@ -151,5 +153,21 @@ export function usd(cents: number | null | undefined): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
     (cents ?? 0) / 100,
   );
+}
+
+/**
+ * The game's name, not its database key.
+ *
+ * Every notification was passing `game_slug` straight into the template, so
+ * players were reading "Game: fortnite" and "Game: mlbshow" in their email
+ * while every screen in the app said "Fortnite" and "MLB The Show 26". The
+ * labels already existed; the email path just never reached for them.
+ *
+ * Falls back to the slug rather than to an empty string: an unrecognised game
+ * is still better named badly than not at all.
+ */
+export function gameLabel(slug: string | null | undefined): string {
+  if (!slug) return "";
+  return (GAME_LABELS as Record<string, string>)[slug] ?? slug;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
