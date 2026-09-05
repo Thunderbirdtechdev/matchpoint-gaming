@@ -225,11 +225,32 @@ export const Route = createFileRoute("/lovable/email/queue/process")({
             }
 
             try {
+              // A RETRY NEEDS A FRESH IDEMPOTENCY KEY.
+              //
+              // The provider is explicit about it: a second attempt under the
+              // key of a send that already failed comes back
+              // `409 run_failed: "This email send already failed. Send again
+              // with a new idempotency key."` — so every retry after a real
+              // failure was answered with 409 rather than being attempted, all
+              // five were spent on it, and the DLQ recorded "Max retries
+              // exceeded" instead of the error that actually caused it. The
+              // first failure is the only honest line in that ladder.
+              //
+              // Suffixing with the attempt number keeps the guarantee that
+              // matters — a message re-read from the queue after its visibility
+              // timeout expired mid-send still carries attempt 0's key, so the
+              // duplicate is still refused — while letting a genuine retry
+              // through.
+              const attemptPayload =
+                failedAttempts > 0 && payload.idempotency_key
+                  ? { ...payload, idempotency_key: `${payload.idempotency_key}:r${failedAttempts}` }
+                  : payload
+
               // 12.7: Resend when RESEND_API_KEY is set, the original transport
               // otherwise. Everything around this line — the queue read, the
               // duplicate check, the retry ladder, the DLQ, the rate-limit
               // cooldown — is provider-agnostic and did not change.
-              const { provider } = await sendEmail(payload)
+              const { provider } = await sendEmail(attemptPayload)
 
               // Log success. `provider` is recorded so a deliverability problem
               // after the cutover can be tied to the transport that sent it;

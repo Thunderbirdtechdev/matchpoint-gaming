@@ -38,6 +38,23 @@ export async function enqueueAppEmail(opts: {
   const messageId = crypto.randomUUID()
   const idempotencyKey = opts.idempotencyKey ?? messageId
 
+  // REQUIRED, not optional. The provider rejects a transactional send with no
+  // unsubscribe token (400 missing_unsubscribe), so every notification this
+  // helper enqueued was refused on arrival until this was added. Enqueuing a
+  // message that cannot be accepted only buys five retries and a DLQ row.
+  const { getOrCreateUnsubscribeToken } = await import('@/lib/email/unsubscribe.server')
+  const unsubscribeToken = await getOrCreateUnsubscribeToken(supabaseAdmin, normalizedEmail)
+  if (!unsubscribeToken) {
+    await supabaseAdmin.from('email_send_log').insert({
+      message_id: messageId,
+      template_name: templateName,
+      recipient_email: effectiveRecipient,
+      status: 'failed',
+      error_message: 'Could not obtain an unsubscribe token',
+    })
+    return { ok: false, error: 'unsubscribe_token_unavailable' }
+  }
+
   const element = React.createElement(template.component, templateData)
   const html = await render(element)
   const plainText = await render(element, { plainText: true })
@@ -66,6 +83,7 @@ export async function enqueueAppEmail(opts: {
       purpose: 'transactional',
       label: templateName,
       idempotency_key: idempotencyKey,
+      unsubscribe_token: unsubscribeToken,
       queued_at: new Date().toISOString(),
     },
   } as never)
