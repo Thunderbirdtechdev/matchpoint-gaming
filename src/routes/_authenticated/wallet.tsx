@@ -19,6 +19,7 @@ import {
   Wallet,
   ArrowDownCircle,
   ArrowUpCircle,
+  ExternalLink,
   Loader2,
   Landmark,
   Zap,
@@ -33,6 +34,7 @@ import {
   getMyWallet,
   createDepositCheckout,
   createConnectOnboarding,
+  createConnectDashboardLink,
   createCashout,
 } from "@/lib/wallet.functions";
 import { redeemPromoCode, getMyReferralInfo } from "@/lib/promo.functions";
@@ -61,6 +63,7 @@ function WalletPage() {
   const fetchWallet = useServerFn(getMyWallet);
   const deposit = useServerFn(createDepositCheckout);
   const connectOnboarding = useServerFn(createConnectOnboarding);
+  const dashboardLink = useServerFn(createConnectDashboardLink);
   const cashout = useServerFn(createCashout);
   const redeemPromo = useServerFn(redeemPromoCode);
   const fetchReferralInfo = useServerFn(getMyReferralInfo);
@@ -110,6 +113,16 @@ function WalletPage() {
       if (url) window.location.href = url;
     },
     onError: (e: Error) => toast.error(e.message || "Could not start deposit"),
+  });
+
+  const dashboardMut = useMutation({
+    mutationFn: async () => dashboardLink(),
+    onSuccess: (r: { url: string }) => {
+      // Login links are single-use, so this is a redirect rather than a stored
+      // href — a link rendered into the page would be dead by the second click.
+      window.location.href = r.url;
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const connectMut = useMutation({
@@ -252,6 +265,23 @@ function WalletPage() {
               <span className="font-medium text-foreground"> Same-day</span> payouts land in 30
               minutes – 5 hours for a small fee.
             </p>
+
+            {/* Onboarding used to be a one-way door: bank details went to
+                Stripe and nothing linked back. This is where a player changes
+                an account number or checks whether a payout actually landed. */}
+            <button
+              type="button"
+              onClick={() => dashboardMut.mutate()}
+              disabled={dashboardMut.isPending}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground disabled:opacity-60"
+            >
+              {dashboardMut.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ExternalLink className="h-3.5 w-3.5" />
+              )}
+              Manage payout account
+            </button>
 
             {/* Speed selector */}
             <div className="mt-4 grid grid-cols-2 gap-2">

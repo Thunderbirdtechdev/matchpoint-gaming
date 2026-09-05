@@ -273,6 +273,49 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
   });
 
 /**
+ * A one-time link into the player's Stripe Express dashboard.
+ *
+ * Onboarding was a one-way door: a player handed their bank details to Stripe
+ * and then had no route back. Changing an account number, checking whether a
+ * payout actually arrived, or fixing a verification Stripe later asked for —
+ * all of it lived behind a dashboard nothing linked to. The first two are the
+ * ordinary reasons somebody opens a wallet page at all.
+ *
+ * Login links are single-use and short-lived by design, so this is generated on
+ * demand rather than stored. Requires a finished onboarding: Stripe refuses the
+ * link for an account that has not submitted its details, and refusing it here
+ * with a sentence the player can act on beats forwarding Stripe's version.
+ */
+export const createConnectDashboardLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { getStripe } = await import("@/lib/stripe.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: row } = await supabaseAdmin
+      .from("stripe_connect_accounts")
+      .select("stripe_account_id, details_submitted")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    if (!row?.stripe_account_id) {
+      throw new Error("You haven't set up payouts yet.");
+    }
+    if (!row.details_submitted) {
+      throw new Error("Finish setting up payouts first, then you can manage the account here.");
+    }
+
+    const stripe = getStripe();
+    try {
+      const link = await stripe.accounts.createLoginLink(row.stripe_account_id);
+      return { url: link.url };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Couldn't open your payout account: ${msg}`);
+    }
+  });
+
+/**
  * Cash out wallet balance to the user's Stripe Connect account, fully
  * automatically — no admin approval. Applies the same-day/standard fee
  * schedule and transfers the net amount; the fee is recorded on the
