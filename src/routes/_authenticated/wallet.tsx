@@ -188,10 +188,14 @@ function WalletPage() {
             <ArrowDownCircle className="h-4 w-4" /> Deposit funds
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Add money via card. Funds available after payment confirms.
+            Add money via card. Funds available after payment confirms. Minimum $10.
           </p>
+          {/* Card processing is 2.9% + 30c, so the fixed part dominates small
+              deposits: $10 costs 5.9% to take, $50 costs 3.5%. Starting the
+              quick amounts at $25 nudges without blocking anyone — $10 is still
+              accepted, it just has to be typed. */}
           <div className="mt-4 flex gap-2">
-            {[10, 25, 50, 100].map((v) => (
+            {[25, 50, 100].map((v) => (
               <Button
                 key={v}
                 size="sm"
