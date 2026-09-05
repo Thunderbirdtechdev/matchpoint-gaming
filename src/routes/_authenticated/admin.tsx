@@ -1252,7 +1252,19 @@ function RevenueReportsCard() {
   );
 }
 
+/**
+ * Company revenue.
+ *
+ * The card is `finance.view`, but the two controls inside it are
+ * `finance.treasury`. That split is the whole point of the operations/treasury
+ * lanes: an admin is meant to SEE what the platform has collected and MOVE none
+ * of it. `withdrawCompanyFunds` and `stripePayoutToBank` both require
+ * `finance.treasury` on the server, so an admin pressing these was already
+ * refused — but offering a button that always fails is its own bug, and it made
+ * the lane split look broken when it was only leaking at the UI.
+ */
 function CompanyRevenueCard() {
+  const { can } = useRoles();
   const qc = useQueryClient();
   const fetchWallet = useServerFn(getCompanyWallet);
   const fetchRevenue = useServerFn(listCompanyRevenue);
@@ -1303,22 +1315,30 @@ function CompanyRevenueCard() {
         <RevStat label="Lifetime withdrawn" value={fmtUsd(w?.lifetime_withdrawn_cents)} />
       </div>
 
-      <StripePayoutPanel onDone={() => { walletQ.refetch(); wdQ.refetch(); }} />
+      {can("finance.treasury") ? (
+        <>
+          <StripePayoutPanel onDone={() => { walletQ.refetch(); wdQ.refetch(); }} />
 
-      <div className="mt-4 rounded-xl border border-border/50 bg-surface/30 p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Record a manual withdrawal / sweep</p>
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_1fr_auto]">
-          <Input placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <Input placeholder="Destination (bank, PayPal, etc.)" value={dest} onChange={(e) => setDest(e.target.value)} />
-          <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-          <Button variant="outline" onClick={() => m.mutate()} disabled={m.isPending}>
-            {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record"}
-          </Button>
-        </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Ledger-only entry. Use this when you moved funds outside of Stripe.
+          <div className="mt-4 rounded-xl border border-border/50 bg-surface/30 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Record a manual withdrawal / sweep</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_1fr_auto]">
+              <Input placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Input placeholder="Destination (bank, PayPal, etc.)" value={dest} onChange={(e) => setDest(e.target.value)} />
+              <Input placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+              <Button variant="outline" onClick={() => m.mutate()} disabled={m.isPending}>
+                {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record"}
+              </Button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Ledger-only entry. Use this when you moved funds outside of Stripe.
+            </p>
+          </div>
+        </>
+      ) : (
+        <p className="mt-4 rounded-xl border border-border/50 bg-surface/30 p-4 text-xs text-muted-foreground">
+          Moving this money is a treasury action. A financial admin can pay it out to the bank.
         </p>
-      </div>
+      )}
 
       <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border/50 overflow-hidden">
