@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { ChatRoom } from "@/components/chat/ChatRoom";
 import {
   acceptChallenge,
   reportChallengeResult,
@@ -289,6 +290,26 @@ function MatchLobby() {
             isWinner={!!challenge.opponent_id && challenge.winner_id === challenge.opponent_id}
           />
         </div>
+
+        {/* Private room. Opens when the challenge is accepted, because before
+            that there is no second player to talk to. Only the two of them can
+            read it — enforced by RLS, not by hiding this panel — and moderators
+            can read it during a dispute, which is most of why it exists. */}
+        {isParticipant && challenge.opponent_id && (
+          <div>
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <h3 className="font-semibold">Match chat</h3>
+              <p className="text-xs text-muted-foreground">
+                Private to you and your opponent. Visible to moderators if this match is disputed.
+              </p>
+            </div>
+            <ChatRoom
+              scope="match"
+              matchId={challenge.id}
+              emptyHint="Agree a time, set the rules, and keep it here."
+            />
+          </div>
+        )}
 
         {/* Actions */}
         <div className="rounded-2xl border border-border/60 bg-gradient-card p-6">

@@ -44,7 +44,11 @@ export type AuditAction =
   | "security.setting_change"
   | "security.mfa_reset"
   | "security.scan_run"
-  | "security.flag_triage";
+  | "security.flag_triage"
+  // chat moderation
+  | "chat.message_deleted"
+  | "chat.muted"
+  | "chat.unmuted";
 
 export type AuditEntry = {
   action: AuditAction;
@@ -58,7 +62,8 @@ export type AuditEntry = {
     | "ticket"
     | "promo"
     | "setting"
-    | "flag";
+    | "flag"
+    | "chat_message";
   target_id?: string | null;
   target_label?: string | null;
   /** Money involved, positive regardless of direction. Lets one query total what staff moved. */

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, ShieldAlert, LifeBuoy, Paperclip, ArrowLeft, Gavel } from "lucide-react";
+import { Loader2, ShieldAlert, LifeBuoy, Paperclip, ArrowLeft, Gavel, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ import {
 import { getTicket, replyToTicket, updateTicket } from "@/lib/support.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { RequireCapability } from "@/components/dashboard/RequireCapability";
+import { ChatModerationQueue } from "@/components/chat/ChatModerationQueue";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Status } from "@/components/ui/status";
@@ -35,7 +36,7 @@ const DISPUTE_VARIANT: Record<string, "warning" | "info" | "success" | "default"
 };
 
 function ModeratorPage() {
-  const [tab, setTab] = useState<"disputes" | "tickets">("disputes");
+  const [tab, setTab] = useState<"disputes" | "tickets" | "chat">("disputes");
   const [openDispute, setOpenDispute] = useState<string | null>(null);
   const [openTicket, setOpenTicket] = useState<string | null>(null);
 
@@ -74,7 +75,7 @@ function ModeratorPage() {
       title="Moderator queue"
       subtitle="Review disputes and answer support tickets."
     >
-      <Tabs value={tab} onValueChange={(v) => setTab(v as "disputes" | "tickets")}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "disputes" | "tickets" | "chat")}>
         <TabsList className="h-auto bg-surface/50 p-1">
           <TabsTrigger value="disputes" className="gap-2 px-4 py-2 text-xs font-bold uppercase">
             <ShieldAlert className="h-3.5 w-3.5" />
@@ -84,10 +85,16 @@ function ModeratorPage() {
             <LifeBuoy className="h-3.5 w-3.5" />
             Tickets <span className="text-muted-foreground">({openTickets})</span>
           </TabsTrigger>
+          <TabsTrigger value="chat" className="gap-2 px-4 py-2 text-xs font-bold uppercase">
+            <MessageSquare className="h-3.5 w-3.5" />
+            Chat
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {tab === "disputes" ? (
+      {tab === "chat" ? (
+        <ChatModerationQueue />
+      ) : tab === "disputes" ? (
         <div className="mt-6 grid gap-3">
           {disputes?.length ? (
             disputes.map((d) => (

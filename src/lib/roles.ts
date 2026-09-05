@@ -39,10 +39,16 @@ export type Capability =
   | "finance.wallet_adjust"
   | "security.audit.view"
   | "security.flags.manage"
-  | "security.settings";
+  | "security.settings"
+  | "chat.moderate";
 
 export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
-  moderator: ["moderation.disputes.review", "moderation.tickets", "moderation.evidence"],
+  moderator: [
+    "moderation.disputes.review",
+    "moderation.tickets",
+    "moderation.evidence",
+    "chat.moderate",
+  ],
 
   admin: [
     "moderation.disputes.review",
@@ -58,6 +64,7 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "finance.view",
     "security.audit.view",
     "security.flags.manage",
+    "chat.moderate",
   ],
 
   financial_admin: [
@@ -89,6 +96,7 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     "finance.wallet_adjust",
     "security.audit.view",
     "security.flags.manage",
+    "chat.moderate",
     "security.settings",
   ],
 
@@ -130,6 +138,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "finance.payouts": "Process player payouts",
   "finance.treasury": "Move company funds",
   "finance.wallet_adjust": "Adjust player wallets",
+  "chat.moderate": "Moderate chat",
   "security.audit.view": "View the audit log",
   "security.flags.manage": "Triage security flags",
   "security.settings": "Change security settings",
