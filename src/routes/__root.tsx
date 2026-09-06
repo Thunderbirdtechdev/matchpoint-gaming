@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/hooks/use-auth";
 import { THEME_INIT_SCRIPT } from "@/hooks/use-theme";
 import { Toaster } from "sonner";
+import { useTheme } from "@/hooks/use-theme";
 
 
 function NotFoundComponent() {
@@ -161,15 +162,26 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { theme } = useTheme();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
-        
-        <Toaster richColors position="top-right" theme="dark" />
 
+        {/*
+         * `theme` was hardcoded to "dark", which survived 12.8 unnoticed: every
+         * toast in light mode rendered as a dark slab in the corner of a light
+         * page. It follows the app's own toggle rather than the system setting,
+         * because the toggle is what the user actually chose.
+         *
+         * 2.5s rather than Sonner's 4s default. These are confirmations of
+         * something the user just did and can already see the result of —
+         * "Signed out" is still on screen well after the sign-in page has
+         * loaded, which reads as the app being stuck rather than as feedback.
+         */}
+        <Toaster richColors position="top-right" theme={theme} duration={2500} />
       </AuthProvider>
     </QueryClientProvider>
   );
