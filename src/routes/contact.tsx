@@ -1,12 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef } from "react";
-import {
-  MailIcon,
-  MessageCircleIcon,
-  HeadsetIcon,
-  type AnimatedIconHandle,
-} from "@/components/ui/animated-icons";
-import { IconTile } from "@/components/ui/icon-tile";
 import { SiteShell } from "@/components/site/SiteShell";
 import { PageHeader } from "@/components/site/PageHeader";
 import {
@@ -19,7 +11,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import {
   submitContactMessage,
@@ -32,32 +24,39 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-const contactChannels = [
-  { icon: MailIcon, title: "Email", desc: "hello@matchpoint.gg" },
-  { icon: MessageCircleIcon, title: "Discord", desc: "discord.gg/matchpoint" },
-  { icon: HeadsetIcon, title: "Support", desc: "support@matchpoint.gg" },
+/**
+ * What the left column is for.
+ *
+ * It used to list an email address, a Discord invite and a support address —
+ * all three placeholders on a domain the platform does not own
+ * (`matchpoint.gg`, not matchpointgaming.org), so anyone who used them reached
+ * nobody. Kevin asked for them gone and everything routed through the form,
+ * which is right for a second reason: a form produces a row somebody owns,
+ * while an address produces a message in an inbox nobody is accountable for.
+ *
+ * What replaces them is the pitch he actually wants this page to make. He is
+ * looking for tournament organisers who would run their brackets on MatchPoint
+ * under their own branding, and the enquiry form is no use if the page never
+ * says that is on offer.
+ */
+const WHITE_LABEL_POINTS = [
+  {
+    title: "Brackets that run themselves",
+    body: "Seeding, byes and advancement handled automatically. Report a result and the next round builds itself.",
+  },
+  {
+    title: "Entry fees held in escrow",
+    body: "Players stake into escrow rather than paying an organiser directly. Nobody is chasing anyone for money.",
+  },
+  {
+    title: "Payouts without the admin",
+    body: "Winners are paid from the prize pool on settlement, to a bank account or PayPal.",
+  },
+  {
+    title: "Your name on it",
+    body: "Run it as your league, your branding, your players. We handle the machinery.",
+  },
 ];
-
-function ContactChannel({ c }: { c: (typeof contactChannels)[number] }) {
-  const iconRef = useRef<AnimatedIconHandle>(null);
-  const Icon = c.icon;
-
-  return (
-    <div
-      onMouseEnter={() => iconRef.current?.startAnimation()}
-      onMouseLeave={() => iconRef.current?.stopAnimation()}
-      className="group flex items-start gap-4 rounded-2xl border border-border/60 bg-gradient-card p-6 shadow-card"
-    >
-      <IconTile>
-        <Icon ref={iconRef} size={20} />
-      </IconTile>
-      <div>
-        <h3 className="font-semibold">{c.title}</h3>
-        <p className="text-sm text-muted-foreground">{c.desc}</p>
-      </div>
-    </div>
-  );
-}
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -120,10 +119,33 @@ function ContactPage() {
       />
 
       <section className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          {contactChannels.map((c) => (
-            <ContactChannel key={c.title} c={c} />
-          ))}
+        <div>
+          <h2 className="font-display text-2xl tracking-tight">
+            Run your tournaments on <span className="text-gradient-brand">MatchPoint</span>
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            We built the bracket and payout machinery for our own platform, and we license it. If
+            you run leagues, ladders or one-off events, you can run them on ours under your own
+            branding.
+          </p>
+
+          <ul className="mt-8 space-y-5">
+            {WHITE_LABEL_POINTS.map((p) => (
+              <li key={p.title} className="flex gap-3">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold">{p.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{p.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-8 rounded-xl border border-border/60 bg-surface/40 p-4 text-xs leading-relaxed text-muted-foreground">
+            Pick <span className="text-foreground">Run tournaments with MatchPoint</span> in the
+            form and tell us roughly how many players you run and how often. We reply to every
+            message within one business day.
+          </p>
         </div>
 
         {sent ? (
