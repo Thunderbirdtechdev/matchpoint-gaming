@@ -8,6 +8,7 @@ import { IconTile } from "@/components/ui/icon-tile";
 import { toast } from "sonner";
 
 import { SiteShell } from "@/components/site/SiteShell";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { PageHeader } from "@/components/site/PageHeader";
 import { OffPlatformNotice } from "@/components/safety/OffPlatformNotice";
 import { CTA } from "@/components/site/CTA";
@@ -275,19 +276,22 @@ function MarketplacePage() {
     }
   }
 
-  return (
-    <SiteShell>
-      <PageHeader
-        eyebrow="Marketplace"
-        title={
-          <>
-            Find your next <span className="text-gradient-brand">match</span>.
-          </>
-        }
-        description="Every open 1v1 challenge and tournament on MatchPoint, in one place. Filter by game, platform and stake, then put your skills where your money is."
-        image={{ src: headerImg, alt: "MatchPoint competitive arena" }}
-      />
-
+  /*
+   * One URL, two shells.
+   *
+   * The marketplace is both a marketing page — a signed-out visitor browsing
+   * what is on offer — and a tool a signed-in player uses constantly. It was
+   * only ever the former, so adding it to the dashboard nav threw players out
+   * of the app: the sidebar vanished, the marketing header and footer
+   * appeared, and getting back meant the browser's back button.
+   *
+   * Splitting it in two would mean two routes at one path, which the router
+   * cannot express, and two copies of the listing to keep in step. Choosing
+   * the frame by whether anyone is signed in costs one conditional and keeps
+   * the public page exactly as it was.
+   */
+  const body = (
+    <>
       <section className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 md:py-20">
         {/* This is where a player first deals with a stranger, so it is where
             the escrow warning belongs — before they accept, not after. */}
@@ -448,7 +452,31 @@ function MarketplacePage() {
         )}
       </section>
 
-      <CTA />
+      {!user && <CTA />}
+    </>
+  );
+
+  if (user) {
+    return (
+      <DashboardShell title="Marketplace" subtitle="Every open challenge and tournament.">
+        {body}
+      </DashboardShell>
+    );
+  }
+
+  return (
+    <SiteShell>
+      <PageHeader
+        eyebrow="Marketplace"
+        title={
+          <>
+            Find your next <span className="text-gradient-brand">match</span>.
+          </>
+        }
+        description="Every open 1v1 challenge and tournament on MatchPoint, in one place. Filter by game, platform and stake, then put your skills where your money is."
+        image={{ src: headerImg, alt: "MatchPoint competitive arena" }}
+      />
+      {body}
     </SiteShell>
   );
 }

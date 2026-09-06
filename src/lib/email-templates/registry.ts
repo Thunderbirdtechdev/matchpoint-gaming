@@ -9,6 +9,7 @@ import { template as tournamentUpdateTemplate } from "./tournament-update";
 import { template as supportReplyTemplate } from "./support-reply";
 import { template as roleGrantedTemplate } from "./role-granted";
 import { template as securityAlertTemplate } from "./security-alert";
+import { template as contactMessageTemplate } from "./contact-message";
 
 export interface TemplateEntry {
   component: ComponentType<any>;
@@ -36,4 +37,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   "support-reply": supportReplyTemplate,
   "role-granted": roleGrantedTemplate,
   "security-alert": securityAlertTemplate,
+  "contact-message": contactMessageTemplate,
 };
