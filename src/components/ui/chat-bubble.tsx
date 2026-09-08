@@ -35,7 +35,6 @@ interface ChatBubbleMessageProps {
   variant?: "sent" | "received";
   isLoading?: boolean;
   className?: string;
-  style?: React.CSSProperties;
   children?: React.ReactNode;
 }
 
@@ -43,17 +42,15 @@ export function ChatBubbleMessage({
   variant = "received",
   isLoading,
   className,
-  style,
   children,
 }: ChatBubbleMessageProps) {
   return (
     <div
-      style={style}
       className={cn(
         "rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
         variant === "sent"
           ? "bg-primary/15 text-foreground"
-          : "border border-border/50 bg-surface/60 text-foreground",
+          : "border border-border/50 bg-surface/50 text-foreground",
         className,
       )}
     >

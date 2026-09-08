@@ -158,7 +158,6 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
                     <ChatBubbleMessage
                       variant={m.mine ? "sent" : "received"}
                       className="break-words"
-                      style={m.mine ? undefined : { borderColor: color, borderLeftWidth: 2 }}
                     >
                       {m.body}
                     </ChatBubbleMessage>
