@@ -120,7 +120,7 @@ export function WaitlistOverlay() {
         <div className="mt-8 grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
           <Feature icon={<Trophy className="h-4 w-4" />} title="Tournaments" sub="Daily brackets" />
           <Feature icon={<Swords className="h-4 w-4" />} title="1v1 Challenges" sub="Wager & win" />
-          <Feature icon={<Coins className="h-4 w-4" />} title="Real Payouts" sub="Stripe & crypto" />
+          <Feature icon={<Coins className="h-4 w-4" />} title="Real Payouts" sub="Straight to your bank" />
           <Feature icon={<ShieldCheck className="h-4 w-4" />} title="Fair Escrow" sub="Funds protected" />
         </div>
 
@@ -187,7 +187,7 @@ export function WaitlistOverlay() {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] text-white/40">
           <span>Secure escrow holds</span>
           <span aria-hidden>·</span>
-          <span>Stripe &amp; crypto payouts</span>
+          <span>Bank payouts via Stripe</span>
           <span aria-hidden>·</span>
           <span>18+ · Play responsibly</span>
         </div>
