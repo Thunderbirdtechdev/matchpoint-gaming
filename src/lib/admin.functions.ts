@@ -572,6 +572,13 @@ export const getStripeBalance = createServerFn({ method: "GET" })
  * default external bank account configured on the Stripe account.
  * If amount_cents is omitted, sweeps the full available balance for the currency.
  */
+/** Money in an error message the operator has to act on, not a raw cent count. */
+function usdFromCents(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    (cents ?? 0) / 100,
+  );
+}
+
 export const stripePayoutToBank = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
@@ -580,6 +587,8 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
         amount_cents: z.number().int().min(1).optional(),
         currency: z.string().trim().length(3).default("usd"),
         note: z.string().trim().max(500).optional(),
+        /** Deliberately sweep past what players are owed. Audited. */
+        allow_overdraw: z.boolean().optional(),
       })
       .parse(d ?? {}),
   )
@@ -590,14 +599,60 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
 
     const currency = data.currency.toLowerCase();
 
+    /*
+     * THE STRIPE BALANCE IS NOT ALL YOURS.
+     *
+     * It is a pooled account. Player deposits land in it and stay there until
+     * that player withdraws; the platform's fee is an accounting split
+     * recorded in `platform_fees` and `company_wallet`, not a separate
+     * transfer. So the available balance is player money plus platform money
+     * with nothing distinguishing them, and a payout takes whichever is
+     * nearest to hand.
+     *
+     * Which made "Sweep all" a button that moves player funds to the company
+     * bank account. It has been harmless only because no player has ever
+     * deposited — Kevin's $10 test is the first real money the account has
+     * ever held. The first busy week would have turned it into a shortfall
+     * that /finance reports and nobody can explain.
+     *
+     * So the sweepable amount is what is left after everything owed to
+     * players. `allow_overdraw` exists because there are legitimate reasons to
+     * exceed it — paying players out through PayPal from the same bank
+     * account, say — but it has to be asked for, and it is audited below.
+     */
+    const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
+    const { data: totals } = await admin.rpc("admin_platform_liabilities" as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const t = (Array.isArray(totals) ? totals[0] : totals) as any;
+    const obligationsCents =
+      Number(t?.player_balance_cents ?? 0) +
+      Number(t?.escrow_held_cents ?? 0) +
+      Number(t?.pending_payout_cents ?? 0);
+
+    const bal = await stripeFetch("/balance");
+    const availableRow = (bal.available ?? []).find((b: any) => b.currency === currency);
+    const availableCents = Number(availableRow?.amount ?? 0);
+    const sweepableCents = Math.max(0, availableCents - obligationsCents);
+
     let amount = data.amount_cents ?? 0;
     if (!amount) {
-      const bal = await stripeFetch("/balance");
-      const row = (bal.available ?? []).find((b: any) => b.currency === currency);
-      amount = row?.amount ?? 0;
-      if (!amount || amount <= 0) {
-        throw new Error(`No available ${currency.toUpperCase()} balance to pay out.`);
+      // "Sweep all" means all of YOURS, not all of the account's.
+      amount = sweepableCents;
+      if (amount <= 0) {
+        throw new Error(
+          obligationsCents > 0
+            ? `Nothing to sweep. The ${currency.toUpperCase()} balance is ${usdFromCents(availableCents)} but ${usdFromCents(obligationsCents)} of it is owed to players.`
+            : `No available ${currency.toUpperCase()} balance to pay out.`,
+        );
       }
+    }
+
+    if (amount > sweepableCents && !data.allow_overdraw) {
+      throw new Error(
+        `That would take money owed to players. ${usdFromCents(availableCents)} is available, ` +
+          `${usdFromCents(obligationsCents)} is owed to players, so ${usdFromCents(sweepableCents)} is yours to sweep. ` +
+          `Override deliberately if you know why.`,
+      );
     }
 
     const payout = await stripeFetch("/payouts", {
@@ -611,7 +666,7 @@ export const stripePayoutToBank = createServerFn({ method: "POST" })
       },
     });
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = admin;
     const destination = `Stripe payout → bank (${payout.destination ?? "default"})`;
     const note = [data.note, `stripe_payout_id=${payout.id}`].filter(Boolean).join(" · ");
     const { error: rpcErr } = await supabaseAdmin.rpc("company_wallet_withdraw", {

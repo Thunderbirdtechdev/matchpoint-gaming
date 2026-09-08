@@ -35,6 +35,7 @@ import {
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History } from "lucide-react";
 import { toast } from "sonner";
 import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
+import { getPlatformLiabilities } from "@/lib/finance.functions";
 import { listMfaStatus, adminResetUserMfa } from "@/lib/security.functions";
 import { getHotWalletStatus } from "@/lib/crypto.functions";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
@@ -1388,8 +1389,15 @@ function RevStat({ label, value, accent, sub }: { label: string; value: string; 
 
 function StripePayoutPanel({ onDone }: { onDone: () => void }) {
   const fetchBalance = useServerFn(getStripeBalance);
+  const fetchLiabilities = useServerFn(getPlatformLiabilities);
   const payout = useServerFn(stripePayoutToBank);
   const balQ = useQuery({ queryKey: ["stripe-balance"], queryFn: () => fetchBalance() });
+  /*
+   * The Stripe balance alone cannot answer "how much can I take". It is player
+   * deposits and platform fees pooled together, so the panel has to show what
+   * is owed beside what is there — otherwise "Sweep all" reads as free money.
+   */
+  const liabQ = useQuery({ queryKey: ["platform-liabilities"], queryFn: () => fetchLiabilities() });
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [pending, setPending] = useState<null | { mode: "all" | "amount"; cents: number }>(null);
@@ -1413,9 +1421,12 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
     onError: (e: any) => toast.error(e?.message ?? "Payout failed"),
   });
 
+  const obligationsCents = liabQ.data?.obligations_cents ?? 0;
   const usd = (balQ.data?.available ?? []).find((b: any) => b.currency === "usd");
   const pendingUsd = (balQ.data?.pending ?? []).find((b: any) => b.currency === "usd");
   const live = balQ.data?.livemode;
+
+  const sweepableCents = Math.max(0, (usd?.amount ?? 0) - obligationsCents);
 
   function requestPayout(mode: "all" | "amount") {
     if (mode === "amount") {
@@ -1428,9 +1439,18 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
         toast.error(`Amount exceeds available balance (${fmtUsd(usd.amount)})`);
         return;
       }
+      // Above the safe line is refused by the server unless overridden, so say
+      // so here rather than letting them find out from a failed payout.
+      if (cents > sweepableCents) {
+        toast.error(
+          `Only ${fmtUsd(sweepableCents)} is yours. ${fmtUsd(obligationsCents)} of the balance is owed to players.`,
+        );
+        return;
+      }
       setPending({ mode, cents });
     } else {
-      const cents = usd?.amount ?? 0;
+      // All of OURS, not all of the account's.
+      const cents = sweepableCents;
       if (!cents || cents <= 0) {
         toast.error("No available USD balance to sweep");
         return;
@@ -1454,10 +1474,17 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
         </Button>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <RevStat label="Stripe available (USD)" value={fmtUsd(usd?.amount)} accent />
-        <RevStat label="Stripe pending (USD)" value={fmtUsd(pendingUsd?.amount)} />
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <RevStat label="Stripe available" value={fmtUsd(usd?.amount)} />
+        <RevStat label="Stripe pending" value={fmtUsd(pendingUsd?.amount)} />
+        <RevStat label="Owed to players" value={fmtUsd(obligationsCents)} />
+        <RevStat label="Yours to sweep" value={fmtUsd(sweepableCents)} accent />
       </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        The Stripe balance holds player deposits and platform fees together. Only the last figure is
+        the platform's, and <b className="text-foreground">Sweep all</b> takes that rather than the
+        whole balance.
+      </p>
 
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[140px_1fr_auto_auto]">
         <Input placeholder="Amount $" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -1465,7 +1492,7 @@ function StripePayoutPanel({ onDone }: { onDone: () => void }) {
         <Button onClick={() => requestPayout("amount")} disabled={m.isPending}>
           {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Withdraw to bank"}
         </Button>
-        <Button variant="outline" onClick={() => requestPayout("all")} disabled={m.isPending || !usd?.amount}>
+        <Button variant="outline" onClick={() => requestPayout("all")} disabled={m.isPending || sweepableCents <= 0}>
           Sweep all
         </Button>
       </div>
