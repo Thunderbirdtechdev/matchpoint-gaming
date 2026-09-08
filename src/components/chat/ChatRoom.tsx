@@ -170,10 +170,16 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
                 data-msg-id={m.id}
                 className={startsRun && i > 0 ? "pt-3" : undefined}
               >
-                {/* Avatar and name share the top line, so the column of text
-                    starts level with the face beside it. Hanging the name
-                    above the whole row left the avatar floating below its own
-                    label. */}
+                {/* The name sits above the row, indented past the avatar so
+                    it starts level with the bubble. The avatar then aligns to
+                    the bubble itself rather than to the label, which is the
+                    arrangement every chat client uses. pl-10 is the avatar's
+                    w-8 plus the row's gap-2. */}
+                {startsRun && !m.mine && (
+                  <p className="mb-1 pl-10 text-[11px] font-semibold" style={{ color }}>
+                    {m.author_name}
+                  </p>
+                )}
                 <ChatBubble variant={m.mine ? "sent" : "received"} className="group items-start">
                   {!m.mine && startsRun ? (
                     <ChatBubbleAvatar
@@ -194,12 +200,6 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
                       m.mine ? "items-end" : "items-start"
                     }`}
                   >
-                    {startsRun && !m.mine && (
-                      <p className="mb-1 text-[11px] font-semibold" style={{ color }}>
-                        {m.author_name}
-                      </p>
-                    )}
-
                     <ChatBubbleMessage
                       variant={m.mine ? "sent" : "received"}
                       className="break-words"
