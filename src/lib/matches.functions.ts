@@ -1146,9 +1146,22 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
     if (!dispute.recommended_winner_id) {
       throw new Error("A moderator must recommend a winner before this can be approved.");
     }
-    // The whole point of the split is that two different people sign off.
-    if (dispute.reviewed_by === context.userId) {
-      throw new Error("A different admin must approve a resolution you reviewed.");
+    // Two different people normally sign off, so that deciding a dispute and
+    // releasing the escrow behind it are never the same act by the same person.
+    //
+    // A super_admin is exempt. On a team of one there is no second approver to
+    // wait for, and a rule that cannot be satisfied does not protect anything —
+    // it just strands the player who won. The exemption stops at super_admin:
+    // a moderator's recommendation still needs someone else, which is where the
+    // control was actually doing work. Single-person resolutions are marked as
+    // such on the audit entry rather than passing silently.
+    const selfApproved = dispute.reviewed_by === context.userId;
+    if (selfApproved) {
+      const { rolesOf } = await import("@/lib/authz");
+      const roles = await rolesOf(supabaseAdmin, context.userId);
+      if (!roles.includes("super_admin")) {
+        throw new Error("A different admin must approve a resolution you reviewed.");
+      }
     }
 
     const { data: ch } = await supabaseAdmin
@@ -1183,11 +1196,15 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
       action: "moderation.dispute_approve",
       target_type: "dispute",
       target_id: data.dispute_id,
-      summary: "Approved a dispute resolution and released escrow",
+      summary: selfApproved
+        ? "Approved their own dispute recommendation and released escrow"
+        : "Approved a dispute resolution and released escrow",
       metadata: {
         winner_id: dispute.recommended_winner_id,
         reviewed_by: dispute.reviewed_by,
         challenge_id: dispute.challenge_id,
+        /** True when one person both recommended and approved. */
+        self_approved: selfApproved,
       },
     });
 
