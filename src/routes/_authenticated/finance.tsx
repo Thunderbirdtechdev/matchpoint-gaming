@@ -40,7 +40,8 @@ const SOURCE_LABELS: Record<string, string> = {
   tournament_fee: "Tournament fees",
   withdrawal_fee_same_day: "Same-day withdrawal fees",
   withdrawal_fee_standard: "Standard withdrawal fees",
-  crypto_payout: "Crypto payout fees",
+  tournament_unclaimed_prize: "Unclaimed tournament prizes",
+  paypal_payout: "PayPal payout fees",
 };
 
 function usd(cents: number | null | undefined) {

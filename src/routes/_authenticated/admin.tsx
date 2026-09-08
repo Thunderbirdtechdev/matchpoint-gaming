@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Fragment, useState } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { RequireCapability } from "@/components/dashboard/RequireCapability";
 import { useRoles } from "@/hooks/use-roles";
@@ -34,10 +34,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History } from "lucide-react";
 import { toast } from "sonner";
-import { adminCreditWallet, adminDebitWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
-import { getPlatformLiabilities } from "@/lib/finance.functions";
+import { adminListOpenMatches, adminCreditWallet, adminDebitWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
+import { getPlatformLiabilities, getRevenueDaily } from "@/lib/finance.functions";
+import { RevenueChart } from "@/components/finance/RevenueChart";
 import { listMfaStatus, adminResetUserMfa } from "@/lib/security.functions";
-import { getHotWalletStatus } from "@/lib/crypto.functions";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
 import { adminCreatePromoCode, adminListPromoCodes, adminTogglePromoCode } from "@/lib/promo.functions";
 
@@ -76,7 +76,12 @@ function AdminPage() {
           <div className="h-6" />
           <CompanyRevenueCard />
           <div className="h-6" />
-          <HotWalletCard />
+        </>
+      )}
+
+      {can("platform.analytics") && (
+        <>
+          <OpenMatchesCard />
           <div className="h-6" />
         </>
       )}
@@ -350,144 +355,6 @@ function AdminAdjustWalletCard() {
           {removeMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Remove"}
         </Button>
       </div>
-    </div>
-  );
-}
-
-function HotWalletCard() {
-  const statusFn = useServerFn(getHotWalletStatus);
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["hot-wallet-status"],
-    queryFn: () => statusFn({}),
-    refetchInterval: 30_000,
-  });
-
-  const copy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Address copied");
-  };
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Wallet className="h-4 w-4" /> Payout hot wallet, USDC on Base
-        </div>
-        <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-        </Button>
-      </div>
-
-      {isLoading ? (
-        <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading on-chain balances…
-        </div>
-      ) : !data?.configured ? (
-        <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-          <p className="font-medium text-amber-200">Hot wallet not configured.</p>
-          <p className="mt-1 text-xs text-amber-100/80">
-            Add the secret <code className="rounded bg-black/30 px-1">HOT_WALLET_EVM_PRIVATE_KEY</code> (an
-            EVM private key) in project settings. Then send USDC on Base to the address shown here.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
-              <div className="text-xs uppercase text-muted-foreground">USDC balance</div>
-              <div className="mt-1 text-2xl font-semibold">
-                {data.usdc != null ? `$${data.usdc.toFixed(2)}` : "-"}
-              </div>
-              <div className="text-xs text-muted-foreground">Available for payouts</div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
-              <div className="text-xs uppercase text-muted-foreground">ETH (gas)</div>
-              <div className="mt-1 text-2xl font-semibold">
-                {data.eth != null ? data.eth.toFixed(5) : "-"}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Needed for every send. Keep ~0.001+ ETH.
-              </div>
-            </div>
-            <div className="rounded-lg border border-border/60 bg-surface/40 p-3">
-              <div className="text-xs uppercase text-muted-foreground">Recent sends</div>
-              <div className="mt-1 text-2xl font-semibold">{data.recentPayouts.length}</div>
-              <div className="text-xs text-muted-foreground">Last 25 USDC payouts</div>
-            </div>
-          </div>
-
-          <div className="mt-4 rounded-lg border border-border/60 bg-surface/40 p-3">
-            <div className="text-xs uppercase text-muted-foreground">Wallet address (Base)</div>
-            <div className="mt-1 flex items-center gap-2">
-              <code className="break-all rounded bg-black/30 px-2 py-1 text-xs">{data.address}</code>
-              <Button size="sm" variant="ghost" onClick={() => copy(data.address!)}>
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
-              <a
-                href={data.explorerUrl!}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-              >
-                BaseScan <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Send <strong>USDC on Base</strong> (contract{" "}
-              <code>0x8335…2913</code>) to this address from any exchange or wallet. Funds appear here
-              within ~30 seconds of confirmation.
-            </p>
-          </div>
-
-          {data.error && (
-            <p className="mt-3 text-xs text-destructive">RPC error: {data.error}</p>
-          )}
-
-          {data.recentPayouts.length > 0 && (
-            <div className="mt-4 overflow-hidden rounded-lg border border-border/60">
-              <table className="w-full text-xs">
-                <thead className="bg-surface/50 uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left">When</th>
-                    <th className="px-3 py-2 text-left">To</th>
-                    <th className="px-3 py-2 text-right">Amount</th>
-                    <th className="px-3 py-2 text-left">Status</th>
-                    <th className="px-3 py-2 text-left">Tx</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recentPayouts.map((p) => (
-                    <tr key={p.id} className="border-t border-border/40">
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {new Date(p.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-2">
-                        <code>{p.to_address.slice(0, 6)}…{p.to_address.slice(-4)}</code>
-                      </td>
-                      <td className="px-3 py-2 text-right">${(p.amount_cents / 100).toFixed(2)}</td>
-                      <td className="px-3 py-2">{p.status}</td>
-                      <td className="px-3 py-2">
-                        {p.tx_hash ? (
-                          <a
-                            className="text-primary hover:underline"
-                            href={`https://basescan.org/tx/${p.tx_hash}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {p.tx_hash.slice(0, 8)}…
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      )}
     </div>
   );
 }
@@ -1223,25 +1090,178 @@ function fmtUsd(cents: number | null | undefined) {
   return `$${(((cents ?? 0) as number) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const MATCH_STATUS_STYLES: Record<string, string> = {
+  open: "bg-sky-500/10 text-sky-400",
+  active: "bg-emerald-500/10 text-emerald-400",
+  disputed: "bg-amber-500/10 text-amber-400",
+};
+
+/**
+ * Live matches and the money on them.
+ *
+ * Pool and escrow are shown as separate columns because they disagree by
+ * design: an `open` match has only the creator's stake held while it waits for
+ * an opponent, so its pool is what it WILL be worth and its escrow is what is
+ * actually locked today. Collapsing them into one number would overstate the
+ * platform's liability by roughly double on every unmatched challenge.
+ */
+function OpenMatchesCard() {
+  const listFn = useServerFn(adminListOpenMatches);
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["admin-open-matches"],
+    queryFn: () => listFn(),
+    refetchInterval: 60_000,
+  });
+
+  const matches = data?.matches ?? [];
+  const totals = data?.totals;
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-gradient-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Open Matches</h2>
+          <p className="text-xs text-muted-foreground">
+            Every challenge still running, and what is staked on it.
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+        </Button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        <RevStat label="Open matches" value={String(totals?.count ?? 0)} />
+        <RevStat label="Combined pool" value={fmtUsd(totals?.pool_cents)} sub="if all are matched" />
+        <RevStat label="Held in escrow" value={fmtUsd(totals?.escrow_cents)} accent sub="locked now" />
+      </div>
+
+      <div className="mt-5 overflow-x-auto rounded-xl border border-border/50">
+        <table className="w-full min-w-[640px] text-xs">
+          <thead className="bg-surface/50 uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Players</th>
+              <th className="px-3 py-2 text-left">Game</th>
+              <th className="px-3 py-2 text-right">Stake each</th>
+              <th className="px-3 py-2 text-right">Pool</th>
+              <th className="px-3 py-2 text-right">Escrow</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Opened</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                  Loading…
+                </td>
+              </tr>
+            ) : matches.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-4 text-muted-foreground">
+                  No matches are open right now.
+                </td>
+              </tr>
+            ) : (
+              matches.map((m) => (
+                <tr key={m.id} className="border-t border-border/40">
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{m.creator}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {m.opponent ? `vs ${m.opponent}` : "waiting for an opponent"}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {m.game_slug}
+                    <div className="text-[11px]">{m.platform}</div>
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">{fmtUsd(m.stake_cents)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmtUsd(m.pool_cents)}</td>
+                  <td className="px-3 py-2 text-right font-mono text-success">
+                    {fmtUsd(m.escrow_cents)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] ${
+                        MATCH_STATUS_STYLES[m.status] ?? "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {m.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">{timeAgo(m.created_at)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Every `_source` value the fee ledger is written with. Kept beside the card
+ * that renders it so a new fee source shows up as a readable row rather than a
+ * raw enum the first time it is charged.
+ */
+const SOURCE_LABELS: Record<string, string> = {
+  challenge_fee: "1v1 challenge fees",
+  tournament_fee: "Tournament fees",
+  withdrawal_fee_same_day: "Same-day withdrawal fees",
+  withdrawal_fee_standard: "Standard withdrawal fees",
+  tournament_unclaimed_prize: "Unclaimed tournament prizes",
+  paypal_payout: "PayPal payout fees",
+};
+
+/** Rolling window for the daily chart, in days. */
+const DAILY_WINDOW = 30;
+
+function isoDay(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
 function RevenueReportsCard() {
   const fetchSummary = useServerFn(getRevenueSummary);
   const fetchBySource = useServerFn(getRevenueBySource);
   const fetchTotals = useServerFn(getPlatformTotals);
 
-  const summaryQ = useQuery({ queryKey: ["revenue-summary"], queryFn: () => fetchSummary() });
-  const bySourceQ = useQuery({ queryKey: ["revenue-by-source"], queryFn: () => fetchBySource() });
-  const totalsQ = useQuery({ queryKey: ["platform-totals"], queryFn: () => fetchTotals() });
+  const fetchDaily = useServerFn(getRevenueDaily);
+
+  // "Real time daily" in the sense that matters here: the numbers move on their
+  // own while the dashboard is open, instead of showing whatever was true when
+  // the page was loaded. A minute is well under how often fees actually land.
+  const live = { refetchInterval: 60_000 } as const;
+
+  const summaryQ = useQuery({
+    queryKey: ["revenue-summary"],
+    queryFn: () => fetchSummary(),
+    ...live,
+  });
+  const bySourceQ = useQuery({
+    queryKey: ["revenue-by-source"],
+    queryFn: () => fetchBySource(),
+    ...live,
+  });
+  const totalsQ = useQuery({ queryKey: ["platform-totals"], queryFn: () => fetchTotals(), ...live });
+
+  const range = useMemo(() => {
+    const to = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - (DAILY_WINDOW - 1));
+    return { from: isoDay(from), to: isoDay(to) };
+  }, []);
+
+  const dailyQ = useQuery({
+    queryKey: ["revenue-daily", range.from, range.to],
+    queryFn: () => fetchDaily({ data: range }),
+    ...live,
+  });
 
   const s = summaryQ.data;
   const t = totalsQ.data;
 
-  const sourceLabels: Record<string, string> = {
-    challenge_fee: "1v1 challenge fees",
-    tournament_fee: "Tournament fees",
-    withdrawal_fee_same_day: "Same-day withdrawal fees",
-    withdrawal_fee_standard: "Standard withdrawal fees",
-    crypto_payout: "Crypto payout fees",
-  };
+  const sourceLabels: Record<string, string> = SOURCE_LABELS;
 
   return (
     <div className="rounded-2xl border border-border/60 bg-gradient-card p-5">
@@ -1253,7 +1273,7 @@ function RevenueReportsCard() {
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => { summaryQ.refetch(); bySourceQ.refetch(); totalsQ.refetch(); }}
+          onClick={() => { summaryQ.refetch(); bySourceQ.refetch(); totalsQ.refetch(); dailyQ.refetch(); }}
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
@@ -1272,6 +1292,18 @@ function RevenueReportsCard() {
         <RevStat label="Total withdrawals" value={fmtUsd(t?.total_withdrawals_cents)} sub={t ? `${t.withdrawal_count} withdrawals` : undefined} />
         <RevStat label="Total competitions" value={String(t?.total_competitions ?? 0)} sub="1v1 challenges" />
         <RevStat label="Total tournaments" value={String(t?.total_tournaments ?? 0)} />
+      </div>
+
+      <div className="mt-5 rounded-xl border border-border/50 p-3">
+        <div className="mb-2 flex items-baseline justify-between">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Daily fee revenue · last {DAILY_WINDOW} days
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {fmtUsd(dailyQ.data?.total_cents)} over {dailyQ.data?.event_count ?? 0} fee events
+          </div>
+        </div>
+        <RevenueChart series={dailyQ.data?.series} isLoading={dailyQ.isLoading} />
       </div>
 
       <div className="mt-5 rounded-xl border border-border/50 overflow-hidden">

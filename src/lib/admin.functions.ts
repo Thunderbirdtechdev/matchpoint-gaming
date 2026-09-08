@@ -136,6 +136,89 @@ export const adminDebitWallet = createServerFn({ method: "POST" })
     return { ok: true, user_id: userId, balance_cents: newBalance, audit_failed: !audit.ok };
   });
 
+/**
+ * Every match that has not finished, with the money riding on it.
+ *
+ * `entry_amount` is stored in DOLLARS on `challenges` (unlike almost everything
+ * else here, which is cents), and each of the two players stakes it — so the
+ * pool is entry x 2. Escrow held is read from `escrow_holds` rather than
+ * inferred from the pool, because those are the rows that actually moved money:
+ * a match sitting at `open` has one player's stake held and is waiting for an
+ * opponent, so pool and escrow deliberately disagree until someone accepts.
+ */
+export const adminListOpenMatches = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireCapability(context, "platform.analytics");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("challenges")
+      .select(
+        "id, status, game_slug, platform, entry_amount, creator_id, opponent_id, created_at, scheduled_for",
+      )
+      .in("status", ["open", "active", "disputed"])
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw error;
+
+    const challenges = rows ?? [];
+    if (challenges.length === 0) {
+      return { matches: [], totals: { count: 0, pool_cents: 0, escrow_cents: 0 } };
+    }
+
+    const userIds = [
+      ...new Set(challenges.flatMap((c) => [c.creator_id, c.opponent_id]).filter(Boolean)),
+    ] as string[];
+
+    const [profileRes, holdRes] = await Promise.all([
+      supabaseAdmin.from("profiles").select("id, username, display_name").in("id", userIds),
+      supabaseAdmin
+        .from("escrow_holds")
+        .select("challenge_id, amount_cents")
+        .eq("status", "held")
+        .in(
+          "challenge_id",
+          challenges.map((c) => c.id),
+        ),
+    ]);
+
+    const nameOf = new Map(
+      (profileRes.data ?? []).map((p) => [p.id, p.display_name || p.username || "unknown"]),
+    );
+    const escrowOf = new Map<string, number>();
+    for (const h of holdRes.data ?? []) {
+      if (!h.challenge_id) continue;
+      escrowOf.set(h.challenge_id, (escrowOf.get(h.challenge_id) ?? 0) + Number(h.amount_cents));
+    }
+
+    const matches = challenges.map((c) => {
+      const stakeCents = Math.round(Number(c.entry_amount ?? 0) * 100);
+      return {
+        id: c.id,
+        status: c.status,
+        game_slug: c.game_slug,
+        platform: c.platform,
+        stake_cents: stakeCents,
+        pool_cents: stakeCents * 2,
+        escrow_cents: escrowOf.get(c.id) ?? 0,
+        creator: nameOf.get(c.creator_id) ?? "unknown",
+        opponent: c.opponent_id ? (nameOf.get(c.opponent_id) ?? "unknown") : null,
+        created_at: c.created_at,
+        scheduled_for: c.scheduled_for,
+      };
+    });
+
+    return {
+      matches,
+      totals: {
+        count: matches.length,
+        pool_cents: matches.reduce((sum, m) => sum + m.pool_cents, 0),
+        escrow_cents: matches.reduce((sum, m) => sum + m.escrow_cents, 0),
+      },
+    };
+  });
+
 const RoleEnum = z.enum(APP_ROLES);
 
 async function resolveUserId(target: string): Promise<string> {
