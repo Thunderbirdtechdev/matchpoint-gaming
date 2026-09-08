@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Send, ShieldAlert, Flag } from "lucide-react";
+import { Loader2, Send, ShieldAlert, Flag, Reply, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,13 @@ import { speakerColor, speakerInitials } from "@/lib/chat/speaker-color";
 import { offPlatformWarning, scanForOffPlatform } from "@/lib/chat/scan";
 import { listChatMessages, reportChatMessage, sendChatMessage } from "@/lib/chat.functions";
 
+/**
+ * One row from `listChatMessages`, derived from the server function rather than
+ * restated here so a change to the payload is a type error at the call site
+ * instead of a field that silently reads undefined.
+ */
+type ChatMessage = Awaited<ReturnType<typeof listChatMessages>>[number];
+
 type Props =
   | { scope: "global"; matchId?: undefined; emptyHint?: string }
   | { scope: "match"; matchId: string; emptyHint?: string };
@@ -41,7 +48,26 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
   const reportFn = useServerFn(reportChatMessage);
 
   const [draft, setDraft] = useState("");
+  /** The message being answered, or null when composing a fresh one. */
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Scroll a quoted message back into view.
+   *
+   * Queried from the DOM rather than held in a ref map: the list is virtual-
+   * free and short (60 messages), and a map would have to be pruned on every
+   * refetch. A parent older than the window simply is not on screen, which is
+   * why this no-ops rather than throwing.
+   */
+  const jumpTo = (id: string) => {
+    const el = scrollRef.current?.querySelector<HTMLElement>(`[data-msg-id="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-primary/60", "rounded-xl");
+    window.setTimeout(() => el.classList.remove("ring-2", "ring-primary/60", "rounded-xl"), 1200);
+  };
 
   const key = useMemo(() => ["chat", scope, matchId ?? "global"], [scope, matchId]);
   const args = useMemo(
@@ -88,13 +114,21 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
+  useEffect(() => {
+    if (replyTo) inputRef.current?.focus();
+  }, [replyTo]);
+
   const hits = scanForOffPlatform(draft);
   const warning = offPlatformWarning(hits);
 
   const sendM = useMutation({
-    mutationFn: async () => sendFn({ data: { ...args, body: draft.trim() } }),
+    mutationFn: async () =>
+      sendFn({
+        data: { ...args, body: draft.trim(), reply_to_id: replyTo?.id },
+      }),
     onSuccess: () => {
       setDraft("");
+      setReplyTo(null);
       qc.invalidateQueries({ queryKey: key });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -131,16 +165,17 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
             const color = speakerColor(m.author_id);
 
             return (
-              <div key={m.id} className={startsRun && i > 0 ? "pt-3" : undefined}>
-                {startsRun && !m.mine && (
-                  <p className="mb-1 pl-10 text-[11px] font-semibold" style={{ color }}>
-                    {m.author_name}
-                  </p>
-                )}
-                <ChatBubble variant={m.mine ? "sent" : "received"} className="group">
-                  {m.mine ? (
-                    <span className="w-8 shrink-0" aria-hidden />
-                  ) : startsRun ? (
+              <div
+                key={m.id}
+                data-msg-id={m.id}
+                className={startsRun && i > 0 ? "pt-3" : undefined}
+              >
+                {/* Avatar and name share the top line, so the column of text
+                    starts level with the face beside it. Hanging the name
+                    above the whole row left the avatar floating below its own
+                    label. */}
+                <ChatBubble variant={m.mine ? "sent" : "received"} className="group items-start">
+                  {!m.mine && startsRun ? (
                     <ChatBubbleAvatar
                       src={m.author_avatar ?? undefined}
                       fallback={speakerInitials(m.author_name)}
@@ -154,11 +189,47 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
                     <span className="w-8 shrink-0" aria-hidden />
                   )}
 
-                  <div className="max-w-[78%] min-w-0">
+                  <div
+                    className={`flex min-w-0 max-w-[78%] flex-col ${
+                      m.mine ? "items-end" : "items-start"
+                    }`}
+                  >
+                    {startsRun && !m.mine && (
+                      <p className="mb-1 text-[11px] font-semibold" style={{ color }}>
+                        {m.author_name}
+                      </p>
+                    )}
+
                     <ChatBubbleMessage
                       variant={m.mine ? "sent" : "received"}
                       className="break-words"
                     >
+                      {m.reply_to && (
+                        <button
+                          type="button"
+                          onClick={() => jumpTo(m.reply_to!.id)}
+                          className="mb-1.5 block w-full rounded-lg border-l-2 bg-background/40 px-2 py-1 text-left"
+                          style={{
+                            borderColor: m.reply_to.author_id
+                              ? speakerColor(m.reply_to.author_id)
+                              : "var(--border)",
+                          }}
+                        >
+                          <span
+                            className="block text-[10px] font-semibold"
+                            style={{
+                              color: m.reply_to.author_id
+                                ? speakerColor(m.reply_to.author_id)
+                                : undefined,
+                            }}
+                          >
+                            {m.reply_to.author_name ?? "Unknown"}
+                          </span>
+                          <span className="line-clamp-2 block text-[11px] text-muted-foreground">
+                            {m.reply_to.deleted ? "Message deleted" : m.reply_to.body}
+                          </span>
+                        </button>
+                      )}
                       {m.body}
                     </ChatBubbleMessage>
 
@@ -178,6 +249,13 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
                           <ShieldAlert className="h-3 w-3" /> payment mentioned
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setReplyTo(m)}
+                        className="inline-flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-foreground focus-visible:opacity-100"
+                      >
+                        <Reply className="h-3 w-3" /> Reply
+                      </button>
                       {!m.mine && (
                         <button
                           type="button"
@@ -203,6 +281,31 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
             <span>{warning}</span>
           </p>
         )}
+        {replyTo && (
+          <div className="mb-2 flex items-start gap-2 rounded-lg border border-border/60 bg-surface/50 p-2">
+            <div
+              className="w-0.5 shrink-0 self-stretch rounded-full"
+              style={{ background: speakerColor(replyTo.author_id) }}
+            />
+            <div className="min-w-0 flex-1">
+              <p
+                className="text-[10px] font-semibold"
+                style={{ color: speakerColor(replyTo.author_id) }}
+              >
+                Replying to {replyTo.author_name}
+              </p>
+              <p className="truncate text-[11px] text-muted-foreground">{replyTo.body}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTo(null)}
+              aria-label="Cancel reply"
+              className="shrink-0 rounded p-0.5 text-muted-foreground transition hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
         <form
           className="flex items-center gap-2"
           onSubmit={(e) => {
@@ -211,9 +314,18 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
           }}
         >
           <Input
+            ref={inputRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value.slice(0, 2000))}
-            placeholder="Write a message…"
+            onKeyDown={(e) => {
+              // Escape drops the quote rather than the draft, matching every
+              // chat client the reader already uses.
+              if (e.key === "Escape" && replyTo) {
+                e.preventDefault();
+                setReplyTo(null);
+              }
+            }}
+            placeholder={replyTo ? "Write a reply…" : "Write a message…"}
             aria-label="Message"
           />
           <Button type="submit" disabled={!draft.trim() || sendM.isPending} size="icon">

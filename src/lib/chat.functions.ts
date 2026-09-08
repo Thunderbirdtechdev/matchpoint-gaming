@@ -78,7 +78,10 @@ export const sendChatMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
     z
-      .object({ body: z.string().trim().min(1).max(2000) })
+      .object({
+        body: z.string().trim().min(1).max(2000),
+        reply_to_id: z.string().uuid().optional(),
+      })
       .and(ScopeSchema)
       .parse(d),
   )
@@ -122,6 +125,28 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     // matched so the moderator queue can find it later.
     const flagged = scanForOffPlatform(data.body);
 
+    // A reply has to point at a live message in THIS room. Without the room
+    // check a crafted request could quote a message out of a match the sender
+    // was never in, and the quote would render to both players — leaking the
+    // text of a room they cannot read.
+    let replyToId: string | null = null;
+    if (data.reply_to_id) {
+      const { data: parent } = await db
+        .from("chat_messages")
+        .select("id, scope, match_id, deleted_at")
+        .eq("id", data.reply_to_id)
+        .maybeSingle();
+
+      const sameRoom =
+        parent &&
+        !parent.deleted_at &&
+        parent.scope === data.scope &&
+        (data.scope === "global" ? parent.match_id === null : parent.match_id === matchId);
+
+      if (!sameRoom) throw new Error("That message is no longer available to reply to.");
+      replyToId = parent.id as string;
+    }
+
     const { data: row, error } = await db
       .from("chat_messages")
       .insert({
@@ -130,6 +155,7 @@ export const sendChatMessage = createServerFn({ method: "POST" })
         author_id: context.userId,
         body: data.body.trim(),
         flagged,
+        reply_to_id: replyToId,
       } as never)
       .select("id")
       .single();
@@ -161,7 +187,7 @@ export const listChatMessages = createServerFn({ method: "POST" })
 
     let q = db
       .from("chat_messages")
-      .select("id, author_id, body, flagged, created_at")
+      .select("id, author_id, body, flagged, created_at, reply_to_id")
       .is("deleted_at", null)
       .eq("scope", data.scope)
       .order("created_at", { ascending: false })
@@ -188,17 +214,66 @@ export const listChatMessages = createServerFn({ method: "POST" })
       ((profiles ?? []) as any[]).map((p) => [p.id, p]),
     );
 
-    return list.map((m) => ({
-      id: m.id as string,
-      body: m.body as string,
-      flagged: (m.flagged ?? []) as string[],
-      created_at: m.created_at as string,
-      author_id: m.author_id as string,
-      author_name:
-        byId.get(m.author_id)?.display_name || byId.get(m.author_id)?.username || "Player",
-      author_avatar: (byId.get(m.author_id)?.avatar_url as string | null) ?? null,
-      mine: m.author_id === context.userId,
-    }));
+    // Quoted parents. Fetched separately rather than joined because the parent
+    // is usually already in `list` — only a reply to something older than the
+    // window needs a row, and those are the minority.
+    const parentIds = Array.from(
+      new Set(list.map((m) => m.reply_to_id).filter(Boolean)),
+    ) as string[];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parentById = new Map<string, any>();
+    if (parentIds.length) {
+      const { data: parents } = await db
+        .from("chat_messages")
+        .select("id, author_id, body, deleted_at")
+        .in("id", parentIds);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const p of (parents ?? []) as any[]) parentById.set(p.id, p);
+
+      // A parent older than the window has an author nobody has looked up yet.
+      const missing = Array.from(parentById.values())
+        .map((p) => p.author_id)
+        .filter((id: string) => !byId.has(id));
+      if (missing.length) {
+        const { data: extra } = await supabaseAdmin
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .in("id", Array.from(new Set(missing)));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const p of (extra ?? []) as any[]) byId.set(p.id, p);
+      }
+    }
+
+    const nameOf = (id: string) => byId.get(id)?.display_name || byId.get(id)?.username || "Player";
+
+    return list.map((m) => {
+      const parent = m.reply_to_id ? parentById.get(m.reply_to_id) : null;
+      return {
+        id: m.id as string,
+        body: m.body as string,
+        flagged: (m.flagged ?? []) as string[],
+        created_at: m.created_at as string,
+        author_id: m.author_id as string,
+        author_name: nameOf(m.author_id),
+        author_avatar: (byId.get(m.author_id)?.avatar_url as string | null) ?? null,
+        mine: m.author_id === context.userId,
+        /**
+         * The message this one answers. Present but marked `deleted` when a
+         * moderator has removed the parent, so the reply still reads as a
+         * reply instead of turning into an orphaned non-sequitur.
+         */
+        reply_to: m.reply_to_id
+          ? {
+              id: m.reply_to_id as string,
+              author_id: (parent?.author_id as string) ?? null,
+              author_name: parent ? nameOf(parent.author_id) : null,
+              body: parent && !parent.deleted_at ? (parent.body as string) : null,
+              deleted: !parent || Boolean(parent.deleted_at),
+            }
+          : null,
+      };
+    });
   });
 
 /** Report a message to the moderators. */
