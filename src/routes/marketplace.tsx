@@ -26,7 +26,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { acceptChallenge, joinTournament } from "@/lib/matches.functions";
-import { SUPPORTED_GAMES, GAME_LABELS, type SupportedGame } from "@/lib/fees";
+import { SUPPORTED_GAMES, GAME_LABELS, PLATFORMS, type SupportedGame } from "@/lib/fees";
 import { FilterChips, type ChipOption } from "@/components/marketplace/FilterChips";
 import { ListingCard, type ListingProfile } from "@/components/marketplace/ListingCard";
 import {
@@ -59,8 +59,6 @@ export const Route = createFileRoute("/marketplace")({
   }),
   component: MarketplacePage,
 });
-
-const PLATFORMS = ["PC", "PlayStation", "Xbox", "Switch"];
 
 const SORTS = [
   { id: "default", label: "" },

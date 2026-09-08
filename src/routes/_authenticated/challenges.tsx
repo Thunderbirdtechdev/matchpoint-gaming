@@ -32,7 +32,13 @@ import {
 } from "@/components/ui/select";
 import { Plus, Swords, Flag, X, Trophy } from "lucide-react";
 import { toast } from "sonner";
-import { calculateChallengeFee, SUPPORTED_GAMES, GAME_LABELS, MIN_ENTRY_USD } from "@/lib/fees";
+import {
+  calculateChallengeFee,
+  SUPPORTED_GAMES,
+  GAME_LABELS,
+  PLATFORMS,
+  MIN_ENTRY_USD,
+} from "@/lib/fees";
 
 export const Route = createFileRoute("/_authenticated/challenges")({
   head: () => ({ meta: [{ title: "Challenges | MatchPoint" }] }),
@@ -40,7 +46,6 @@ export const Route = createFileRoute("/_authenticated/challenges")({
 });
 
 const GAMES = [...SUPPORTED_GAMES];
-const PLATFORMS = ["PC", "PlayStation", "Xbox", "Switch"];
 
 function ChallengesPage() {
   const { user } = useAuth();

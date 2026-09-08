@@ -12,6 +12,22 @@ export const MIN_ENTRY_USD = 10;
 export const SUPPORTED_GAMES = ["fortnite", "nba2k", "madden", "ncaa", "mlbshow"] as const;
 export type SupportedGame = (typeof SUPPORTED_GAMES)[number];
 
+/**
+ * Platforms a match can be played on.
+ *
+ * "Crossplay" is not a console — it is the player saying the platform does not
+ * matter, which most of these titles now support. It sits in the same list
+ * because that is the one question the challenge form asks, and splitting it
+ * into a separate toggle would make every existing challenge ambiguous about
+ * whether it had opted in.
+ *
+ * Stored as free text on `challenges.platform`, so adding one is a code change
+ * and never a migration. Kept here rather than in each route because two copies
+ * had already drifted apart once.
+ */
+export const PLATFORMS = ["PC", "PlayStation", "Xbox", "Switch", "Crossplay"] as const;
+export type Platform = (typeof PLATFORMS)[number];
+
 export const GAME_LABELS: Record<SupportedGame, string> = {
   fortnite: "Fortnite",
   nba2k: "NBA 2K27",
