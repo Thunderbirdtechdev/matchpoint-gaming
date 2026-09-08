@@ -25,6 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OffPlatformNotice } from "@/components/safety/OffPlatformNotice";
+import { ChatBubble, ChatBubbleAvatar, ChatBubbleMessage } from "@/components/ui/chat-bubble";
+import { speakerColor, speakerInitials } from "@/lib/chat/speaker-color";
 import { offPlatformWarning, scanForOffPlatform } from "@/lib/chat/scan";
 import { listChatMessages, reportChatMessage, sendChatMessage } from "@/lib/chat.functions";
 
@@ -107,7 +109,7 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
 
   return (
     <div className="flex h-[32rem] flex-col overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-4">
         {messagesQ.isPending ? (
           <>
             <Skeleton className="h-10 w-2/3 rounded-xl" />
@@ -119,48 +121,79 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
             {emptyHint ?? "No messages yet. Say hello."}
           </p>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
-              <div className="group max-w-[80%]">
-                {!m.mine && (
-                  <p className="mb-0.5 text-[11px] font-medium text-muted-foreground">
+          messages.map((m, i) => {
+            // Consecutive messages from one person collapse into a run: the
+            // name and avatar are drawn once at the top, and the rest are just
+            // bubbles. Repeating an identity every line is what made the old
+            // list read as a wall.
+            const prev = messages[i - 1];
+            const startsRun = !prev || prev.author_id !== m.author_id;
+            const color = speakerColor(m.author_id);
+
+            return (
+              <div key={m.id} className={startsRun && i > 0 ? "pt-3" : undefined}>
+                {startsRun && !m.mine && (
+                  <p className="mb-1 pl-10 text-[11px] font-semibold" style={{ color }}>
                     {m.author_name}
                   </p>
                 )}
-                <div
-                  className={`rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-                    m.mine
-                      ? "bg-primary/15 text-foreground"
-                      : "border border-border/50 bg-surface/50 text-foreground"
-                  }`}
-                >
-                  {m.body}
-                </div>
-                <div className="mt-0.5 flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(m.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                  {m.flagged.length > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-500">
-                      <ShieldAlert className="h-3 w-3" /> payment mentioned
-                    </span>
+                <ChatBubble variant={m.mine ? "sent" : "received"} className="group">
+                  {m.mine ? (
+                    <span className="w-8 shrink-0" aria-hidden />
+                  ) : startsRun ? (
+                    <ChatBubbleAvatar
+                      src={m.author_avatar ?? undefined}
+                      fallback={speakerInitials(m.author_name)}
+                      // boxShadow rather than Tailwind's `ring-2`: the ring
+                      // utility takes its colour from --tw-ring-color, and
+                      // driving a framework-internal variable from inline
+                      // styles breaks quietly if that internal is ever renamed.
+                      style={{ color, boxShadow: `0 0 0 2px ${color}` }}
+                    />
+                  ) : (
+                    <span className="w-8 shrink-0" aria-hidden />
                   )}
-                  {!m.mine && (
-                    <button
-                      type="button"
-                      onClick={() => reportM.mutate(m.id)}
-                      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+
+                  <div className="max-w-[78%] min-w-0">
+                    <ChatBubbleMessage
+                      variant={m.mine ? "sent" : "received"}
+                      className="break-words"
+                      style={m.mine ? undefined : { borderColor: color, borderLeftWidth: 2 }}
                     >
-                      <Flag className="h-3 w-3" /> Report
-                    </button>
-                  )}
-                </div>
+                      {m.body}
+                    </ChatBubbleMessage>
+
+                    <div
+                      className={`mt-1 flex items-center gap-2 ${
+                        m.mine ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      {m.flagged.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-500">
+                          <ShieldAlert className="h-3 w-3" /> payment mentioned
+                        </span>
+                      )}
+                      {!m.mine && (
+                        <button
+                          type="button"
+                          onClick={() => reportM.mutate(m.id)}
+                          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+                        >
+                          <Flag className="h-3 w-3" /> Report
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </ChatBubble>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

@@ -79,6 +79,27 @@
   --destructive: oklch(0.62 0.24 25);
   --destructive-foreground: oklch(0.99 0 0);
 
+  /* ------------------------------------------------------------------
+     Speaker colours — one per participant in a chat room.
+
+     Assigned by hashing the author id, so a given player keeps the same
+     colour on every reload and in every room. Eight hues, evenly spaced
+     around the wheel and deliberately skipping the reds near --destructive
+     and the ambers near --accent, so a username can never be mistaken for a
+     warning or a flagged message.
+
+     Held at high lightness against the dark ground here; the .light block
+     drops them for contrast on white.
+     ------------------------------------------------------------------ */
+  --speaker-1: oklch(0.78 0.15 270);
+  --speaker-2: oklch(0.80 0.16 195);
+  --speaker-3: oklch(0.80 0.17 150);
+  --speaker-4: oklch(0.84 0.15 115);
+  --speaker-5: oklch(0.80 0.16 330);
+  --speaker-6: oklch(0.78 0.15 305);
+  --speaker-7: oklch(0.80 0.14 235);
+  --speaker-8: oklch(0.82 0.15 170);
+
   --border: oklch(0.36 0.08 283 / 0.55);
   --input: oklch(0.36 0.08 283 / 0.8);
   --ring: oklch(0.51 0.23 277);
@@ -207,6 +228,16 @@
 
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
+
+  /* Same eight hues, darkened so they stay legible on a white surface. */
+  --speaker-1: oklch(0.52 0.19 270);
+  --speaker-2: oklch(0.52 0.15 195);
+  --speaker-3: oklch(0.50 0.15 150);
+  --speaker-4: oklch(0.52 0.15 115);
+  --speaker-5: oklch(0.54 0.19 330);
+  --speaker-6: oklch(0.52 0.19 305);
+  --speaker-7: oklch(0.52 0.17 235);
+  --speaker-8: oklch(0.50 0.14 170);
 
   --border: oklch(0.52 0.05 283 / 0.20);
   --input: oklch(0.52 0.05 283 / 0.30);
