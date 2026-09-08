@@ -68,6 +68,74 @@ export const adminCreditWallet = createServerFn({ method: "POST" })
     return { ok: true, user_id: userId, balance_cents: newBalance, audit_failed: !audit.ok };
   });
 
+const DebitWalletSchema = z.object({
+  target: z.string().trim().min(1), // user id (uuid) or email
+  amount_cents: z.number().int().min(1).max(10_000_000),
+  note: z.string().trim().max(200).optional(),
+});
+
+/**
+ * Take balance back out of a user's wallet.
+ *
+ * The reversal for a credit applied in error. Same treasury gate and second
+ * factor as `adminCreditWallet`, because being able to zero a player's balance
+ * is no less dangerous than being able to invent one.
+ *
+ * The RPC refuses to overdraw, so a player who already spent the credit yields
+ * an `insufficient_balance` error naming what is actually there — the operator
+ * then decides whether to claw back part of it, rather than the wallet silently
+ * going negative. It also debits only the available balance, never escrow, so a
+ * live match cannot be defunded underneath a player.
+ */
+export const adminDebitWallet = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => DebitWalletSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await requireCapability(context, "finance.wallet_adjust");
+    const { assertMfaForSensitiveAction } = await import("@/lib/compliance.server");
+    await assertMfaForSensitiveAction(context);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const userId = await resolveUserId(data.target);
+
+    const { data: newBalance, error } = await supabaseAdmin.rpc(
+      "wallet_debit" as never,
+      {
+        _user_id: userId,
+        _amount_cents: data.amount_cents,
+        _type: "adjustment",
+        _description: data.note ?? "Admin balance removal",
+        _metadata: { source: "admin_debit", by: context.userId },
+      } as never,
+    );
+    if (error) {
+      // Turn the RPC's raise into the sentence the operator needs: how much is
+      // actually there, so they can retry with an amount that works.
+      const m = /insufficient_balance: available (-?\d+) cents/.exec(error.message ?? "");
+      if (m) {
+        const available = Number(m[1]) / 100;
+        throw new Error(
+          `That player only has $${available.toFixed(2)} available. Escrowed stakes can't be ` +
+            `removed, and the balance won't be taken negative.`,
+        );
+      }
+      throw error;
+    }
+
+    const { recordAudit } = await import("@/lib/audit.server");
+    const audit = await recordAudit(context.userId, {
+      action: "finance.wallet_debit",
+      target_type: "user",
+      target_id: userId,
+      amount_cents: data.amount_cents,
+      summary: `Removed ${(data.amount_cents / 100).toFixed(2)} from a player wallet`,
+      metadata: { note: data.note ?? null, balance_after_cents: newBalance },
+    });
+
+    return { ok: true, user_id: userId, balance_cents: newBalance, audit_failed: !audit.ok };
+  });
+
 const RoleEnum = z.enum(APP_ROLES);
 
 async function resolveUserId(target: string): Promise<string> {

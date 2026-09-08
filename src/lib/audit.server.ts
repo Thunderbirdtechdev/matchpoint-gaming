@@ -27,6 +27,7 @@ export type AuditAction =
   | "finance.stripe_sweep"
   | "finance.company_withdrawal"
   | "finance.wallet_credit"
+  | "finance.wallet_debit"
   | "finance.payout_decision"
   // moderation — outcomes and escrow
   | "moderation.dispute_recommend"

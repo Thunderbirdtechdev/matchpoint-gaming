@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History } from "lucide-react";
 import { toast } from "sonner";
-import { adminCreditWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
+import { adminCreditWallet, adminDebitWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
 import { getPlatformLiabilities } from "@/lib/finance.functions";
 import { listMfaStatus, adminResetUserMfa } from "@/lib/security.functions";
 import { getHotWalletStatus } from "@/lib/crypto.functions";
@@ -102,7 +102,7 @@ function AdminPage() {
         </>
       )}
 
-      {can("finance.wallet_adjust") && <AdminCreditWalletCard />}
+      {can("finance.wallet_adjust") && <AdminAdjustWalletCard />}
 
       {can("users.view") && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
@@ -256,37 +256,69 @@ function PromoCodesCard() {
   );
 }
 
-function AdminCreditWalletCard() {
+function AdminAdjustWalletCard() {
   const creditFn = useServerFn(adminCreditWallet);
+  const debitFn = useServerFn(adminDebitWallet);
   const [target, setTarget] = useState("");
   const [amount, setAmount] = useState("50");
-  const [note, setNote] = useState("PayPal sandbox test credit");
+  // Blank by default now the card runs both directions: a note reading "test
+  // credit" on a removal would be worse than no note at all.
+  const [note, setNote] = useState("");
+
+  const payload = () => ({
+    data: {
+      target: target.trim(),
+      amount_cents: Math.round(Number(amount) * 100),
+      note: note.trim() || undefined,
+    },
+  });
 
   const mut = useMutation({
-    mutationFn: async () =>
-      creditFn({
-        data: {
-          target: target.trim(),
-          amount_cents: Math.round(Number(amount) * 100),
-          note: note.trim() || undefined,
-        },
-      }),
+    mutationFn: async () => creditFn(payload()),
     onSuccess: (res) => {
       toast.success(`Credited. New balance: $${(Number(res.balance_cents) / 100).toFixed(2)}`);
     },
     onError: (e: Error) => toast.error(e.message || "Credit failed"),
   });
 
+  // Reversing a credit applied in error. A separate mutation rather than a mode
+  // flag on the one above, so the confirm prompt and the failure message can
+  // each say which direction the money is actually going.
+  const removeMut = useMutation({
+    mutationFn: async () => debitFn(payload()),
+    onSuccess: (res) => {
+      toast.success(`Removed. New balance: $${(Number(res.balance_cents) / 100).toFixed(2)}`);
+    },
+    onError: (e: Error) => toast.error(e.message || "Removal failed"),
+  });
+
+  const busy = mut.isPending || removeMut.isPending;
+
+  const validate = () => {
+    if (!target.trim()) {
+      toast.error("Enter a user email or id");
+      return false;
+    }
+    const n = Number(amount);
+    if (!n || n < 1) {
+      toast.error("Enter a valid amount");
+      return false;
+    }
+    return true;
+  };
+
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-6">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <Wallet className="h-4 w-4" /> Credit a test wallet
+        <Wallet className="h-4 w-4" /> Adjust a wallet
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
-        Admin-only. Add sandbox balance to any user (by email or user id) to test PayPal payouts. Records an{" "}
-        <code className="rounded bg-muted px-1">adjustment</code> ledger entry.
+        Admin-only. Add balance to any user (by email or user id), or remove a credit applied in
+        error. Either way it records an <code className="rounded bg-muted px-1">adjustment</code>{" "}
+        ledger entry the player can see. Removal never takes a balance negative and never touches
+        escrowed stakes.
       </p>
-      <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_2fr_auto]">
+      <div className="mt-4 grid gap-3 md:grid-cols-[2fr_1fr_2fr_auto_auto]">
         <Input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="user email or uuid" />
         <Input
           type="number"
@@ -298,14 +330,24 @@ function AdminCreditWalletCard() {
         <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" />
         <Button
           onClick={() => {
-            const n = Number(amount);
-            if (!target.trim()) return toast.error("Enter a user email or id");
-            if (!n || n < 1) return toast.error("Enter a valid amount");
-            mut.mutate();
+            if (validate()) mut.mutate();
           }}
-          disabled={mut.isPending}
+          disabled={busy}
         >
-          {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Credit wallet"}
+          {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Credit"}
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={() => {
+            if (!validate()) return;
+            const ok = window.confirm(
+              `Remove $${Number(amount).toFixed(2)} from ${target.trim()}? This debits their spendable balance and is recorded in the audit log.`,
+            );
+            if (ok) removeMut.mutate();
+          }}
+          disabled={busy}
+        >
+          {removeMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Remove"}
         </Button>
       </div>
     </div>
