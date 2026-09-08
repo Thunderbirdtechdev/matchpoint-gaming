@@ -15,7 +15,7 @@ const faqs = [
   },
   {
     q: "How do payouts work?",
-    a: "Once both players confirm a match result, winnings land in your wallet automatically. Standard withdrawals to your bank are free (2-5 days). Same-day cash outs are available for a small fee.",
+    a: "Once both players confirm a match result, winnings land in your wallet automatically. Standard withdrawals to your bank are free (2-5 days). Same-day cash outs are available for a flat 8% of the amount you withdraw.",
   },
   {
     q: "What happens if there's a dispute?",

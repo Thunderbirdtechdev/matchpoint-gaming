@@ -99,49 +99,29 @@ export function calculateChallengeFee(entryAmount: number): FeeBreakdown {
 
 /* =========================================================================
  *  Withdrawal fees
- *  Standard payouts (2–5 business days) are FREE.
- *  Same-day payouts are charged per the tier table below.
  *
- *    $1    – $50      $1.99
- *    $51   – $100     $2.99
- *    $101  – $250     $4.99
- *    $251  – $500     $7.99
- *    $501  – $1,000   $12.99
- *    $1,001+          1% of the withdrawal amount
+ *  Standard payouts (2–5 business days) are FREE.
+ *  Same-day payouts cost a flat 8% of the amount withdrawn — no tiers, no
+ *  minimum, the same rate at $10 as at $5,000.
+ *
+ *  Flat on purpose. Kevin asked for percentage-based pricing after tiered
+ *  flat fees, and a single rate is the version a player can check in their
+ *  head before they tap the button. A tier table only earns its complexity if
+ *  the rate actually changes across it.
  * ========================================================================= */
 
 export type WithdrawalSpeed = "standard" | "same_day";
 
-export type WithdrawalTier = {
-  minCents: number;
-  maxCents: number; // inclusive; Infinity for the top tier
-  /** Flat fee in cents. `null` means use a percentage rate instead. */
-  flatFeeCents: number | null;
-  /** Percentage rate (0..1) applied when flatFeeCents is null. */
-  pctRate: number | null;
-  label: string;
-};
-
-export const SAME_DAY_WITHDRAWAL_TIERS: ReadonlyArray<WithdrawalTier> = [
-  { minCents: 1_000, maxCents: 5_000, flatFeeCents: 199, pctRate: null, label: "$10 – $50" },
-  { minCents: 5_001, maxCents: 10_000, flatFeeCents: 299, pctRate: null, label: "$51 – $100" },
-  { minCents: 10_001, maxCents: 25_000, flatFeeCents: 499, pctRate: null, label: "$101 – $250" },
-  { minCents: 25_001, maxCents: 50_000, flatFeeCents: 799, pctRate: null, label: "$251 – $500" },
-  {
-    minCents: 50_001,
-    maxCents: 100_000,
-    flatFeeCents: 1_299,
-    pctRate: null,
-    label: "$501 – $1,000",
-  },
-  { minCents: 100_001, maxCents: Infinity, flatFeeCents: null, pctRate: 0.01, label: "$1,001+" },
-];
+/** Same-day withdrawal fee, as a fraction of the gross amount. */
+export const SAME_DAY_WITHDRAWAL_RATE = 0.08;
 
 export type WithdrawalFeeBreakdown = {
   speed: WithdrawalSpeed;
   grossCents: number;
   feeCents: number;
   netCents: number;
+  /** Percentage rate charged (0..1); 0 for standard payouts. */
+  rate: number;
   tierLabel: string;
   etaLabel: string;
 };
@@ -157,24 +137,21 @@ export function calculateWithdrawalFee(
       grossCents: gross,
       feeCents: 0,
       netCents: gross,
+      rate: 0,
       tierLabel: "Free",
       etaLabel: "2–5 business days",
     };
   }
-  const tier =
-    SAME_DAY_WITHDRAWAL_TIERS.find((t) => gross >= t.minCents && gross <= t.maxCents) ??
-    SAME_DAY_WITHDRAWAL_TIERS[SAME_DAY_WITHDRAWAL_TIERS.length - 1];
-  const fee =
-    tier.flatFeeCents !== null
-      ? tier.flatFeeCents
-      : Math.max(1, Math.round(gross * (tier.pctRate ?? 0)));
-  const net = Math.max(0, gross - fee);
+  // Capped at the withdrawal itself so a rounding edge can never return a
+  // negative net.
+  const fee = Math.min(gross, Math.round(gross * SAME_DAY_WITHDRAWAL_RATE));
   return {
     speed,
     grossCents: gross,
     feeCents: fee,
-    netCents: net,
-    tierLabel: tier.label,
+    netCents: Math.max(0, gross - fee),
+    rate: SAME_DAY_WITHDRAWAL_RATE,
+    tierLabel: "8% of the amount",
     etaLabel: "Typically 30 minutes – 5 hours",
   };
 }

@@ -58,6 +58,11 @@ function fmt(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+/** Render a fee rate as a percent, trimming trailing zeros: 0.0175 -> "1.75%". */
+function pct(rate: number) {
+  return `${Number((rate * 100).toFixed(2))}%`;
+}
+
 function WalletPage() {
   const qc = useQueryClient();
   const search = useSearch({ from: "/_authenticated/wallet" });
@@ -337,7 +342,7 @@ function WalletPage() {
               >
                 <div className="flex items-center gap-2 font-medium text-foreground">
                   <Zap className="h-3.5 w-3.5" /> Same-day
-                  <span className="ml-auto text-muted-foreground">Fee applies</span>
+                  <span className="ml-auto text-muted-foreground">8% fee</span>
                 </div>
                 <div className="mt-1 text-muted-foreground">30 minutes – 5 hours</div>
               </button>
@@ -396,7 +401,7 @@ function WalletPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {speed === "same_day" ? "Same-day fee" : "Standard fee"}
+                        {speed === "same_day" ? `Same-day fee (${pct(b.rate)})` : "Standard fee"}
                       </span>
                       <span
                         className={
@@ -511,7 +516,7 @@ function WalletPage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          {speed === "same_day" ? "Same-day fee" : "Standard fee"}
+                          {speed === "same_day" ? `Same-day fee (${pct(b.rate)})` : "Standard fee"}
                         </span>
                         <span
                           className={
