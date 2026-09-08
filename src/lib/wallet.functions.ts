@@ -25,6 +25,44 @@ function origin() {
   return `${proto}://${host}`;
 }
 
+/**
+ * Did Stripe just tell us the connected account no longer exists?
+ *
+ * An operator can delete a connected account from the Stripe dashboard at any
+ * time, and Stripe never tells us — there is no reliable webhook for it. Our
+ * `stripe_connect_accounts` row survives, so every later call keeps pointing at
+ * an `acct_...` that is gone and fails with `resource_missing`. Left unhandled
+ * that is a permanent dead end: the player (or the operator testing payouts)
+ * can never reconnect, because the reconnect path is exactly what's broken.
+ */
+function isMissingAccountError(err: unknown): boolean {
+  const e = err as { code?: string; statusCode?: number; message?: string } | null;
+  if (!e) return false;
+  if (e.code === "account_invalid") return true;
+  if (e.code === "resource_missing" && /account/i.test(e.message ?? "")) return true;
+  return /No such account/i.test(e.message ?? "");
+}
+
+/**
+ * Forget a connected account that Stripe no longer has, so the next onboarding
+ * attempt starts clean instead of retrying a dead id.
+ */
+async function clearStaleConnectRow(userId: string, stripeAccountId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin
+    .from("stripe_connect_accounts")
+    .delete()
+    .eq("user_id", userId)
+    .eq("stripe_account_id", stripeAccountId);
+  console.warn(
+    "[stripe-connect] cleared stale account",
+    stripeAccountId,
+    "for user",
+    userId,
+    "- it no longer exists at Stripe",
+  );
+}
+
 /** Returns the user's wallet + recent ledger. Creates wallet if missing. */
 export const getMyWallet = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -247,6 +285,26 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
 
     let stripeAccountId = row?.stripe_account_id;
 
+    // Confirm the saved account still exists before we try to build a link for
+    // it. If an operator deleted it at Stripe, drop our row and fall through to
+    // creating a fresh one — otherwise reconnecting is impossible.
+    if (stripeAccountId) {
+      const savedId = stripeAccountId;
+      try {
+        const existing = await stripe.accounts.retrieve(savedId);
+        if ((existing as { deleted?: boolean }).deleted) {
+          await clearStaleConnectRow(context.userId, savedId);
+          stripeAccountId = undefined;
+          row = null;
+        }
+      } catch (err: unknown) {
+        if (!isMissingAccountError(err)) throw err;
+        await clearStaleConnectRow(context.userId, savedId);
+        stripeAccountId = undefined;
+        row = null;
+      }
+    }
+
     if (!stripeAccountId) {
       try {
         const acct = await stripe.accounts.create({
@@ -279,14 +337,34 @@ export const createConnectOnboarding = createServerFn({ method: "POST" })
     }
 
     const base = origin();
-    const link = await stripe.accountLinks.create({
-      account: stripeAccountId,
+    const linkArgs = {
       refresh_url: `${base}/wallet?connect=refresh`,
       return_url: `${base}/wallet?connect=return`,
-      type: "account_onboarding",
-    });
+      type: "account_onboarding" as const,
+    };
 
-    return { url: link.url };
+    try {
+      const link = await stripe.accountLinks.create({ account: stripeAccountId, ...linkArgs });
+      return { url: link.url };
+    } catch (err: unknown) {
+      // The account can be deleted between the check above and this call, and
+      // the retrieve can be served from a stale read. One clean retry on a
+      // brand-new account turns a dead end into a working reconnect.
+      if (!isMissingAccountError(err)) throw err;
+      await clearStaleConnectRow(context.userId, stripeAccountId);
+      const acct = await stripe.accounts.create({
+        type: "express",
+        capabilities: { transfers: { requested: true } },
+        metadata: { user_id: context.userId },
+      });
+      await supabaseAdmin.from("stripe_connect_accounts").insert({
+        user_id: context.userId,
+        stripe_account_id: acct.id,
+        country: acct.country ?? null,
+      });
+      const link = await stripe.accountLinks.create({ account: acct.id, ...linkArgs });
+      return { url: link.url };
+    }
   });
 
 /**
@@ -327,6 +405,14 @@ export const createConnectDashboardLink = createServerFn({ method: "POST" })
       const link = await stripe.accounts.createLoginLink(row.stripe_account_id);
       return { url: link.url };
     } catch (err: unknown) {
+      if (isMissingAccountError(err)) {
+        // Nothing to open, and the row is now the only thing keeping the
+        // player pointed at it. Clearing it makes "Set up payouts" work again.
+        await clearStaleConnectRow(context.userId, row.stripe_account_id);
+        throw new Error(
+          "Your payout account was removed at Stripe. Set up payouts again to reconnect.",
+        );
+      }
       const msg = err instanceof Error ? err.message : String(err);
       throw new Error(`Couldn't open your payout account: ${msg}`);
     }
@@ -364,6 +450,19 @@ export const createCashout = createServerFn({ method: "POST" })
 
     if (!connect?.stripe_account_id || !connect.payouts_enabled) {
       throw new Error("Set up your payout account before cashing out.");
+    }
+
+    // Verify the destination still exists BEFORE any money moves. A stale
+    // account would otherwise fail at the transfer, after the wallet debit.
+    try {
+      const acct = await stripe.accounts.retrieve(connect.stripe_account_id);
+      if ((acct as { deleted?: boolean }).deleted) throw new Error("No such account");
+    } catch (err: unknown) {
+      if (!isMissingAccountError(err)) throw err;
+      await clearStaleConnectRow(context.userId, connect.stripe_account_id);
+      throw new Error(
+        "Your payout account was removed at Stripe. Set up payouts again, then retry this cash out.",
+      );
     }
 
     const { data: wallet } = await supabaseAdmin

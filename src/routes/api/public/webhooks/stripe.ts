@@ -105,6 +105,18 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
                 .eq("stripe_account_id", acct.id);
               break;
             }
+            // An operator disconnecting or deleting the account at Stripe
+            // leaves our row pointing at an id that no longer resolves, which
+            // blocks every future reconnect. Drop it as soon as we hear.
+            case "account.application.deauthorized": {
+              if (event.account) {
+                await supabaseAdmin
+                  .from("stripe_connect_accounts")
+                  .delete()
+                  .eq("stripe_account_id", event.account);
+              }
+              break;
+            }
             default:
               break;
           }
