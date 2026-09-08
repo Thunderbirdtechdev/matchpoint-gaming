@@ -343,8 +343,23 @@ function WalletPage() {
               </button>
             </div>
 
+            {/* Available to withdraw, stated at the point of withdrawal rather
+                than only in the summary card at the top of the page. Escrowed
+                stakes are already excluded, so this is the spendable number. */}
+            <div className="mt-3 flex items-baseline justify-between text-xs">
+              <span className="text-muted-foreground">Available to withdraw</span>
+              <button
+                type="button"
+                onClick={() => setPayoutAmount(String(balance / 100))}
+                className="font-medium text-foreground underline-offset-2 hover:underline"
+                disabled={balance < 1_000}
+              >
+                {fmt(balance)}
+              </button>
+            </div>
+
             {/* Amount */}
-            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_auto]">
               <Input
                 type="number"
                 min={10}
@@ -358,7 +373,8 @@ function WalletPage() {
                   const n = Number(payoutAmount);
                   if (!n || n < 10) return toast.error("Minimum cash out is $10");
                   const cents = Math.round(n * 100);
-                  if (cents > balance) return toast.error("Exceeds balance");
+                  if (cents > balance)
+                    return toast.error(`You only have ${fmt(balance)} available to withdraw`);
                   setConfirmOpen(true);
                 }}
                 disabled={payoutMut.isPending || balance < 1_000}
