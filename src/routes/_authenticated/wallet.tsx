@@ -240,27 +240,13 @@ function WalletPage() {
           <ArrowUpCircle className="h-4 w-4" /> Cash out
         </div>
 
-        {!hasPlayed ? (
-          /* Explained here rather than discovered by being refused. The rule is
-             Kevin's: card processing costs the platform ~59c on a $10 deposit,
-             which the match fee recovers only if the money is actually staked. */
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-            <Swords className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-            <div className="text-xs leading-relaxed">
-              <p className="font-semibold text-foreground">Play a match first</p>
-              <p className="mt-1 text-muted-foreground">
-                Your balance becomes available to cash out once you've staked in at least one
-                challenge or tournament. Winnings can be withdrawn straight after.
-              </p>
-              <Link
-                to="/marketplace"
-                className="mt-2 inline-block font-medium text-foreground underline underline-offset-2"
-              >
-                Find a match
-              </Link>
-            </div>
-          </div>
-        ) : !payoutsEnabled ? (
+        {/* Order matters: bank setup comes BEFORE the must-play notice.
+            Connecting an account moves no money, and createConnectOnboarding
+            has never required a match — only createCashout does, server-side.
+            Gating the button behind has_played just meant a new player could
+            not get their bank ready until after they had staked, and left
+            anyone whose escrow history was cleared unable to reach it at all. */}
+        {!payoutsEnabled ? (
           <>
             <p className="mt-2 text-xs text-muted-foreground">
               Connect a bank account to cash out, a quick, secure setup through Stripe (the same
@@ -286,6 +272,26 @@ function WalletPage() {
               sees your bank details.
             </div>
           </>
+        ) : !hasPlayed ? (
+          /* Explained here rather than discovered by being refused. The rule is
+             Kevin's: card processing costs the platform ~59c on a $10 deposit,
+             which the match fee recovers only if the money is actually staked. */
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <Swords className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div className="text-xs leading-relaxed">
+              <p className="font-semibold text-foreground">Play a match first</p>
+              <p className="mt-1 text-muted-foreground">
+                Your balance becomes available to cash out once you've staked in at least one
+                challenge or tournament. Winnings can be withdrawn straight after.
+              </p>
+              <Link
+                to="/marketplace"
+                className="mt-2 inline-block font-medium text-foreground underline underline-offset-2"
+              >
+                Find a match
+              </Link>
+            </div>
+          </div>
         ) : (
           <>
             <p className="mt-2 text-xs text-muted-foreground">
