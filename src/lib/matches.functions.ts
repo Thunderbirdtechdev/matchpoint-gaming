@@ -888,13 +888,28 @@ export const reportChallengeResult = createServerFn({ method: "POST" })
 
     const isCreator = ch.creator_id === context.userId;
     const myColumn = isCreator ? "creator_reported_winner_id" : "opponent_reported_winner_id";
-    const otherReport = isCreator ? ch.opponent_reported_winner_id : ch.creator_reported_winner_id;
 
-    const { error: uErr } = await supabaseAdmin
+    /*
+     * Read the other player's report back from the write, not from the row
+     * fetched above.
+     *
+     * Both players pressing Report at the same moment each loaded a row where
+     * the other column was still null, so both concluded "waiting for the
+     * other player" and neither settled the match or opened a dispute — two
+     * people who had already agreed, stuck. Returning the updated row means
+     * whichever write lands second sees the first and acts on it.
+     */
+    const { data: updated, error: uErr } = await supabaseAdmin
       .from("challenges")
       .update({ [myColumn]: data.reported_winner_id } as never)
-      .eq("id", ch.id);
+      .eq("id", ch.id)
+      .select("creator_reported_winner_id, opponent_reported_winner_id")
+      .single();
     if (uErr) throw uErr;
+
+    const otherReport = isCreator
+      ? updated?.opponent_reported_winner_id
+      : updated?.creator_reported_winner_id;
 
     if (!otherReport) {
       return { ok: true, status: "waiting" as const };
