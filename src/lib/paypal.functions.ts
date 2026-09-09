@@ -79,13 +79,19 @@ export const createPaypalCashout = createServerFn({ method: "POST" })
     const net = gross - fee;
     const currency = (wallet.currency || "USD").toUpperCase();
 
-    // Debit wallet for the gross amount first
-    const newBalance = wallet.balance_cents - gross;
-    const { error: balErr } = await supabaseAdmin
-      .from("wallets")
-      .update({ balance_cents: newBalance })
-      .eq("id", wallet.id);
-    if (balErr) throw balErr;
+    // Debit under a row lock — see wallet_adjust_balance. Subtracting here
+    // would let this race the other two withdrawal paths on the same balance.
+    const { data: debited, error: balErr } = await supabaseAdmin.rpc(
+      "wallet_adjust_balance" as never,
+      { _user_id: context.userId, _delta_cents: -gross } as never,
+    );
+    if (balErr) {
+      if (/insufficient_balance/.test(balErr.message ?? "")) {
+        throw new Error("Insufficient wallet balance.");
+      }
+      throw balErr;
+    }
+    const newBalance = Number(debited);
 
     // Record withdrawal + platform fee transactions
     const { data: withdrawalTx, error: wErr } = await supabaseAdmin
@@ -139,7 +145,10 @@ export const createPaypalCashout = createServerFn({ method: "POST" })
       .single();
     if (pErr || !payoutRow) {
       // refund and throw
-      await supabaseAdmin.from("wallets").update({ balance_cents: wallet.balance_cents }).eq("id", wallet.id);
+      await supabaseAdmin.rpc(
+        "wallet_adjust_balance" as never,
+        { _user_id: context.userId, _delta_cents: gross } as never,
+      );
       throw pErr ?? new Error("Failed to create payout record");
     }
 
@@ -184,10 +193,10 @@ export const createPaypalCashout = createServerFn({ method: "POST" })
       return { ok: true, payout_id: payoutRow.id, batch_id: resp.batch_header.payout_batch_id };
     } catch (err) {
       // refund wallet on hard failure
-      await supabaseAdmin
-        .from("wallets")
-        .update({ balance_cents: wallet.balance_cents })
-        .eq("id", wallet.id);
+      await supabaseAdmin.rpc(
+        "wallet_adjust_balance" as never,
+        { _user_id: context.userId, _delta_cents: gross } as never,
+      );
       await supabaseAdmin
         .from("paypal_payouts")
         .update({ status: "failed", error_message: (err as Error).message })

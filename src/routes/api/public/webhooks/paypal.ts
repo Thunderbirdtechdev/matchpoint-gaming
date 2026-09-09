@@ -88,8 +88,14 @@ export const Route = createFileRoute("/api/public/webhooks/paypal")({
             .eq("user_id", payout.user_id)
             .single();
           if (wallet) {
-            const restored = wallet.balance_cents + payout.gross_amount_cents;
-            await supabaseAdmin.from("wallets").update({ balance_cents: restored }).eq("id", wallet.id);
+            // Delta under a row lock — see wallet_adjust_balance.
+            const { data: credited } = await supabaseAdmin.rpc(
+              "wallet_adjust_balance" as never,
+              { _user_id: payout.user_id, _delta_cents: payout.gross_amount_cents } as never,
+            );
+            const restored = Number(
+              credited ?? wallet.balance_cents + payout.gross_amount_cents,
+            );
             await supabaseAdmin.from("wallet_transactions").insert({
               wallet_id: wallet.id,
               user_id: payout.user_id,

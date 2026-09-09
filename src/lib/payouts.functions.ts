@@ -84,14 +84,20 @@ export const requestManualPayout = createServerFn({ method: "POST" })
     const breakdown = calculateWithdrawalFee(data.amount_cents, data.speed);
     const fee = breakdown.feeCents;
     const net = breakdown.netCents;
-    const newBalance = wallet.balance_cents - data.amount_cents;
-
-    // Debit wallet
-    const { error: balErr } = await supabaseAdmin
-      .from("wallets")
-      .update({ balance_cents: newBalance })
-      .eq("id", wallet.id);
-    if (balErr) throw balErr;
+    // Debit under a row lock — see wallet_adjust_balance. Doing the
+    // subtraction here would let this race the Stripe cash-out path and pay
+    // the same balance out twice.
+    const { data: debited, error: balErr } = await supabaseAdmin.rpc(
+      "wallet_adjust_balance" as never,
+      { _user_id: context.userId, _delta_cents: -data.amount_cents } as never,
+    );
+    if (balErr) {
+      if (/insufficient_balance/.test(balErr.message ?? "")) {
+        throw new Error("Insufficient wallet balance.");
+      }
+      throw balErr;
+    }
+    const newBalance = Number(debited);
 
     const speedLabel = data.speed === "same_day" ? "Same-day" : "Standard";
 
@@ -118,7 +124,10 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (txErr) {
-      await supabaseAdmin.from("wallets").update({ balance_cents: wallet.balance_cents }).eq("id", wallet.id);
+      await supabaseAdmin.rpc(
+        "wallet_adjust_balance" as never,
+        { _user_id: context.userId, _delta_cents: data.amount_cents } as never,
+      );
       throw txErr;
     }
 
@@ -139,7 +148,10 @@ export const requestManualPayout = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (reqErr) {
-      await supabaseAdmin.from("wallets").update({ balance_cents: wallet.balance_cents }).eq("id", wallet.id);
+      await supabaseAdmin.rpc(
+        "wallet_adjust_balance" as never,
+        { _user_id: context.userId, _delta_cents: data.amount_cents } as never,
+      );
       await supabaseAdmin.from("wallet_transactions").delete().eq("id", tx.id);
       throw reqErr;
     }
@@ -410,12 +422,15 @@ export const adminUpdatePayoutRequest = createServerFn({ method: "POST" })
       .single();
     if (wErr || !wallet) throw new Error("Wallet not found for refund.");
 
-    const refunded = wallet.balance_cents + req.amount_cents;
-    const { error: balErr } = await supabaseAdmin
-      .from("wallets")
-      .update({ balance_cents: refunded, updated_at: now })
-      .eq("id", wallet.id);
+    // Delta under a row lock — see wallet_adjust_balance. An admin rejecting a
+    // payout while the player is cashing out elsewhere must not overwrite the
+    // other's balance with a value read before either moved.
+    const { data: refundedRaw, error: balErr } = await supabaseAdmin.rpc(
+      "wallet_adjust_balance" as never,
+      { _user_id: req.user_id, _delta_cents: req.amount_cents } as never,
+    );
     if (balErr) throw balErr;
+    const refunded = Number(refundedRaw);
 
     await supabaseAdmin.from("wallet_transactions").insert({
       wallet_id: wallet.id,

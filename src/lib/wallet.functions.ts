@@ -509,14 +509,21 @@ export const createCashout = createServerFn({ method: "POST" })
     const breakdown = calculateWithdrawalFee(data.amount_cents, data.speed);
     const fee = breakdown.feeCents;
     const net = breakdown.netCents;
-    const newBalance = wallet.balance_cents - data.amount_cents;
-
-    // Debit wallet first
-    const { error: balErr } = await supabaseAdmin
-      .from("wallets")
-      .update({ balance_cents: newBalance })
-      .eq("id", wallet.id);
-    if (balErr) throw balErr;
+    // Debit under a row lock. Read-modify-write here would let two concurrent
+    // cash-outs both read the same balance and both pay out — see the note on
+    // wallet_adjust_balance. The balance it returns is the one it settled on,
+    // so the ledger row below records what is actually true.
+    const { data: debited, error: balErr } = await supabaseAdmin.rpc(
+      "wallet_adjust_balance" as never,
+      { _user_id: context.userId, _delta_cents: -data.amount_cents } as never,
+    );
+    if (balErr) {
+      if (/insufficient_balance/.test(balErr.message ?? "")) {
+        throw new Error("Insufficient wallet balance.");
+      }
+      throw balErr;
+    }
+    const newBalance = Number(debited);
 
     // Transfer the NET amount (after fee) to the connected account
     let transferId: string | null = null;
@@ -529,11 +536,12 @@ export const createCashout = createServerFn({ method: "POST" })
       });
       transferId = transfer.id;
     } catch (err) {
-      // Refund the wallet if transfer fails
-      await supabaseAdmin
-        .from("wallets")
-        .update({ balance_cents: wallet.balance_cents })
-        .eq("id", wallet.id);
+      // Give it back as a delta, not by restoring the balance read before the
+      // debit — anything credited in between (a prize settling) would be erased.
+      await supabaseAdmin.rpc(
+        "wallet_adjust_balance" as never,
+        { _user_id: context.userId, _delta_cents: data.amount_cents } as never,
+      );
       throw err;
     }
 

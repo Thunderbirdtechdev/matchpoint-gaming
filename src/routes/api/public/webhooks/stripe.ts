@@ -250,6 +250,11 @@ async function refundDeposit(args: {
     .single();
   if (!wallet) return;
 
+  // Left as a clamped absolute write rather than a locked delta, unlike every
+  // other balance move. A refunded deposit the player has already spent must
+  // take the balance to zero and stop, and wallet_adjust_balance refuses to go
+  // negative instead of clamping — which would abandon the refund entirely.
+  // The narrow race here is preferable to not recording the refund at all.
   const newBalance = wallet.balance_cents - args.refundedCents;
   await supabaseAdmin
     .from("wallets")
@@ -298,11 +303,13 @@ async function reverseCashout(args: { transferId: string }) {
     .single();
   if (!wallet) return;
 
-  const newBalance = wallet.balance_cents + refundAmount;
-  await supabaseAdmin
-    .from("wallets")
-    .update({ balance_cents: newBalance })
-    .eq("id", wallet.id);
+  // Delta under a row lock, so a reversal landing while the player is cashing
+  // out cannot clobber the other's write. See wallet_adjust_balance.
+  const { data: credited } = await supabaseAdmin.rpc(
+    "wallet_adjust_balance" as never,
+    { _user_id: tx.user_id, _delta_cents: refundAmount } as never,
+  );
+  const newBalance = Number(credited ?? wallet.balance_cents + refundAmount);
 
   await supabaseAdmin.from("wallet_transactions").insert({
     wallet_id: wallet.id,
