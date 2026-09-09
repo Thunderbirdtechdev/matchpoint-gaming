@@ -154,6 +154,59 @@ export const joinTournament = createServerFn({ method: "POST" })
       await assertMoneyEligible(context.userId);
     }
 
+    /*
+     * Take the seat before taking the money, not after.
+     *
+     * The debit used to come first and the insert second, with `throw eErr` and
+     * no refund on failure. `tournament_entries` is UNIQUE(tournament_id,
+     * user_id), so a double-click or a retried request failed that insert and
+     * stranded the entry fee in escrow against a tournament the player was
+     * never entered into.
+     *
+     * The unique constraint is the real lock on a seat, so claiming it first
+     * makes the whole thing safe: a duplicate join now fails before any money
+     * moves, and the count check below is done against a row that already
+     * exists rather than one that might race in behind it.
+     */
+    const { error: eErr } = await supabaseAdmin
+      .from("tournament_entries")
+      .insert({ tournament_id: t.id, user_id: context.userId });
+    if (eErr) {
+      // 23505 = unique_violation: they are already in, from a click that landed
+      // a moment ago. Nothing was charged, so say so plainly.
+      if ((eErr as { code?: string }).code === "23505") throw new Error("Already joined");
+      throw eErr;
+    }
+
+    /** Give the seat back, for any failure after it was claimed. */
+    const releaseSeat = async () => {
+      await supabaseAdmin
+        .from("tournament_entries")
+        .delete()
+        .eq("tournament_id", t.id)
+        .eq("user_id", context.userId);
+    };
+
+    /*
+     * Settle the cap by arrival order, now the row is committed.
+     *
+     * A plain recount would make two players racing for one last seat both see
+     * themselves over the cap and both withdraw, leaving the seat empty. Taking
+     * the first max_players rows by created_at instead gives a single answer
+     * every reader agrees on: whoever's insert landed first keeps the seat, and
+     * only the genuine loser backs out.
+     */
+    const { data: seated } = await supabaseAdmin
+      .from("tournament_entries")
+      .select("user_id")
+      .eq("tournament_id", t.id)
+      .order("created_at", { ascending: true })
+      .limit(t.max_players);
+    if (!(seated ?? []).some((e) => e.user_id === context.userId)) {
+      await releaseSeat();
+      throw new Error("Tournament is full");
+    }
+
     if (entryCents > 0) {
       const { error: dErr } = await supabaseAdmin.rpc("escrow_debit", {
         _user_id: context.userId,
@@ -162,13 +215,13 @@ export const joinTournament = createServerFn({ method: "POST" })
         _challenge_id: undefined,
         _description: `Entry: ${t.title}`,
       });
-      if (dErr) throw new Error(dErr.message);
+      if (dErr) {
+        // Insufficient balance, or anything else: the seat must not be held by
+        // someone who did not pay for it.
+        await releaseSeat();
+        throw new Error(dErr.message);
+      }
     }
-
-    const { error: eErr } = await supabaseAdmin
-      .from("tournament_entries")
-      .insert({ tournament_id: t.id, user_id: context.userId });
-    if (eErr) throw eErr;
 
     try {
       const { notifyUser, usd, notifyKey, gameLabel } = await import("@/lib/email/notify.server");
@@ -640,6 +693,7 @@ export const acceptChallenge = createServerFn({ method: "POST" })
       await assertMoneyEligible(context.userId);
     }
 
+    let holdId: string | null = null;
     if (entryCents > 0) {
       const r = await supabaseAdmin.rpc("escrow_debit", {
         _user_id: context.userId,
@@ -649,13 +703,50 @@ export const acceptChallenge = createServerFn({ method: "POST" })
         _description: `Challenge stake: ${ch.game_slug}`,
       });
       if (r.error) throw new Error(r.error.message);
+      holdId = (r.data as string) ?? null;
     }
 
-    const { error: uErr } = await supabaseAdmin
+    /*
+     * Claim the challenge, don't just assume it. The status check above ran
+     * before the stake was taken, so two players hitting Accept on the same
+     * marketplace listing both passed it and both got debited. An
+     * unconditional update then let the second overwrite the first's
+     * opponent_id — leaving a player with money in escrow on a match they were
+     * not recorded in, which settlement would then pay to the winner.
+     *
+     * `.eq("status", "open")` makes this a compare-and-swap: exactly one
+     * accepter can move the row off `open`, and the loser gets their stake
+     * back below instead of losing it silently.
+     */
+    const { data: claimed, error: uErr } = await supabaseAdmin
       .from("challenges")
       .update({ opponent_id: context.userId, status: "active" })
-      .eq("id", ch.id);
+      .eq("id", ch.id)
+      .eq("status", "open")
+      .select("id");
     if (uErr) throw uErr;
+
+    if (!claimed || claimed.length === 0) {
+      // Someone else accepted first. Hand the stake straight back.
+      if (holdId) {
+        const rr = await supabaseAdmin.rpc("escrow_resolve", {
+          _hold_id: holdId,
+          _new_status: "refunded",
+        });
+        if (!rr.error) {
+          await supabaseAdmin.rpc("wallet_credit", {
+            _user_id: context.userId,
+            _amount_cents: Number(rr.data),
+            _type: "refund",
+            _description: `Refund: challenge already accepted`,
+            _tournament_id: undefined,
+            _challenge_id: ch.id,
+            _metadata: { escrow_hold_id: holdId, reason: "lost_accept_race" },
+          });
+        }
+      }
+      throw new Error("Someone else accepted this challenge first.");
+    }
 
     // Module 10. Only the creator is mailed — the accepter is looking at the
     // screen that just told them it worked, and an email confirming an action
