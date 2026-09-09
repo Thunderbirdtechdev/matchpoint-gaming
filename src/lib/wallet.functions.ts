@@ -542,6 +542,25 @@ export const createCashout = createServerFn({ method: "POST" })
         "wallet_adjust_balance" as never,
         { _user_id: context.userId, _delta_cents: data.amount_cents } as never,
       );
+
+      /*
+       * Say what actually happened, in the player's terms.
+       *
+       * Stripe's own text here is "Insufficient funds in Stripe account. You
+       * can use the /v1/balance endpoint to view your Stripe balance" — which
+       * reads to a player as THEIR money being short, when the truth is the
+       * platform's payout balance has not finished settling. Their wallet is
+       * untouched by this point, and saying so is the difference between
+       * "try again shortly" and a support ticket about missing funds.
+       */
+      const code = (err as { code?: string })?.code;
+      const raw = err instanceof Error ? err.message : String(err);
+      if (code === "balance_insufficient" || /insufficient funds in stripe/i.test(raw)) {
+        throw new Error(
+          "Payouts are briefly unavailable while deposits finish settling. " +
+            "Nothing has been taken from your balance — please try again in a few hours.",
+        );
+      }
       throw err;
     }
 
