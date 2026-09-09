@@ -108,12 +108,32 @@ export const generateBracket = createServerFn({ method: "POST" })
 
     const rows: Record<string, unknown>[] = [];
 
-    // Round 1 — pairs in join order. A slot that receives only one player is a
-    // bye: it settles immediately and that entrant advances without playing.
-    for (let slot = 0; slot < size / 2; slot += 1) {
-      const p1 = players[slot * 2] ?? null;
-      const p2 = players[slot * 2 + 1] ?? null;
-      const isBye = !!p1 && !p2;
+    /*
+     * Round 1 — byes first, then pairs.
+     *
+     * Filling slots two players at a time in join order leaves the leftover
+     * slots EMPTY rather than as byes whenever the entrant count is more than
+     * one short of a power of two. An empty slot has nobody to play it, so it
+     * never settles, and the match above it waits on a winner that can never
+     * arrive — the bracket cannot reach a final. That broke 5, 6, 9, 11 and 13
+     * entrants, among others; only counts within one of a power of two worked.
+     *
+     * With `size - players.length` byes and `players.length - slots` pairs laid
+     * out explicitly, every slot holds at least one player for any entrant
+     * count. Byes go to the earliest joiners, which keeps seeding a function of
+     * join order so a bracket stays re-derivable after the fact.
+     */
+    const slots = size / 2;
+    const byeCount = size - players.length;
+
+    let taken = 0;
+    for (let slot = 0; slot < slots; slot += 1) {
+      const isBye = slot < byeCount;
+      const p1 = players[taken] ?? null;
+      taken += 1;
+      const p2 = isBye ? null : (players[taken] ?? null);
+      if (!isBye) taken += 1;
+
       rows.push({
         tournament_id: t.id,
         round: 1,
