@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -11,6 +11,7 @@ import {
   Gavel,
   MessageSquare,
   Mail,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -452,6 +453,59 @@ function DisputeReview({ disputeId, onBack }: { disputeId: string; onBack: () =>
   );
 }
 
+/**
+ * Who this ticket is from, inside the ticket.
+ *
+ * The queue names the reporter but the thread did not, so opening a ticket
+ * threw away the identity you had just been given and left you reading replies
+ * from "PLAYER". The email is copyable because acting on a ticket usually
+ * means looking the account up somewhere else — closing it, checking a
+ * balance — and retyping an address off a screen is how the wrong one gets
+ * used.
+ */
+function TicketReporter({ userId }: { userId: string }) {
+  const lookupFn = useServerFn(lookupUserIdentities);
+  const { data } = useQuery({
+    queryKey: ["ticket-reporter", userId],
+    queryFn: () => lookupFn({ data: { user_ids: [userId] } }),
+  });
+  const who = data?.[0];
+  if (!who) return null;
+
+  const name = who.display_name || who.username || "Player";
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border/60 bg-surface/40 px-4 py-3">
+      {who.username ? (
+        <Link
+          to="/player/$username"
+          params={{ username: who.username }}
+          className="text-sm font-semibold hover:underline"
+        >
+          {name}
+        </Link>
+      ) : (
+        <span className="text-sm font-semibold">{name}</span>
+      )}
+      {who.username && <span className="text-xs text-muted-foreground">@{who.username}</span>}
+      {who.email && (
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard.writeText(who.email!);
+            toast.success("Email copied");
+          }}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          title="Copy email"
+        >
+          {who.email}
+          <Copy className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function StaffTicketThread({ ticketId, onBack }: { ticketId: string; onBack: () => void }) {
   const qc = useQueryClient();
   const fetchTicket = useServerFn(getTicket);
@@ -495,6 +549,8 @@ function StaffTicketThread({ ticketId, onBack }: { ticketId: string; onBack: () 
       </Button>
 
       <div className="space-y-4">
+        <TicketReporter userId={data!.ticket.user_id} />
+
         <div className="flex flex-wrap items-center gap-3">
           <Status variant={data!.ticket.status === "resolved" ? "success" : "info"}>
             {data!.ticket.status}
