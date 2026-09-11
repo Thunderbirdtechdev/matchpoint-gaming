@@ -247,6 +247,13 @@ export const listChatMessages = createServerFn({ method: "POST" })
 
     const nameOf = (id: string) => byId.get(id)?.display_name || byId.get(id)?.username || "Player";
 
+    /**
+     * The raw handle, kept separate from the display name: the public profile
+     * route is keyed on username, and a display name is neither unique nor
+     * guaranteed to exist. Null leaves the name rendered without a link.
+     */
+    const handleOf = (id: string) => (byId.get(id)?.username as string | null) ?? null;
+
     return list.map((m) => {
       const parent = m.reply_to_id ? parentById.get(m.reply_to_id) : null;
       return {
@@ -256,6 +263,7 @@ export const listChatMessages = createServerFn({ method: "POST" })
         created_at: m.created_at as string,
         author_id: m.author_id as string,
         author_name: nameOf(m.author_id),
+        author_username: handleOf(m.author_id),
         author_avatar: (byId.get(m.author_id)?.avatar_url as string | null) ?? null,
         mine: m.author_id === context.userId,
         /**

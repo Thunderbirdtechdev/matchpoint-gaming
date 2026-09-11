@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Send, ShieldAlert, Flag, Reply, X } from "lucide-react";
@@ -177,11 +178,38 @@ export function ChatRoom({ scope, matchId, emptyHint }: Props) {
                     w-8 plus the row's gap-2. */}
                 {startsRun && !m.mine && (
                   <p className="mb-1 pl-10 text-[11px] font-semibold" style={{ color }}>
-                    {m.author_name}
+                    {/* Straight to the public profile — the page that already
+                        exists and already limits itself to shareable columns.
+                        Names without a handle stay plain text rather than
+                        linking somewhere that cannot resolve. */}
+                    {m.author_username ? (
+                      <Link
+                        to="/player/$username"
+                        params={{ username: m.author_username }}
+                        className="hover:underline"
+                        style={{ color }}
+                      >
+                        {m.author_name}
+                      </Link>
+                    ) : (
+                      m.author_name
+                    )}
                   </p>
                 )}
                 <ChatBubble variant={m.mine ? "sent" : "received"} className="group items-start">
-                  {!m.mine && startsRun ? (
+                  {!m.mine && startsRun && m.author_username ? (
+                    <Link
+                      to="/player/$username"
+                      params={{ username: m.author_username }}
+                      aria-label={`View ${m.author_name}'s profile`}
+                    >
+                      <ChatBubbleAvatar
+                        src={m.author_avatar ?? undefined}
+                        fallback={speakerInitials(m.author_name)}
+                        style={{ color, boxShadow: `0 0 0 2px ${color}` }}
+                      />
+                    </Link>
+                  ) : !m.mine && startsRun ? (
                     <ChatBubbleAvatar
                       src={m.author_avatar ?? undefined}
                       fallback={speakerInitials(m.author_name)}

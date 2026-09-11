@@ -104,7 +104,19 @@ export function ListingCard({
             </AvatarFallback>
           </Avatar>
           <span className="truncate text-xs text-muted-foreground">
-            {hostName}
+            {/* Knowing who posted a challenge before staking money against them
+                is the point of the card showing a host at all. */}
+            {host?.username ? (
+              <Link
+                to="/player/$username"
+                params={{ username: host.username }}
+                className="hover:text-foreground hover:underline"
+              >
+                {hostName}
+              </Link>
+            ) : (
+              hostName
+            )}
             {host?.rank_tier && (
               <span className="ml-1.5 text-primary-glow">· {host.rank_tier}</span>
             )}
