@@ -283,6 +283,204 @@ export const lookupUserIdentities = createServerFn({ method: "POST" })
     }));
   });
 
+/**
+ * Everything you need to see before closing someone's account.
+ *
+ * Money first, deliberately: an account is not a row to be tidied away, it is
+ * somebody's balance and their record of what they staked. The close action
+ * re-checks all of this server-side — this exists so the decision is made with
+ * the numbers on screen rather than after the fact.
+ */
+export const adminGetAccountSummary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ target: z.string().trim().min(1) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireCapability(context, "users.view");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const userId = await resolveUserId(data.target);
+
+    const [{ data: profile }, { data: wallet }, { data: holds }, { count: ledgerRows }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("profiles")
+          .select("username, display_name, created_at")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabaseAdmin.from("wallets").select("balance_cents").eq("user_id", userId).maybeSingle(),
+        supabaseAdmin
+          .from("escrow_holds")
+          .select("amount_cents")
+          .eq("user_id", userId)
+          .eq("status", "held"),
+        supabaseAdmin
+          .from("wallet_transactions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId),
+      ]);
+
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const { data: roleRows } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+
+    const balanceCents = Number(wallet?.balance_cents ?? 0);
+    const escrowCents = (holds ?? []).reduce((sum, h) => sum + Number(h.amount_cents ?? 0), 0);
+    const history = (ledgerRows ?? 0) > 0;
+
+    return {
+      user_id: userId,
+      email: authUser?.user?.email ?? null,
+      username: profile?.username ?? null,
+      display_name: profile?.display_name ?? null,
+      created_at: profile?.created_at ?? null,
+      balance_cents: balanceCents,
+      escrow_cents: escrowCents,
+      escrow_count: (holds ?? []).length,
+      ledger_rows: ledgerRows ?? 0,
+      roles: (roleRows ?? []).map((r) => r.role as string),
+      /** Money is owed or locked — closing must not proceed. */
+      blocked: balanceCents > 0 || escrowCents > 0,
+      /**
+       * Whether closing erases the account or just retires it.
+       *
+       * A player who has transacted keeps their ledger: those rows reference
+       * auth.users with ON DELETE CASCADE, so deleting the account destroys
+       * every deposit, payout and settlement it was party to — records a money
+       * platform is expected to produce long after someone leaves. Only an
+       * account that never transacted is genuinely safe to remove.
+       */
+      mode: history ? ("disable" as const) : ("delete" as const),
+    };
+  });
+
+const CloseAccountSchema = z.object({
+  target: z.string().trim().min(1),
+  /** Typed back by the operator. Guards against closing the wrong row. */
+  confirm_username: z.string().trim().min(1),
+  note: z.string().trim().max(200).optional(),
+});
+
+/**
+ * Close a player's account.
+ *
+ * Hard-deletes only an account with no financial history; anything that has
+ * transacted is retired instead — sign-in blocked, profile anonymised, ledger
+ * intact. The UI shows which of the two will happen, but the decision is made
+ * here, because a rule about money records does not belong in the browser.
+ *
+ * Refuses outright while a balance or a held stake exists. The disabled button
+ * is a courtesy; this is the guard.
+ */
+export const adminCloseAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => CloseAccountSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await requireCapability(context, "roles.manage_privileged");
+    const { assertMfaForSensitiveAction } = await import("@/lib/compliance.server");
+    await assertMfaForSensitiveAction(context);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const userId = await resolveUserId(data.target);
+
+    if (userId === context.userId) throw new Error("You can't close your own account.");
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("username, display_name")
+      .eq("id", userId)
+      .maybeSingle();
+
+    // Typing the handle back is what stops the wrong account being closed from
+    // a stale screen.
+    const expected = (profile?.username ?? "").toLowerCase();
+    if (expected && data.confirm_username.toLowerCase() !== expected) {
+      throw new Error("That username doesn't match the account you're closing.");
+    }
+
+    const { data: wallet } = await supabaseAdmin
+      .from("wallets")
+      .select("balance_cents")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const { data: holds } = await supabaseAdmin
+      .from("escrow_holds")
+      .select("amount_cents")
+      .eq("user_id", userId)
+      .eq("status", "held");
+
+    const balanceCents = Number(wallet?.balance_cents ?? 0);
+    const escrowCents = (holds ?? []).reduce((sum, h) => sum + Number(h.amount_cents ?? 0), 0);
+
+    if (balanceCents > 0) {
+      throw new Error(
+        `That account still holds $${(balanceCents / 100).toFixed(2)}. Pay it out before closing.`,
+      );
+    }
+    if (escrowCents > 0) {
+      throw new Error(
+        `That account has $${(escrowCents / 100).toFixed(2)} staked in live matches. ` +
+          `Those have to settle first.`,
+      );
+    }
+
+    const { count: ledgerRows } = await supabaseAdmin
+      .from("wallet_transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    const mode = (ledgerRows ?? 0) > 0 ? "disable" : "delete";
+
+    const { recordAudit } = await import("@/lib/audit.server");
+    // Audited BEFORE the act: a hard delete takes the user row with it, and an
+    // entry written afterwards would describe someone who can no longer be
+    // looked up.
+    await recordAudit(context.userId, {
+      action: "users.account_closed",
+      target_type: "user",
+      target_id: userId,
+      summary:
+        mode === "delete"
+          ? `Deleted the account of ${profile?.username ?? userId} (no financial history)`
+          : `Retired the account of ${profile?.username ?? userId}, ledger kept`,
+      metadata: {
+        mode,
+        username: profile?.username ?? null,
+        display_name: profile?.display_name ?? null,
+        ledger_rows: ledgerRows ?? 0,
+        note: data.note ?? null,
+      },
+    });
+
+    if (mode === "delete") {
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (error) throw new Error(error.message);
+      return { ok: true as const, mode };
+    }
+
+    // Retire: block sign-in, then strip the public profile. Roles go too — a
+    // closed account must not keep staff powers.
+    const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      ban_duration: "876000h",
+    });
+    if (banErr) throw new Error(banErr.message);
+
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", userId);
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        username: `closed_${userId.slice(0, 8)}`,
+        display_name: "Closed account",
+        bio: null,
+        avatar_url: null,
+        region: null,
+        favorite_game: null,
+      })
+      .eq("id", userId);
+
+    return { ok: true as const, mode };
+  });
+
 const RoleEnum = z.enum(APP_ROLES);
 
 async function resolveUserId(target: string): Promise<string> {

@@ -41,6 +41,7 @@ export type AuditAction =
   // roles (also written to role_grants, see below)
   | "roles.grant"
   | "roles.revoke"
+  | "users.account_closed"
   // security
   | "security.setting_change"
   | "security.mfa_reset"

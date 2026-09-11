@@ -32,9 +32,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History } from "lucide-react";
+import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History, UserX } from "lucide-react";
 import { toast } from "sonner";
-import { lookupUserIdentities, adminListOpenMatches, adminCreditWallet, adminDebitWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
+import { lookupUserIdentities, adminGetAccountSummary, adminCloseAccount, adminListOpenMatches, adminCreditWallet, adminDebitWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
 import { getPlatformLiabilities, getRevenueDaily } from "@/lib/finance.functions";
 import { RevenueChart } from "@/components/finance/RevenueChart";
 import { listMfaStatus, adminResetUserMfa } from "@/lib/security.functions";
@@ -121,6 +121,13 @@ function AdminPage() {
       )}
 
       {can("finance.wallet_adjust") && <AdminAdjustWalletCard />}
+
+      {can("roles.manage_privileged") && (
+        <>
+          <div className="h-6" />
+          <CloseAccountCard />
+        </>
+      )}
 
       {can("users.view") && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-gradient-card">
@@ -274,6 +281,198 @@ function PromoCodesCard() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+const CLOSE_MODE_COPY = {
+  delete: {
+    label: "Delete account",
+    blurb:
+      "This account has never transacted, so there are no financial records to keep. It will be removed entirely.",
+  },
+  disable: {
+    label: "Retire account",
+    blurb:
+      "This account has a transaction history. Deleting it would erase every deposit, payout and settlement it was part of, so it will be retired instead: sign-in blocked, profile anonymised, ledger kept.",
+  },
+} as const;
+
+/**
+ * Look a player up, see what they hold, then close the account.
+ *
+ * The order is the point. Closing an account is irreversible and the thing
+ * that makes it dangerous is money — a balance owed, or a stake sitting in a
+ * live match — so the finances are on screen before the button is reachable,
+ * and the button stays dead while either is non-zero. The server refuses on
+ * the same conditions; this is the half that stops the mistake being made.
+ */
+function CloseAccountCard() {
+  const summaryFn = useServerFn(adminGetAccountSummary);
+  const closeFn = useServerFn(adminCloseAccount);
+  const qc = useQueryClient();
+
+  const [target, setTarget] = useState("");
+  const [looked, setLooked] = useState<Awaited<ReturnType<typeof adminGetAccountSummary>> | null>(
+    null,
+  );
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [note, setNote] = useState("");
+
+  const lookup = useMutation({
+    mutationFn: async () => summaryFn({ data: { target: target.trim() } }),
+    onSuccess: (res) => {
+      setLooked(res);
+      setTyped("");
+    },
+    onError: (e: Error) => {
+      setLooked(null);
+      toast.error(e.message || "Couldn't find that player");
+    },
+  });
+
+  const close = useMutation({
+    mutationFn: async () =>
+      closeFn({
+        data: {
+          target: looked!.user_id,
+          confirm_username: typed.trim(),
+          note: note.trim() || undefined,
+        },
+      }),
+    onSuccess: (res) => {
+      toast.success(res.mode === "delete" ? "Account deleted." : "Account retired.");
+      setConfirmOpen(false);
+      setLooked(null);
+      setTarget("");
+      setTyped("");
+      setNote("");
+      qc.invalidateQueries({ queryKey: ["all-profiles"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Couldn't close that account"),
+  });
+
+  const copy = looked ? CLOSE_MODE_COPY[looked.mode] : null;
+  const handle = looked?.username ?? "";
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-6">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <UserX className="h-4 w-4" /> Close a player account
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Look the player up first. Closing is refused while they hold a balance or have money staked
+        in a live match.
+      </p>
+
+      <div className="mt-4 flex gap-2">
+        <Input
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          placeholder="username, email or user id"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && target.trim()) lookup.mutate();
+          }}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => target.trim() && lookup.mutate()}
+          disabled={lookup.isPending}
+        >
+          {lookup.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Look up"}
+        </Button>
+      </div>
+
+      {looked && (
+        <div className="mt-4 rounded-xl border border-border/60 bg-surface/40 p-4">
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-sm font-semibold">
+              {looked.display_name || looked.username || "Unnamed"}
+            </span>
+            {looked.username && (
+              <span className="text-xs text-muted-foreground">@{looked.username}</span>
+            )}
+            {looked.email && <span className="text-xs text-muted-foreground">{looked.email}</span>}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <RevStat label="Balance" value={fmtUsd(looked.balance_cents)} />
+            <RevStat
+              label="In live matches"
+              value={fmtUsd(looked.escrow_cents)}
+              sub={looked.escrow_count ? `${looked.escrow_count} held` : "nothing staked"}
+            />
+            <RevStat label="Ledger rows" value={String(looked.ledger_rows)} />
+            <RevStat
+              label="Roles"
+              value={looked.roles.length ? looked.roles.join(", ") : "player"}
+            />
+          </div>
+
+          {looked.blocked ? (
+            <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">
+              This account can't be closed yet. It holds {fmtUsd(looked.balance_cents)} and has{" "}
+              {fmtUsd(looked.escrow_cents)} staked in live matches. Pay the balance out and let the
+              matches settle first — closing now would take money that belongs to them.
+            </p>
+          ) : (
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{copy?.blurb}</p>
+          )}
+
+          <Input
+            className="mt-3"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Reason (optional, recorded in the audit log)"
+          />
+
+          <Button
+            variant="destructive"
+            className="mt-3"
+            disabled={looked.blocked}
+            onClick={() => setConfirmOpen(true)}
+          >
+            {copy?.label}
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{copy?.label}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>{copy?.blurb}</p>
+                <p>
+                  This cannot be undone. Type{" "}
+                  <span className="font-mono font-semibold text-foreground">{handle}</span> to
+                  confirm.
+                </p>
+                <Input
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  placeholder={handle}
+                  aria-label="Confirm username"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={close.isPending || typed.trim().toLowerCase() !== handle.toLowerCase()}
+              onClick={(e) => {
+                e.preventDefault();
+                close.mutate();
+              }}
+            >
+              {close.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : copy?.label}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
