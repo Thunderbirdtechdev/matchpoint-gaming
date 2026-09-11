@@ -64,6 +64,7 @@ function Reporter({ who }: { who: { name: string | null; email: string | null } 
 
 function ModeratorPage() {
   const [tab, setTab] = useState<"disputes" | "tickets" | "chat" | "contact">("disputes");
+  const [showDone, setShowDone] = useState(false);
   const [openDispute, setOpenDispute] = useState<string | null>(null);
   const [openTicket, setOpenTicket] = useState<string | null>(null);
 
@@ -123,8 +124,27 @@ function ModeratorPage() {
     return <StaffTicketThread ticketId={openTicket} onBack={() => setOpenTicket(null)} />;
   }
 
-  const openDisputes = (disputes ?? []).filter((d) => d.status !== "resolved").length;
-  const openTickets = (tickets ?? []).filter((t) => t.status === "open").length;
+  /*
+   * What still needs someone, and what the queue shows.
+   *
+   * The ticket badge counted only `open`, so a ticket a player had replied to —
+   * status `pending`, squarely back in staff's court — showed in the list while
+   * the tab read (0). Both statuses are live work and both are counted.
+   *
+   * Finished items are hidden rather than deleted. A queue that keeps every
+   * resolved dispute and closed ticket forever stops being a queue, but the
+   * history is still worth reaching, hence the toggle rather than a filter
+   * baked into the query.
+   */
+  const liveDisputes = (disputes ?? []).filter((d) => d.status !== "resolved");
+  const liveTickets = (tickets ?? []).filter((t) => t.status === "open" || t.status === "pending");
+  const openDisputes = liveDisputes.length;
+  const openTickets = liveTickets.length;
+
+  const shownDisputes = showDone ? (disputes ?? []) : liveDisputes;
+  const shownTickets = showDone ? (tickets ?? []) : liveTickets;
+  const doneCount =
+    (disputes ?? []).length - liveDisputes.length + ((tickets ?? []).length - liveTickets.length);
 
   return (
     <RequireCapability
@@ -156,14 +176,26 @@ function ModeratorPage() {
         </TabsList>
       </Tabs>
 
+      {(tab === "disputes" || tab === "tickets") && doneCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowDone((v) => !v)}
+          className="mt-3 text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+        >
+          {showDone
+            ? "Hide finished"
+            : `Show ${doneCount} finished item${doneCount === 1 ? "" : "s"}`}
+        </button>
+      )}
+
       {tab === "contact" ? (
         <ContactInbox />
       ) : tab === "chat" ? (
         <ChatModerationQueue />
       ) : tab === "disputes" ? (
         <div className="mt-6 grid gap-3">
-          {disputes?.length ? (
-            disputes.map((d) => (
+          {shownDisputes.length ? (
+            shownDisputes.map((d) => (
               <button
                 key={d.id}
                 type="button"
@@ -189,8 +221,8 @@ function ModeratorPage() {
         </div>
       ) : (
         <div className="mt-6 grid gap-3">
-          {tickets?.length ? (
-            tickets.map((t) => (
+          {shownTickets.length ? (
+            shownTickets.map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -555,9 +587,30 @@ function StaffTicketThread({ ticketId, onBack }: { ticketId: string; onBack: () 
           <Status variant={data!.ticket.status === "resolved" ? "success" : "info"}>
             {data!.ticket.status}
           </Status>
-          <span className="text-xs text-muted-foreground">
-            {data!.ticket.category} · {data!.ticket.priority}
-          </span>
+          <span className="text-xs text-muted-foreground">{data!.ticket.category}</span>
+          {/* Priority was fixed at whatever the player picked on submission.
+              updateTicket has always accepted it; nothing ever sent it. */}
+          <select
+            value={data!.ticket.priority}
+            disabled={busy}
+            onChange={(e) =>
+              run("Priority updated.", () =>
+                updateFn({
+                  data: {
+                    ticket_id: ticketId,
+                    priority: e.target.value as "low" | "normal" | "high" | "urgent",
+                  },
+                }),
+              )
+            }
+            className="rounded-md border border-border/60 bg-surface/50 px-2 py-1 text-xs"
+            aria-label="Priority"
+          >
+            <option value="low">low</option>
+            <option value="normal">normal</option>
+            <option value="high">high</option>
+            <option value="urgent">urgent</option>
+          </select>
           <div className="ml-auto flex gap-2">
             <Button
               size="sm"
@@ -582,6 +635,22 @@ function StaffTicketThread({ ticketId, onBack }: { ticketId: string; onBack: () 
               }
             >
               Resolve
+            </Button>
+            {/* Nothing set `closed` before, so a resolved ticket stayed open to
+                replies indefinitely — the status existed and blocked replies,
+                but no action reached it. Resolve ends the work; Close ends the
+                conversation. */}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || data!.ticket.status === "closed"}
+              onClick={() =>
+                run("Ticket closed.", () =>
+                  updateFn({ data: { ticket_id: ticketId, status: "closed" } }),
+                )
+              }
+            >
+              Close
             </Button>
           </div>
         </div>

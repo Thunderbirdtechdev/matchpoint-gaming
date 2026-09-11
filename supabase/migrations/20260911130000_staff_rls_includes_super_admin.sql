@@ -115,3 +115,45 @@ CREATE POLICY "support read own or staff" ON storage.objects
       OR public.is_support_staff(auth.uid())
     )
   );
+
+-- ── the same gap outside support ────────────────────────────────────────────
+-- Four more policies spelled the staff check out the same way. A pure
+-- super_admin could not override a match, edit a tournament they do not host,
+-- or see the manual payout queue.
+--
+-- The payout ones deliberately keep `admin` rather than moving to
+-- is_support_staff(): a moderator has no business reading or approving
+-- withdrawals, and folding them into the support helper would hand them that.
+
+DROP POLICY IF EXISTS "challenges update participants" ON public.challenges;
+CREATE POLICY "challenges update participants" ON public.challenges FOR UPDATE TO authenticated
+  USING (
+    creator_id = auth.uid()
+    OR opponent_id = auth.uid()
+    OR public.is_support_staff(auth.uid())
+  );
+
+DROP POLICY IF EXISTS "tournaments update host" ON public.tournaments;
+CREATE POLICY "tournaments update host" ON public.tournaments FOR UPDATE TO authenticated
+  USING (
+    host_id = auth.uid()
+    OR public.has_role(auth.uid(), 'admin')
+    OR public.has_role(auth.uid(), 'super_admin')
+  );
+
+DROP POLICY IF EXISTS "users view own payout requests" ON public.manual_payout_requests;
+CREATE POLICY "users view own payout requests" ON public.manual_payout_requests
+  FOR SELECT TO authenticated USING (
+    auth.uid() = user_id
+    OR public.has_role(auth.uid(), 'admin')
+    OR public.has_role(auth.uid(), 'financial_admin')
+    OR public.has_role(auth.uid(), 'super_admin')
+  );
+
+DROP POLICY IF EXISTS "admins update payout requests" ON public.manual_payout_requests;
+CREATE POLICY "admins update payout requests" ON public.manual_payout_requests
+  FOR UPDATE TO authenticated USING (
+    public.has_role(auth.uid(), 'admin')
+    OR public.has_role(auth.uid(), 'financial_admin')
+    OR public.has_role(auth.uid(), 'super_admin')
+  );
