@@ -127,6 +127,13 @@ function DisputePage() {
   async function submit() {
     if (!user) return;
     if (!form.challenge_id) return toast.error("Pick the match this dispute is about.");
+    // Mirrors the disputes_reason_not_blank constraint. The constraint is the
+    // real guard — this insert goes straight to the table under RLS — but a
+    // moderator inheriting a blank dispute is the problem, and a sentence here
+    // beats a Postgres check violation in a toast.
+    if (form.reason.trim().length < 10) {
+      return toast.error("Describe what went wrong, so a moderator can act on it.");
+    }
     const { error } = await supabase.from("disputes").insert({
       opened_by: user.id,
       challenge_id: form.challenge_id || null,

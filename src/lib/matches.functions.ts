@@ -1285,13 +1285,24 @@ export const approveDisputeResolution = createServerFn({ method: "POST" })
       "dispute",
     );
 
+    /*
+     * Name the winner. The player reads this string back on their own dispute,
+     * and it used to print the winner's internal id at them — the same leak of
+     * a database key into a human-facing screen that made the moderator queue
+     * unreadable. Falls back to the id only if the profile has gone.
+     */
+    const { displayNameFor } = await import("@/lib/email/notify.server");
+    const winnerName =
+      (await displayNameFor(supabaseAdmin, dispute.recommended_winner_id)) ??
+      dispute.recommended_winner_id;
+
     await supabaseAdmin
       .from("disputes")
       .update({
         status: "resolved",
         approved_by: context.userId,
         approved_at: new Date().toISOString(),
-        resolution: `Resolved, winner ${dispute.recommended_winner_id}`,
+        resolution: `Resolved, winner ${winnerName}`,
       } as never)
       .eq("id", data.dispute_id);
 
