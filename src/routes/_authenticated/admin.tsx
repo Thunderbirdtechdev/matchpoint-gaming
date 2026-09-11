@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, Wallet, Copy, ExternalLink, RefreshCw, Banknote, Check, X, Clock, Gift, ShieldCheck, History } from "lucide-react";
 import { toast } from "sonner";
-import { adminListOpenMatches, adminCreditWallet, adminDebitWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
+import { lookupUserIdentities, adminListOpenMatches, adminCreditWallet, adminDebitWallet, adminGrantRole, adminRevokeRole, adminListStaff, adminListRoleAudit, getCompanyWallet, listCompanyRevenue, listCompanyWithdrawals, withdrawCompanyFunds, getStripeBalance, stripePayoutToBank, getRevenueSummary, getRevenueBySource, getPlatformTotals } from "@/lib/admin.functions";
 import { getPlatformLiabilities, getRevenueDaily } from "@/lib/finance.functions";
 import { RevenueChart } from "@/components/finance/RevenueChart";
 import { listMfaStatus, adminResetUserMfa } from "@/lib/security.functions";
@@ -63,6 +63,19 @@ function AdminPage() {
     enabled: can("users.view"),
     queryFn: async () => (await supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(100)).data ?? [],
   });
+
+  /*
+   * Emails, which `profiles` does not hold — they live on auth.users and are
+   * unreachable from the browser. Without them a staff member looking at this
+   * table cannot tell which account a support request belongs to.
+   */
+  const lookupFn = useServerFn(lookupUserIdentities);
+  const { data: identities } = useQuery({
+    queryKey: ["admin-user-emails", (users ?? []).length],
+    enabled: can("users.view") && (users ?? []).length > 0,
+    queryFn: () => lookupFn({ data: { user_ids: (users ?? []).slice(0, 100).map((u) => u.id) } }),
+  });
+  const emailOf = (id: string) => (identities ?? []).find((i) => i.id === id)?.email ?? null;
 
   return (
     <RequireCapability
@@ -115,6 +128,7 @@ function AdminPage() {
             <thead className="bg-surface/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left">Player</th>
+                <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Tier</th>
                 <th className="px-4 py-3 text-right">XP</th>
                 <th className="px-4 py-3 text-right">Reputation</th>
@@ -125,6 +139,9 @@ function AdminPage() {
               {users?.map((u) => (
                 <tr key={u.id} className="border-t border-border/40">
                   <td className="px-4 py-3"><div className="font-medium">{u.display_name ?? u.username}</div><div className="text-xs text-muted-foreground">@{u.username}</div></td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {emailOf(u.id) ?? "—"}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{u.rank_tier}</td>
                   <td className="px-4 py-3 text-right">{u.xp}</td>
                   <td className="px-4 py-3 text-right">{u.reputation}</td>

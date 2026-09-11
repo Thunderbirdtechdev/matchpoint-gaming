@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireCapability, requireCanManageRole, grantableRolesFor, rolesOf } from "@/lib/authz";
+import {
+  requireCapability,
+  requireAnyCapability,
+  requireCanManageRole,
+  grantableRolesFor,
+  rolesOf,
+} from "@/lib/authz";
 import { APP_ROLES, type AppRole } from "@/lib/roles";
 
 const CreditWalletSchema = z.object({
@@ -217,6 +223,64 @@ export const adminListOpenMatches = createServerFn({ method: "GET" })
         escrow_cents: matches.reduce((sum, m) => sum + m.escrow_cents, 0),
       },
     };
+  });
+
+/**
+ * Who is this, for a staff screen.
+ *
+ * The queues show a user_id and nothing else, so a ticket reads as "Player"
+ * with no way to tell one reporter from another. Names live on `profiles` but
+ * email lives on `auth.users`, which no client-side query can reach — hence a
+ * server function rather than a join.
+ *
+ * Gated on any staff capability rather than `users.view` alone: a moderator
+ * works the ticket queue without holding the user-admin capability, and a queue
+ * that cannot name its own reporters is the problem being fixed.
+ *
+ * Emails are fetched one id at a time. Paging the whole user list to find a
+ * handful of reporters gets slower as the platform grows, and reads every
+ * account's address to answer a question about five of them.
+ */
+export const lookupUserIdentities = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ user_ids: z.array(z.string().uuid()).max(100) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAnyCapability(context, [
+      "users.view",
+      "moderation.tickets",
+      "moderation.disputes.review",
+    ]);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const ids = Array.from(new Set(data.user_ids));
+    if (ids.length === 0) return [];
+
+    const { data: profiles } = await supabaseAdmin
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", ids);
+    const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+    const emails = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const { data: u } = await supabaseAdmin.auth.admin.getUserById(id);
+          return [id, u?.user?.email ?? null] as const;
+        } catch {
+          // A deleted auth user still leaves rows referencing it. Name what we
+          // can rather than failing the whole queue over one missing account.
+          return [id, null] as const;
+        }
+      }),
+    );
+    const emailById = new Map(emails);
+
+    return ids.map((id) => ({
+      id,
+      username: byId.get(id)?.username ?? null,
+      display_name: byId.get(id)?.display_name ?? null,
+      email: emailById.get(id) ?? null,
+    }));
   });
 
 const RoleEnum = z.enum(APP_ROLES);

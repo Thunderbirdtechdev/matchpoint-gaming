@@ -23,6 +23,7 @@ import {
   rejectDisputeRecommendation,
 } from "@/lib/matches.functions";
 import { getTicket, replyToTicket, updateTicket } from "@/lib/support.functions";
+import { lookupUserIdentities } from "@/lib/admin.functions";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { RequireCapability } from "@/components/dashboard/RequireCapability";
 import { ChatModerationQueue } from "@/components/chat/ChatModerationQueue";
@@ -44,6 +45,21 @@ const DISPUTE_VARIANT: Record<string, "warning" | "info" | "success" | "default"
   awaiting_approval: "info",
   resolved: "success",
 };
+
+/**
+ * Who raised this. Email is the identifying bit — two players can share a
+ * display name, and an unset one leaves only "Player" — so it is shown even
+ * when a name exists, and stands in for the name when there isn't one.
+ */
+function Reporter({ who }: { who: { name: string | null; email: string | null } | null }) {
+  if (!who || (!who.name && !who.email)) return null;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
+      {who.name && <span className="font-medium text-foreground">{who.name}</span>}
+      {who.email && <span className="text-muted-foreground">{who.email}</span>}
+    </div>
+  );
+}
 
 function ModeratorPage() {
   const [tab, setTab] = useState<"disputes" | "tickets" | "chat" | "contact">("disputes");
@@ -68,6 +84,36 @@ function ModeratorPage() {
       (await supabase.from("support_tickets").select("*").order("updated_at", { ascending: false }))
         .data ?? [],
   });
+
+  /*
+   * Put a name and an email on every row.
+   *
+   * Both queues stored only a user_id, so a ticket arrived reading "Player"
+   * with nothing to tell one reporter from another. Emails are not on
+   * `profiles` and cannot be reached from the browser, so this goes through a
+   * server function — one call for both queues rather than one per row.
+   */
+  const lookupFn = useServerFn(lookupUserIdentities);
+  const identityIds = Array.from(
+    new Set([
+      ...(tickets ?? []).map((t) => t.user_id),
+      ...(disputes ?? []).map((d) => d.opened_by),
+    ]),
+  ).filter(Boolean) as string[];
+
+  const { data: identities } = useQuery({
+    queryKey: ["staff-identities", identityIds.join(",")],
+    enabled: isStaff && identityIds.length > 0,
+    queryFn: () => lookupFn({ data: { user_ids: identityIds.slice(0, 100) } }),
+  });
+
+  const whoIs = (userId: string | null | undefined) => {
+    if (!userId) return null;
+    const who = (identities ?? []).find((i) => i.id === userId);
+    if (!who) return null;
+    const name = who.display_name || who.username || null;
+    return { name, email: who.email };
+  };
 
   if (openDispute) {
     return <DisputeReview disputeId={openDispute} onBack={() => setOpenDispute(null)} />;
@@ -125,6 +171,7 @@ function ModeratorPage() {
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium">{d.reason}</div>
+                  <Reporter who={whoIs(d.opened_by)} />
                   <div className="mt-1 text-xs text-muted-foreground">
                     {new Date(d.created_at).toLocaleString()}
                     {d.recommended_winner_id && " · winner recommended"}
@@ -151,6 +198,7 @@ function ModeratorPage() {
               >
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{t.subject}</div>
+                  <Reporter who={whoIs(t.user_id)} />
                   <div className="mt-1 text-xs text-muted-foreground">
                     {t.category} · {t.priority} · {new Date(t.updated_at).toLocaleString()}
                   </div>
