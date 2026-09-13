@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyWallet } from "@/lib/wallet.functions";
-import { MIN_DEPOSIT_USD } from "@/lib/fees";
+import { MIN_DEPOSIT_USD, MIN_ENTRY_USD } from "@/lib/fees";
+
+/** The shape getMyWallet returns, so FirstRun can take it as a prop. */
+type WalletSummary = Awaited<ReturnType<typeof getMyWallet>>;
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard | MatchPoint" }] }),
@@ -51,38 +54,49 @@ function ListSkeleton({ rows = 3 }: { rows?: number }) {
  * player who deposits and then withdraws everything does not get told to start
  * over — `has_played` and a connected payout account both stay true.
  */
-function FirstRun() {
-  const walletFn = useServerFn(getMyWallet);
-  const { data, isPending } = useQuery({
-    queryKey: ["wallet-onboarding"],
-    queryFn: () => walletFn(),
-  });
+function FirstRun({ data }: { data: WalletSummary | undefined }) {
+  if (!data) return null;
 
-  if (isPending || !data) return null;
-
-  const hasFunds =
-    (data.balances?.available_cents ?? 0) > 0 ||
-    data.transactions.some((t) => t.type === "deposit");
-  const hasPlayed = data.has_played;
-  const canCashOut = Boolean(data.connect?.payouts_enabled);
+  const availableCents = data.balances?.available_cents ?? 0;
+  const hasDeposited = data.transactions.some(
+    (t) => t.type === "deposit" && t.status === "completed",
+  );
+  /*
+   * Funded means "can actually enter a match", not "balance above zero".
+   *
+   * ensure_wallet credits a $5 welcome bonus the first time a wallet is
+   * created, so `> 0` was true for every account that had merely loaded this
+   * page — the checklist congratulated people for money the platform had just
+   * given them, and struck through "Add funds to your wallet" on an empty one.
+   *
+   * Since the welcome bonus is exactly the minimum entry, a new player really
+   * can play without depositing. That makes the first step genuinely complete,
+   * which is why this checks the entry floor rather than a deposit: the goal is
+   * getting them into a match, not taking their money first.
+   */
+  const canEnterAMatch = availableCents >= MIN_ENTRY_USD * 100;
+  const funded = hasDeposited || canEnterAMatch;
 
   const steps = [
     {
-      done: hasFunds,
-      title: "Add funds to your wallet",
-      blurb: `Deposits start at $${MIN_DEPOSIT_USD}. This is what you stake on a match.`,
+      done: funded,
+      title: funded ? "Wallet funded" : "Add funds to your wallet",
+      blurb: `You need at least $${MIN_ENTRY_USD} to enter a match. Deposits start at $${MIN_DEPOSIT_USD}.`,
       to: "/wallet" as const,
       cta: "Add funds",
     },
     {
-      done: hasPlayed,
+      done: data.has_played,
       title: "Play your first match",
-      blurb: "Take on an open challenge, or post your own and let someone accept it.",
+      blurb:
+        !hasDeposited && canEnterAMatch
+          ? "Your welcome credit covers an entry, so you can play without depositing anything."
+          : "Take on an open challenge, or post your own and let someone accept it.",
       to: "/marketplace" as const,
       cta: "Find a match",
     },
     {
-      done: canCashOut,
+      done: Boolean(data.connect?.payouts_enabled),
       title: "Set up payouts",
       blurb: "Connect your bank so your winnings can reach it. Standard cash-outs are free.",
       to: "/wallet" as const,
@@ -193,12 +207,20 @@ function DashboardPage() {
       ).data ?? [],
   });
 
-  const { data: wallet } = useQuery({
-    queryKey: ["wallet", user?.id],
+  /*
+   * One source for the balance, not two.
+   *
+   * The stat below read `wallets` directly while the checklist read
+   * getMyWallet, and getMyWallet is what calls ensure_wallet — which creates
+   * the row and credits the welcome bonus. So on a brand-new account the raw
+   * query got there first and reported $0.00 while the checklist saw $5.00.
+   * Both now read the same answer, after the wallet exists.
+   */
+  const walletFn = useServerFn(getMyWallet);
+  const { data: walletData } = useQuery({
+    queryKey: ["wallet-summary", user?.id],
     enabled: !!user,
-    queryFn: async () =>
-      (await supabase.from("wallets").select("balance_cents").eq("user_id", user!.id).maybeSingle())
-        .data,
+    queryFn: () => walletFn(),
   });
 
   const stats = [
@@ -209,7 +231,11 @@ function DashboardPage() {
       value: myChallenges?.filter((c) => c.status === "active").length ?? 0,
       icon: Swords,
     },
-    { label: "Wallet", value: `$${((wallet?.balance_cents ?? 0) / 100).toFixed(2)}`, icon: Wallet },
+    {
+      label: "Wallet",
+      value: `$${((walletData?.balances?.available_cents ?? 0) / 100).toFixed(2)}`,
+      icon: Wallet,
+    },
   ];
 
   return (
@@ -217,7 +243,7 @@ function DashboardPage() {
       title={`Welcome, ${profile?.display_name ?? "Player"}`}
       subtitle={`Rank: ${profile?.rank_tier ?? "Bronze"}`}
     >
-      <FirstRun />
+      <FirstRun data={walletData} />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {stats.map((s) => (
