@@ -174,7 +174,7 @@ export function CTA() {
               </InteractiveHoverButton>
             </div>
             <div className="mt-7 font-display text-[11px] tracking-[0.22em] uppercase text-primary-foreground/50">
-              No download required · $10 minimum entry · Free standard withdrawals
+              No download required · $5 minimum entry · Free standard withdrawals
             </div>
           </div>
 

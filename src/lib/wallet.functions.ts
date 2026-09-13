@@ -4,11 +4,11 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const DepositSchema = z.object({
-  amount_cents: z.number().int().min(1_000).max(500_000), // $10 – $5,000
+  amount_cents: z.number().int().min(500).max(500_000), // $5 – $5,000
 });
 
 const CashoutSchema = z.object({
-  amount_cents: z.number().int().min(1_000).max(500_000), // $10 – $5,000
+  amount_cents: z.number().int().min(500).max(500_000), // $5 – $5,000
   speed: z.enum(["standard", "same_day"]).default("standard"),
 });
 

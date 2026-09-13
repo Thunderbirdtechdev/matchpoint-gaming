@@ -1,5 +1,20 @@
-/** Minimum entry amount (USD) for any competition. */
-export const MIN_ENTRY_USD = 10;
+/**
+ * Floors on the three amounts a player can choose, in USD.
+ *
+ * Lowered from $10 so a newer platform is not asking for a $10 commitment
+ * before anyone has seen a match run. They move together on purpose: a deposit
+ * floor above the entry floor leaves money that cannot be staked, and a
+ * withdrawal floor above either strands a player who deposited the minimum,
+ * played it, and then cannot take their winnings out.
+ *
+ * Card processing is the reason these have a floor at all — Stripe takes
+ * roughly 2.9% + 30c, so a $5 deposit costs about 45c before anyone plays. The
+ * 10% fee on the resulting $10 pool covers it, but the margin is thinner than
+ * it was at $10, which is the trade for the lower barrier.
+ */
+export const MIN_ENTRY_USD = 5;
+export const MIN_DEPOSIT_USD = 5;
+export const MIN_WITHDRAWAL_USD = 5;
 
 /**
  * Supported games.

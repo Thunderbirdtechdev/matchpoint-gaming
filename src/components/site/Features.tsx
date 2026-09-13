@@ -16,7 +16,7 @@ const features = [
   {
     icon: SwordsIcon,
     title: "1v1 Challenges",
-    desc: "Create or accept head-to-head matches with custom rules and real-money stakes starting at $10.",
+    desc: "Create or accept head-to-head matches with custom rules and real-money stakes starting at $5.",
   },
   {
     icon: UsersIcon,

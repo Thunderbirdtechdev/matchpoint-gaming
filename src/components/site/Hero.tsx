@@ -70,7 +70,7 @@ export function Hero() {
                 text={[
                   "1v1 Challenges · Tournaments · Real Cash Prizes",
                   "Fortnite · NBA 2K27 · Madden NFL 27 · NCAA 27 · MLB The Show 26",
-                  "$10 Minimum Entry · Free Withdrawals · Instant Payouts",
+                  "$5 Minimum Entry · Free Withdrawals · Instant Payouts",
                 ]}
                 speed={40}
                 deleteSpeed={20}

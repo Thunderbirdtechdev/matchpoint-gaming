@@ -115,7 +115,7 @@ export function startsIn(iso: string): string {
 /** Stake brackets offered in the filter bar. */
 export const STAKE_BANDS = [
   { id: "any", label: "Any stake", min: 0, max: Infinity },
-  { id: "10-25", label: "$10 – $25", min: 10, max: 25 },
+  { id: "5-25", label: "$5 – $25", min: 5, max: 25 },
   { id: "25-50", label: "$25 – $50", min: 25, max: 50 },
   { id: "50-100", label: "$50 – $100", min: 50, max: 100 },
   { id: "100+", label: "$100+", min: 100, max: Infinity },

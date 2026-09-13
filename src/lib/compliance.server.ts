@@ -183,9 +183,11 @@ export async function assertMfaForSensitiveAction(context: {
  * Deposited money has to be played before it can be taken out.
  *
  * Kevin's decision, and the reasoning is arithmetic. Stripe charges
- * 2.9% + 30¢, so a $10 deposit costs the platform 59¢ before anyone has
- * played anything. That is recovered comfortably by the match fee — a $20 pool
- * returns $2 — but only if the money is actually staked. Deposit, withdraw,
+ * 2.9% + 30¢, so a $5 deposit costs the platform about 45¢ before anyone has
+ * played anything. The match fee still covers it — a $10 pool returns $1 — but
+ * the margin narrowed when the floor dropped from $10, which makes the rule
+ * matter more rather than less. Only if the money is actually staked, though:
+ * deposit, withdraw,
  * repeat is a straight loss on every cycle, and it is also the exact shape of
  * moving money through a platform for reasons that have nothing to do with
  * gaming, which is a problem worth avoiding for more than the 59¢.
@@ -201,8 +203,8 @@ export async function assertMfaForSensitiveAction(context: {
  * purpose — a released, refunded or still-held stake all mean the same thing
  * here, which is that this person came to play.
  *
- * A free match leaves no hold and so does not count. Entry is $10 minimum now,
- * so that only affects rows created before that floor existed.
+ * A free match leaves no hold and so does not count. Entry has a $5 minimum
+ * now, so that only affects rows created before any floor existed.
  */
 export class MustPlayFirstError extends Error {
   readonly code = "must_play_first";

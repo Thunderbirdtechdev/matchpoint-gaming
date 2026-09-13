@@ -39,7 +39,12 @@ import {
   createCashout,
 } from "@/lib/wallet.functions";
 import { redeemPromoCode, getMyReferralInfo } from "@/lib/promo.functions";
-import { calculateWithdrawalFee, type WithdrawalSpeed } from "@/lib/fees";
+import {
+  calculateWithdrawalFee,
+  MIN_DEPOSIT_USD,
+  MIN_WITHDRAWAL_USD,
+  type WithdrawalSpeed,
+} from "@/lib/fees";
 import { BalanceSummary, type EscrowHold } from "@/components/wallet/BalanceSummary";
 import { LedgerPanel } from "@/components/wallet/LedgerPanel";
 
@@ -214,7 +219,7 @@ function WalletPage() {
           <div className="mt-3 flex gap-2">
             <Input
               type="number"
-              min={10}
+              min={MIN_DEPOSIT_USD}
               max={5000}
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
@@ -223,7 +228,8 @@ function WalletPage() {
             <Button
               onClick={() => {
                 const n = Number(depositAmount);
-                if (!n || n < 10) return toast.error("Minimum deposit is $10");
+                if (!n || n < MIN_DEPOSIT_USD)
+                  return toast.error(`Minimum deposit is $${MIN_DEPOSIT_USD}`);
                 depositMut.mutate(Math.round(n * 100));
               }}
               disabled={depositMut.isPending}
@@ -373,7 +379,7 @@ function WalletPage() {
             <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_auto]">
               <Input
                 type="number"
-                min={10}
+                min={MIN_WITHDRAWAL_USD}
                 max={balance / 100}
                 value={payoutAmount}
                 onChange={(e) => setPayoutAmount(e.target.value)}
@@ -382,7 +388,8 @@ function WalletPage() {
               <Button
                 onClick={() => {
                   const n = Number(payoutAmount);
-                  if (!n || n < 10) return toast.error("Minimum cash out is $10");
+                  if (!n || n < MIN_WITHDRAWAL_USD)
+                    return toast.error(`Minimum cash out is $${MIN_WITHDRAWAL_USD}`);
                   const cents = Math.round(n * 100);
                   if (cents > balance)
                     return toast.error(`You only have ${fmt(balance)} available to withdraw`);

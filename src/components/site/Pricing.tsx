@@ -15,7 +15,7 @@ const perks = [
   "Same-day cash out available",
   "No hidden charges or surcharges",
   "Fee only applied when a match settles",
-  "$10 minimum entry per competition",
+  "$5 minimum entry per competition",
 ];
 
 export function Pricing() {
