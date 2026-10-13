@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Banknote, Copy, Check, X, Clock, RefreshCw, ArrowLeft } from "lucide-react";
+import { Loader2, Banknote, Copy, Check, X, Clock, RefreshCw, ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
 import { Link } from "@tanstack/react-router";
@@ -291,6 +291,11 @@ function PayoutCard({ row, actionable, onChanged }: { row: PayoutRow; actionable
             <div className="flex items-center gap-2">
               <div className="truncate font-medium">{player}</div>
               {statusBadge(row.status)}
+              {!!row.risk_flags?.length && (
+                <Badge variant="destructive" className="gap-1 text-[10px]">
+                  <AlertTriangle className="h-3 w-3" /> Flagged
+                </Badge>
+              )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
               {row.profiles?.username && <span>@{row.profiles.username}</span>}
