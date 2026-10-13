@@ -31,6 +31,7 @@ type PayoutRow = {
   processed_at: string | null;
   created_at: string;
   profiles?: { username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
+  risk_flags?: { code: string; label: string; detail: string }[];
 };
 
 function PayoutsPage() {
