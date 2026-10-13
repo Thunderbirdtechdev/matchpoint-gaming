@@ -253,7 +253,13 @@ export const adminListPayoutRequests = createServerFn({ method: "POST" })
       .select("id, username, display_name, avatar_url")
       .in("id", userIds);
     const byId = new Map((profs ?? []).map((p) => [p.id, p]));
-    return list.map((r) => ({ ...r, profiles: byId.get(r.user_id) ?? null }));
+    const { computePayoutRisk } = await import("@/lib/payout-risk.server");
+    const risk = await computePayoutRisk(supabaseAdmin, userIds);
+    return list.map((r) => ({
+      ...r,
+      profiles: byId.get(r.user_id) ?? null,
+      risk_flags: risk.get(r.user_id) ?? [],
+    }));
   });
 
 const AdminUpdateSchema = z.object({

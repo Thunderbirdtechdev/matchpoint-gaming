@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Banknote, Copy, Check, X, Clock, RefreshCw, ArrowLeft } from "lucide-react";
+import { Loader2, Banknote, Copy, Check, X, Clock, RefreshCw, ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { adminListPayoutRequests, adminUpdatePayoutRequest } from "@/lib/payouts.functions";
 import { Link } from "@tanstack/react-router";
@@ -31,6 +31,7 @@ type PayoutRow = {
   processed_at: string | null;
   created_at: string;
   profiles?: { username?: string | null; display_name?: string | null; avatar_url?: string | null } | null;
+  risk_flags?: { code: string; label: string; detail: string }[];
 };
 
 function PayoutsPage() {
@@ -290,6 +291,11 @@ function PayoutCard({ row, actionable, onChanged }: { row: PayoutRow; actionable
             <div className="flex items-center gap-2">
               <div className="truncate font-medium">{player}</div>
               {statusBadge(row.status)}
+              {!!row.risk_flags?.length && (
+                <Badge variant="destructive" className="gap-1 text-[10px]">
+                  <AlertTriangle className="h-3 w-3" /> Flagged
+                </Badge>
+              )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
               {row.profiles?.username && <span>@{row.profiles.username}</span>}
@@ -343,6 +349,21 @@ function PayoutCard({ row, actionable, onChanged }: { row: PayoutRow; actionable
           </div>
         )}
       </div>
+
+      {!!row.risk_flags?.length && (
+        <div className="border-t border-destructive/30 bg-destructive/10 px-4 py-3 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" /> Review before paying — possible bonus farming
+          </div>
+          <ul className="mt-1.5 space-y-0.5 text-muted-foreground">
+            {row.risk_flags.map((f) => (
+              <li key={f.code}>
+                <span className="font-medium text-foreground">{f.label}:</span> {f.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {openNote && actionable && (
         <div className="border-t border-border/60 p-4">
