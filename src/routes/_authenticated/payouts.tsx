@@ -350,6 +350,21 @@ function PayoutCard({ row, actionable, onChanged }: { row: PayoutRow; actionable
         )}
       </div>
 
+      {!!row.risk_flags?.length && (
+        <div className="border-t border-destructive/30 bg-destructive/10 px-4 py-3 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" /> Review before paying — possible bonus farming
+          </div>
+          <ul className="mt-1.5 space-y-0.5 text-muted-foreground">
+            {row.risk_flags.map((f) => (
+              <li key={f.code}>
+                <span className="font-medium text-foreground">{f.label}:</span> {f.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {openNote && actionable && (
         <div className="border-t border-border/60 p-4">
           <div className="flex flex-col gap-2 md:flex-row">
