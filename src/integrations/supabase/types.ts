@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_label: string | null
+          actor_roles: string[] | null
+          amount_cents: number | null
+          created_at: string
+          id: number
+          ip: string | null
+          metadata: Json
+          summary: string
+          target_id: string | null
+          target_label: string | null
+          target_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_roles?: string[] | null
+          amount_cents?: number | null
+          created_at?: string
+          id?: number
+          ip?: string | null
+          metadata?: Json
+          summary: string
+          target_id?: string | null
+          target_label?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_label?: string | null
+          actor_roles?: string[] | null
+          amount_cents?: number | null
+          created_at?: string
+          id?: number
+          ip?: string | null
+          metadata?: Json
+          summary?: string
+          target_id?: string | null
+          target_label?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       challenges: {
         Row: {
           created_at: string
@@ -67,6 +118,125 @@ export type Database = {
           winner_id?: string | null
         }
         Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          flagged: string[]
+          id: string
+          match_id: string | null
+          reply_to_id: string | null
+          scope: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          flagged?: string[]
+          id?: string
+          match_id?: string | null
+          reply_to_id?: string | null
+          scope: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          flagged?: string[]
+          id?: string
+          match_id?: string | null
+          reply_to_id?: string | null
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_mutes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          reason: string | null
+          until: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          reason?: string | null
+          until?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          reason?: string | null
+          until?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_reports: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          reason: string
+          reporter_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          reason: string
+          reporter_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          reason?: string
+          reporter_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_reports_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_wallet: {
         Row: {
@@ -125,6 +295,51 @@ export type Database = {
           destination?: string
           id?: string
           note?: string | null
+        }
+        Relationships: []
+      }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          message: string
+          name: string
+          organisation: string | null
+          status: string
+          subject: string
+          topic: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          message: string
+          name: string
+          organisation?: string | null
+          status?: string
+          subject: string
+          topic?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          message?: string
+          name?: string
+          organisation?: string | null
+          status?: string
+          subject?: string
+          topic?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -511,6 +726,61 @@ export type Database = {
         }
         Relationships: []
       }
+      match_evidence: {
+        Row: {
+          challenge_id: string | null
+          created_at: string
+          file_path: string
+          id: string
+          kind: string
+          note: string | null
+          tournament_match_id: string | null
+          user_id: string
+        }
+        Insert: {
+          challenge_id?: string | null
+          created_at?: string
+          file_path: string
+          id?: string
+          kind?: string
+          note?: string | null
+          tournament_match_id?: string | null
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string | null
+          created_at?: string
+          file_path?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          tournament_match_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_evidence_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_evidence_tournament_match_id_fkey"
+            columns: ["tournament_match_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_bracket"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_evidence_tournament_match_id_fkey"
+            columns: ["tournament_match_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       paypal_payouts: {
         Row: {
           created_at: string
@@ -619,6 +889,39 @@ export type Database = {
           reference_id?: string | null
           source?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      player_verification: {
+        Row: {
+          age_confirmed_at: string | null
+          country: string | null
+          created_at: string
+          date_of_birth: string | null
+          identity_session_id: string | null
+          identity_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age_confirmed_at?: string | null
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          identity_session_id?: string | null
+          identity_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age_confirmed_at?: string | null
+          country?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          identity_session_id?: string | null
+          identity_status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -765,6 +1068,132 @@ export type Database = {
         }
         Relationships: []
       }
+      role_capabilities: {
+        Row: {
+          capability: string
+          role: string
+        }
+        Insert: {
+          capability: string
+          role: string
+        }
+        Update: {
+          capability?: string
+          role?: string
+        }
+        Relationships: []
+      }
+      role_grants: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          role: string
+          target_user_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          role: string
+          target_user_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          role?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
+      security_flags: {
+        Row: {
+          dedupe_key: string
+          detail: Json
+          dismissed_magnitude: number | null
+          first_seen_at: string
+          id: string
+          kind: string
+          last_seen_at: string
+          magnitude: number
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          seen_count: number
+          severity: string
+          status: string
+          subject_user_id: string | null
+          title: string
+        }
+        Insert: {
+          dedupe_key: string
+          detail?: Json
+          dismissed_magnitude?: number | null
+          first_seen_at?: string
+          id?: string
+          kind: string
+          last_seen_at?: string
+          magnitude?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          seen_count?: number
+          severity?: string
+          status?: string
+          subject_user_id?: string | null
+          title: string
+        }
+        Update: {
+          dedupe_key?: string
+          detail?: Json
+          dismissed_magnitude?: number | null
+          first_seen_at?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          magnitude?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          seen_count?: number
+          severity?: string
+          status?: string
+          subject_user_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       stripe_connect_accounts: {
         Row: {
           charges_enabled: boolean
@@ -822,6 +1251,104 @@ export type Database = {
         }
         Relationships: []
       }
+      support_messages: {
+        Row: {
+          attachment_path: string | null
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          is_staff: boolean
+          ticket_id: string
+        }
+        Insert: {
+          attachment_path?: string | null
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          is_staff?: boolean
+          ticket_id: string
+        }
+        Update: {
+          attachment_path?: string | null
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          is_staff?: boolean
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          challenge_id: string | null
+          created_at: string
+          id: string
+          priority: string
+          resolved_at: string | null
+          status: string
+          subject: string
+          tournament_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category?: string
+          challenge_id?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          tournament_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          challenge_id?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          tournament_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -868,6 +1395,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tournament_entries_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_matches: {
+        Row: {
+          created_at: string
+          id: string
+          player1_id: string | null
+          player2_id: string | null
+          round: number
+          slot: number
+          status: string
+          tournament_id: string
+          updated_at: string
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          player1_id?: string | null
+          player2_id?: string | null
+          round: number
+          slot: number
+          status?: string
+          tournament_id: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          player1_id?: string | null
+          player2_id?: string | null
+          round?: number
+          slot?: number
+          status?: string
+          tournament_id?: string
+          updated_at?: string
+          winner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_matches_tournament_id_fkey"
             columns: ["tournament_id"]
             isOneToOne: false
             referencedRelation: "tournaments"
@@ -970,356 +1544,6 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
-      // Added by hand for migration 20260903210000_role_hierarchy_and_capabilities.
-      role_capabilities: {
-        Row: {
-          capability: string
-          role: string
-        }
-        Insert: {
-          capability: string
-          role: string
-        }
-        Update: {
-          capability?: string
-          role?: string
-        }
-        Relationships: []
-      }
-      role_grants: {
-        Row: {
-          action: string
-          actor_id: string | null
-          created_at: string
-          id: string
-          note: string | null
-          role: string
-          target_user_id: string
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          created_at?: string
-          id?: string
-          note?: string | null
-          role: string
-          target_user_id: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          created_at?: string
-          id?: string
-          note?: string | null
-          role?: string
-          target_user_id?: string
-        }
-        Relationships: []
-      }
-      // Added by hand for migration 20260904210000_security_audit_and_compliance.
-      audit_log: {
-        Row: {
-          action: string
-          actor_id: string | null
-          actor_label: string | null
-          actor_roles: string[] | null
-          amount_cents: number | null
-          created_at: string
-          id: number
-          ip: string | null
-          metadata: Json
-          summary: string
-          target_id: string | null
-          target_label: string | null
-          target_type: string | null
-          user_agent: string | null
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          actor_label?: string | null
-          actor_roles?: string[] | null
-          amount_cents?: number | null
-          created_at?: string
-          id?: number
-          ip?: string | null
-          metadata?: Json
-          summary: string
-          target_id?: string | null
-          target_label?: string | null
-          target_type?: string | null
-          user_agent?: string | null
-        }
-        // UPDATE is rejected by trigger for every role, service_role included.
-        // The shape is kept only so the generated client type stays uniform.
-        Update: never
-        Relationships: []
-      }
-      security_settings: {
-        Row: {
-          description: string | null
-          key: string
-          updated_at: string
-          updated_by: string | null
-          value: Json
-        }
-        Insert: {
-          description?: string | null
-          key: string
-          updated_at?: string
-          updated_by?: string | null
-          value: Json
-        }
-        Update: {
-          description?: string | null
-          key?: string
-          updated_at?: string
-          updated_by?: string | null
-          value?: Json
-        }
-        Relationships: []
-      }
-      security_flags: {
-        Row: {
-          detail: Json
-          dedupe_key: string
-          dismissed_magnitude: number | null
-          first_seen_at: string
-          id: string
-          kind: string
-          last_seen_at: string
-          magnitude: number
-          resolution_note: string | null
-          resolved_at: string | null
-          resolved_by: string | null
-          seen_count: number
-          severity: string
-          status: string
-          subject_user_id: string | null
-          title: string
-        }
-        Insert: {
-          detail?: Json
-          dedupe_key: string
-          dismissed_magnitude?: number | null
-          first_seen_at?: string
-          id?: string
-          kind: string
-          last_seen_at?: string
-          magnitude?: number
-          resolution_note?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          seen_count?: number
-          severity?: string
-          status?: string
-          subject_user_id?: string | null
-          title: string
-        }
-        Update: {
-          detail?: Json
-          dedupe_key?: string
-          dismissed_magnitude?: number | null
-          first_seen_at?: string
-          id?: string
-          kind?: string
-          last_seen_at?: string
-          magnitude?: number
-          resolution_note?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          seen_count?: number
-          severity?: string
-          status?: string
-          subject_user_id?: string | null
-          title?: string
-        }
-        Relationships: []
-      }
-      // Added by hand for migration 20260903180000_support_and_dispute_review.
-      support_tickets: {
-        Row: {
-          assigned_to: string | null
-          category: string
-          challenge_id: string | null
-          created_at: string
-          id: string
-          priority: string
-          resolved_at: string | null
-          status: string
-          subject: string
-          tournament_id: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          category?: string
-          challenge_id?: string | null
-          created_at?: string
-          id?: string
-          priority?: string
-          resolved_at?: string | null
-          status?: string
-          subject: string
-          tournament_id?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          assigned_to?: string | null
-          category?: string
-          challenge_id?: string | null
-          created_at?: string
-          id?: string
-          priority?: string
-          resolved_at?: string | null
-          status?: string
-          subject?: string
-          tournament_id?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      support_messages: {
-        Row: {
-          attachment_path: string | null
-          author_id: string
-          body: string
-          created_at: string
-          id: string
-          is_staff: boolean
-          ticket_id: string
-        }
-        Insert: {
-          attachment_path?: string | null
-          author_id: string
-          body: string
-          created_at?: string
-          id?: string
-          is_staff?: boolean
-          ticket_id: string
-        }
-        Update: {
-          attachment_path?: string | null
-          author_id?: string
-          body?: string
-          created_at?: string
-          id?: string
-          is_staff?: boolean
-          ticket_id?: string
-        }
-        Relationships: []
-      }
-      // Added by hand for migration 20260903120000_tournament_brackets_and_evidence.
-      tournament_matches: {
-        Row: {
-          created_at: string
-          id: string
-          player1_id: string | null
-          player2_id: string | null
-          round: number
-          slot: number
-          status: string
-          tournament_id: string
-          updated_at: string
-          winner_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          player1_id?: string | null
-          player2_id?: string | null
-          round: number
-          slot: number
-          status?: string
-          tournament_id: string
-          updated_at?: string
-          winner_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          player1_id?: string | null
-          player2_id?: string | null
-          round?: number
-          slot?: number
-          status?: string
-          tournament_id?: string
-          updated_at?: string
-          winner_id?: string | null
-        }
-        Relationships: []
-      }
-      match_evidence: {
-        Row: {
-          challenge_id: string | null
-          created_at: string
-          id: string
-          kind: string
-          note: string | null
-          file_path: string
-          tournament_match_id: string | null
-          user_id: string
-        }
-        Insert: {
-          challenge_id?: string | null
-          created_at?: string
-          id?: string
-          kind?: string
-          note?: string | null
-          file_path: string
-          tournament_match_id?: string | null
-          user_id: string
-        }
-        Update: {
-          challenge_id?: string | null
-          created_at?: string
-          id?: string
-          kind?: string
-          note?: string | null
-          file_path?: string
-          tournament_match_id?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      // Added by hand for migration 20260902210000_player_profiles_and_verification.
-      // Regenerate this file once that migration is applied.
-      player_verification: {
-        Row: {
-          age_confirmed_at: string | null
-          country: string | null
-          created_at: string
-          date_of_birth: string | null
-          identity_session_id: string | null
-          identity_status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          age_confirmed_at?: string | null
-          country?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          identity_session_id?: string | null
-          identity_status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          age_confirmed_at?: string | null
-          country?: string | null
-          created_at?: string
-          date_of_birth?: string | null
-          identity_session_id?: string | null
-          identity_status?: string
-          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1459,9 +1683,23 @@ export type Database = {
       }
     }
     Views: {
-      // Added by hand for migration 20260902210000_player_profiles_and_verification.
-      // Regenerate this file (`supabase gen types typescript`) once that migration
-      // is applied, and these blocks can be dropped.
+      player_leaderboard: {
+        Row: {
+          avatar_url: string | null
+          display_name: string | null
+          earnings: number | null
+          favorite_game: string | null
+          id: string | null
+          is_age_verified: boolean | null
+          losses: number | null
+          matches_played: number | null
+          rank: number | null
+          rank_tier: string | null
+          username: string | null
+          wins: number | null
+        }
+        Relationships: []
+      }
       player_public: {
         Row: {
           avatar_url: string | null
@@ -1490,7 +1728,6 @@ export type Database = {
         }
         Relationships: []
       }
-      // Added by hand for migration 20260903120000_tournament_brackets_and_evidence.
       tournament_bracket: {
         Row: {
           id: string | null
@@ -1508,32 +1745,60 @@ export type Database = {
           tournament_id: string | null
           winner_id: string | null
         }
-        Relationships: []
-      }
-      player_leaderboard: {
-        Row: {
-          avatar_url: string | null
-          display_name: string | null
-          earnings: number | null
-          favorite_game: string | null
-          id: string | null
-          is_age_verified: boolean | null
-          losses: number | null
-          matches_played: number | null
-          rank: number | null
-          rank_tier: string | null
-          username: string | null
-          wins: number | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tournament_matches_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
+      admin_mfa_status: {
+        Args: { _user_ids: string[] }
+        Returns: {
+          factor_count: number
+          last_verified_at: string
+          user_id: string
+          verified_count: number
+        }[]
+      }
+      admin_platform_liabilities: {
+        Args: never
+        Returns: {
+          company_balance_cents: number
+          escrow_held_cents: number
+          funded_wallet_count: number
+          open_escrow_count: number
+          pending_payout_cents: number
+          pending_payout_count: number
+          player_balance_cents: number
+        }[]
+      }
       admin_revenue_by_source: {
         Args: never
         Returns: {
           event_count: number
           source: string
+          total_cents: number
+        }[]
+      }
+      admin_revenue_by_source_range: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          event_count: number
+          source: string
+          total_cents: number
+        }[]
+      }
+      admin_revenue_daily: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          day: string
+          event_count: number
           total_cents: number
         }[]
       }
@@ -1608,73 +1873,9 @@ export type Database = {
         }
         Returns: number
       }
-      admin_platform_liabilities: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          player_balance_cents: number
-          escrow_held_cents: number
-          pending_payout_cents: number
-          company_balance_cents: number
-          funded_wallet_count: number
-          open_escrow_count: number
-          pending_payout_count: number
-        }[]
-      }
-      admin_revenue_by_source_range: {
-        Args: {
-          _from: string
-          _to: string
-        }
-        Returns: {
-          source: string
-          total_cents: number
-          event_count: number
-        }[]
-      }
-      admin_revenue_daily: {
-        Args: {
-          _from: string
-          _to: string
-        }
-        Returns: {
-          day: string
-          total_cents: number
-          event_count: number
-        }[]
-      }
-      security_scan_candidates: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          kind: string
-          dedupe_key: string
-          subject_user_id: string | null
-          magnitude: number
-          detail: Json
-        }[]
-      }
-      // Added by hand for migration 20260905120000_challenge_invites.
-      find_user_by_login: {
-        Args: {
-          _login: string
-        }
-        Returns: string | null
-      }
-      admin_mfa_status: {
-        Args: {
-          _user_ids: string[]
-        }
-        Returns: {
-          user_id: string
-          factor_count: number
-          verified_count: number
-          last_verified_at: string | null
-        }[]
-      }
+      find_user_by_login: { Args: { _login: string }; Returns: string }
       has_capability: {
-        Args: {
-          _capability: string
-          _user_id: string
-        }
+        Args: { _capability: string; _user_id: string }
         Returns: boolean
       }
       has_role: {
@@ -1684,6 +1885,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_support_staff: { Args: { _user_id: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -1721,6 +1923,32 @@ export type Database = {
         Args: { _code: string; _user_id: string }
         Returns: number
       }
+      security_record_flag: {
+        Args: {
+          _dedupe_key: string
+          _detail: Json
+          _kind: string
+          _magnitude: number
+          _severity: string
+          _subject_user_id: string
+          _title: string
+        }
+        Returns: string
+      }
+      security_scan_candidates: {
+        Args: never
+        Returns: {
+          dedupe_key: string
+          detail: Json
+          kind: string
+          magnitude: number
+          subject_user_id: string
+        }[]
+      }
+      wallet_adjust_balance: {
+        Args: { _delta_cents: number; _user_id: string }
+        Returns: number
+      }
       wallet_credit: {
         Args: {
           _amount_cents: number
@@ -1733,14 +1961,24 @@ export type Database = {
         }
         Returns: number
       }
+      wallet_debit: {
+        Args: {
+          _amount_cents: number
+          _description: string
+          _metadata?: Json
+          _type: Database["public"]["Enums"]["wallet_tx_type"]
+          _user_id: string
+        }
+        Returns: number
+      }
     }
     Enums: {
       app_role:
-        | "super_admin"
         | "admin"
-        | "financial_admin"
         | "moderator"
         | "user"
+        | "super_admin"
+        | "financial_admin"
       crypto_currency: "USDC" | "BTC"
       crypto_network: "base" | "bitcoin"
       crypto_payout_status:
@@ -1783,12 +2021,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1812,11 +2050,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1837,11 +2075,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1862,11 +2100,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1879,11 +2117,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1896,11 +2134,11 @@ export const Constants = {
   public: {
     Enums: {
       app_role: [
-        "super_admin",
         "admin",
-        "financial_admin",
         "moderator",
         "user",
+        "super_admin",
+        "financial_admin",
       ],
       crypto_currency: ["USDC", "BTC"],
       crypto_network: ["base", "bitcoin"],
