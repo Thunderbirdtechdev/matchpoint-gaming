@@ -21,6 +21,8 @@ import cardMadden from "@/assets/card-madden.jpg";
 // Until now this pointed at the Madden image because there was nothing else.
 import cardNcaa from "@/assets/card-ncaa.jpg";
 import cardMlb from "@/assets/card-mlbshow.jpg";
+import { GAME_LABELS } from "@/lib/fees";
+import { gameArt } from "@/lib/game-art";
 
 const tournaments = [
   { game: "Fortnite", title: "Fortnite Box Fight Showdown", img: cardFortnite },
@@ -28,6 +30,7 @@ const tournaments = [
   { game: "Madden NFL 27", title: "Madden NFL 27 Championship Series", img: cardMadden },
   { game: "NCAA 27", title: "NCAA 27 Rivalry Cup", img: cardNcaa },
   { game: "MLB The Show 26", title: "MLB The Show 26 Diamond Series", img: cardMlb },
+  { game: GAME_LABELS.rocketleague, title: "Rocket League Duel Cup", img: gameArt("rocketleague") },
 ];
 
 const trustStrip = [
@@ -154,7 +157,7 @@ export function Stats() {
             </Button>
           </div>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tournaments.map((t) => (
               <TournamentCard key={t.title} t={t} />
             ))}
