@@ -6,6 +6,7 @@ import madden from "@/assets/game-madden.jpg";
 import ncaa from "@/assets/game-ncaa.jpg";
 import nba from "@/assets/game-nba2k.jpg";
 import mlb from "@/assets/game-mlb.jpg";
+import rocketLeague from "@/assets/rocketleague-cover.jpg.asset.json";
 
 const games = [
   {
@@ -43,6 +44,13 @@ const games = [
     modes: "1v1 Head-to-Head, Diamond Dynasty",
     platforms: "PlayStation, Xbox, Switch",
   },
+  {
+    slug: "rocketleague",
+    name: "Rocket League",
+    img: rocketLeague.url,
+    modes: "1v1 Duel, Private Matches, Tournaments",
+    platforms: "PC, PlayStation, Xbox, Switch, Crossplay",
+  },
 ];
 
 export function Games() {
@@ -52,7 +60,7 @@ export function Games() {
         <div className="max-w-2xl">
           <p className="font-display text-sm tracking-[0.28em] text-accent">Supported Titles</p>
           <h2 className="mt-3 font-display text-5xl tracking-wide sm:text-6xl">
-            Five games. Real competition.
+            Six games. Real competition.
           </h2>
           <p className="mt-4 max-w-xl text-muted-foreground">
             We're launching with the titles that matter most, and 1v1 challenges and tournaments are
@@ -60,7 +68,7 @@ export function Games() {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {games.map((g) => (
             <article
               key={g.slug}

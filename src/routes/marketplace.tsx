@@ -46,7 +46,7 @@ export const Route = createFileRoute("/marketplace")({
       {
         name: "description",
         content:
-          "Browse live 1v1 challenges and open tournaments across Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. Filter by game, platform and stake, then play for real money.",
+          "Find 1v1 challenges and tournaments in Rocket League, Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. Filter by game, platform and stake.",
       },
       { property: "og:title", content: "Marketplace, Find Your Next Match | MatchPoint" },
       {
@@ -54,6 +54,8 @@ export const Route = createFileRoute("/marketplace")({
         content: "Live 1v1 challenges and open tournaments with real cash prizes.",
       },
       { property: "og:url", content: "https://matchpointgaming.org/marketplace" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://matchpointgaming.org/marketplace" }],
   }),

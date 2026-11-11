@@ -24,7 +24,7 @@ export const MIN_WITHDRAWAL_USD = 5;
  * display labels do. That way next season's rename is a one-line label change
  * and never a data migration.
  */
-export const SUPPORTED_GAMES = ["fortnite", "nba2k", "madden", "ncaa", "mlbshow"] as const;
+export const SUPPORTED_GAMES = ["fortnite", "nba2k", "madden", "ncaa", "mlbshow", "rocketleague"] as const;
 export type SupportedGame = (typeof SUPPORTED_GAMES)[number];
 
 /**
@@ -49,6 +49,7 @@ export const GAME_LABELS: Record<SupportedGame, string> = {
   madden: "Madden NFL 27",
   ncaa: "NCAA 27",
   mlbshow: "MLB The Show 26",
+  rocketleague: "Rocket League",
 };
 
 /**

@@ -11,6 +11,7 @@ import cardMadden from "@/assets/card-madden.jpg";
 // Until now this pointed at the Madden image because there was nothing else.
 import cardNcaa from "@/assets/card-ncaa.jpg";
 import cardMlb from "@/assets/card-mlbshow.jpg";
+import rocketLeague from "@/assets/rocketleague-header.jpg.asset.json";
 
 const slides = [
   { img: cardFortnite, label: "Fortnite", tagline: "Drop in. Dominate. Cash out." },
@@ -18,6 +19,7 @@ const slides = [
   { img: cardMadden, label: "Madden NFL 27", tagline: "Your playbook. Your payday." },
   { img: cardNcaa, label: "NCAA 27", tagline: "Gameday glory awaits." },
   { img: cardMlb, label: "MLB The Show 26", tagline: "Step up. Go yard. Get paid." },
+  { img: rocketLeague.url, label: "Rocket League", tagline: "Boost. Score. Take the win." },
 ];
 
 const AUTOPLAY_MS = 3500;
@@ -140,7 +142,7 @@ export function CTA() {
             </h2>
             <p className="mt-5 max-w-lg text-base text-primary-foreground/75 leading-relaxed">
               Create your free account, fund your wallet, and start competing in Fortnite, NBA 2K27,
-              Madden NFL 27, NCAA 27 and MLB The Show 26 today.
+              Madden NFL 27, NCAA 27, MLB The Show 26 and Rocket League today.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <InteractiveHoverButton
