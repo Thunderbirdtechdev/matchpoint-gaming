@@ -47,8 +47,8 @@ const Email = ({ email }: Props) => (
           </Text>
           <Text style={text}>
             What's coming: skill-based 1v1 challenges, cash tournaments, instant escrow, and
-            same-day payouts on top of Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show
-            26.
+            same-day payouts on top of Fortnite, NBA 2K27, Madden NFL 27, NCAA 27, MLB The Show
+            26 and Rocket League.
           </Text>
           <Text style={text}>Sit tight. We'll email you the second early access opens.</Text>
           <Hr style={{ borderColor: brand.border, margin: "24px 0 12px" }} />

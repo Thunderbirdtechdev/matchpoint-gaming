@@ -9,6 +9,7 @@ import cardNcaa from "@/assets/card-ncaa.jpg";
 // Official 'MLB The Show 26' cover (client-supplied), composited to 16:9 over a
 // blurred blow-up of itself — see scripts/build-mlb-art.py.
 import cardMlbShow from "@/assets/card-mlbshow.jpg";
+import rocketLeague from "@/assets/rocketleague-header.jpg.asset.json";
 
 /** Cover art per supported game, shared by the marketplace and homepage cards. */
 export const GAME_ART: Record<SupportedGame, string> = {
@@ -17,6 +18,7 @@ export const GAME_ART: Record<SupportedGame, string> = {
   madden: cardMadden,
   ncaa: cardNcaa,
   mlbshow: cardMlbShow,
+  rocketleague: rocketLeague.url,
 };
 
 export function gameArt(slug: string): string {

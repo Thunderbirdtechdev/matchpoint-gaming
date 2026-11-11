@@ -26,6 +26,7 @@ import slideMadden from "@/assets/card-madden.jpg";
 import slideNba2k from "@/assets/card-nba2k.jpg";
 import slideNcaa from "@/assets/card-ncaa.jpg";
 import slideMlb from "@/assets/card-mlbshow.jpg";
+import rocketLeague from "@/assets/rocketleague-header.jpg.asset.json";
 
 const slides: { game: SupportedGame; img: string; tagline: string }[] = [
   { game: "fortnite", img: slideFortnite, tagline: "Build. Fight. Dominate." },
@@ -33,6 +34,7 @@ const slides: { game: SupportedGame; img: string; tagline: string }[] = [
   { game: "madden", img: slideMadden, tagline: "Call the plays. Win the game." },
   { game: "ncaa", img: slideNcaa, tagline: "Friday nights. Real stakes." },
   { game: "mlbshow", img: slideMlb, tagline: "Step up. Go yard. Get paid." },
+  { game: "rocketleague", img: rocketLeague.url, tagline: "Boost. Score. Take the win." },
 ];
 
 const AUTOPLAY_MS = 4500;
