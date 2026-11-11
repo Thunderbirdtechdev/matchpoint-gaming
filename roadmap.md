@@ -1,0 +1,3 @@
+- [ ] Add Rocket League to shared game choices and the game catalog.
+- [ ] Add official game artwork and update supported-game mentions.
+- [ ] Verify game selections and rendered artwork.
