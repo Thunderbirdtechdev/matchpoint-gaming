@@ -19,7 +19,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Skill-based gaming platform. Compete in Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 & MLB The Show 26 1v1 challenges and tournaments for real cash prizes.",
+          "Compete in Rocket League, Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. Skill-based 1v1 challenges and tournaments for cash prizes.",
       },
       { property: "og:title", content: "MatchPoint, Play. Compete. Win." },
       {
@@ -27,6 +27,8 @@ export const Route = createFileRoute("/")({
         content: "Challenge players, enter tournaments, and prove your skills on MatchPoint.",
       },
       { property: "og:url", content: "https://matchpointgaming.org/" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://matchpointgaming.org/" }],
   }),

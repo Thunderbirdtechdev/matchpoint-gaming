@@ -16,11 +16,13 @@ export const Route = createFileRoute("/games")({
       {
         name: "description",
         content:
-          "Compete in Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26, with live 1v1 challenges and tournaments.",
+          "Compete in Rocket League, Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26 in 1v1 challenges and tournaments.",
       },
       { property: "og:title", content: "Supported Games | MatchPoint" },
       { property: "og:description", content: "Browse all supported games on MatchPoint." },
       { property: "og:url", content: "https://matchpointgaming.org/games" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://matchpointgaming.org/games" }],
   }),
@@ -30,10 +32,10 @@ export const Route = createFileRoute("/games")({
         eyebrow="Games"
         title={
           <>
-            Five titles. Real <span className="text-gradient-brand">competition</span>.
+            Six titles. Real <span className="text-gradient-brand">competition</span>.
           </>
         }
-        description="Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26, with live challenges and tournaments running 24/7."
+        description="Fortnite, NBA 2K27, Madden NFL 27, NCAA 27, MLB The Show 26 and Rocket League, with live challenges and tournaments running 24/7."
         image={{ src: gameNba, alt: "Competitive gaming action" }}
       />
       <Games />

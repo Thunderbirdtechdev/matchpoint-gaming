@@ -1,9 +1,10 @@
-import { describe, expect, it } from "bun:test";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { SUPPORTED_GAMES, GAME_LABELS } from "./fees";
 
 describe("supported competition games", () => {
   it("offers Rocket League for challenges and tournaments", () => {
-    expect(SUPPORTED_GAMES.includes("rocketleague")).toBe(true);
-    expect(GAME_LABELS.rocketleague).toBe("Rocket League");
+    assert.equal(SUPPORTED_GAMES.includes("rocketleague"), true);
+    assert.equal(GAME_LABELS.rocketleague, "Rocket League");
   });
 });

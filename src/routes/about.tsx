@@ -81,7 +81,7 @@ const values = [
 ];
 
 const stats = [
-  { value: "4", label: "Supported Games" },
+  { value: "6", label: "Supported Games" },
   { value: "24/7", label: "Live Support" },
   { value: "<5min", label: "Avg. Dispute Resolution" },
   { value: "$0", label: "Platform Fees on Deposits" },
@@ -188,6 +188,8 @@ export const Route = createFileRoute("/about")({
       { property: "og:title", content: "About MatchPoint" },
       { property: "og:description", content: "The home of skill-based competitive gaming." },
       { property: "og:url", content: "https://matchpointgaming.org/about" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://matchpointgaming.org/about" }],
   }),

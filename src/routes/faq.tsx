@@ -23,7 +23,7 @@ const faqs = [
   },
   {
     q: "Which games are supported?",
-    a: "We're launching with Fortnite, NBA 2K27, Madden NFL 27, NCAA 27 and MLB The Show 26. More titles will be added over time.",
+    a: "We support Fortnite, NBA 2K27, Madden NFL 27, NCAA 27, MLB The Show 26 and Rocket League. More titles will be added over time.",
   },
   {
     q: "Is matchmaking skill-based?",
@@ -47,6 +47,8 @@ export const Route = createFileRoute("/faq")({
       { property: "og:title", content: "MatchPoint FAQ" },
       { property: "og:description", content: "Common questions, answered." },
       { property: "og:url", content: "https://matchpointgaming.org/faq" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "https://matchpointgaming.org/faq" }],
     scripts: [
